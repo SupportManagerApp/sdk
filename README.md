@@ -67,6 +67,40 @@ Publish the config to override API URL, timeouts, refresh skew, etc.:
 php artisan vendor:publish --tag=supportmanager-config
 ```
 
+## Faking the API in host apps
+
+Host apps should never hand-roll HTTP mocks of the JSON:API wire format — that
+couples every consumer to the SDK's internals. Instead, swap the SDK onto an
+in-memory fake and seed it with factories. Every call still runs through the real
+client pipeline (token renewal, JSON:API decoding, error mapping, pagination),
+so you're exercising the SDK, not a stub:
+
+```php
+use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Testing\Factories\CarJourneyFactory;
+
+SupportManager::fake()->seed(
+    CarJourneyFactory::new()->count(3),
+    CarJourneyFactory::new()->ongoing()->state(['driver_name' => 'Ada']),
+);
+
+// Your code under test runs unchanged:
+SupportManager::journeys()->all();        // paginated DTOs from the store
+SupportManager::journeys()->find(2);      // a single DTO, or null
+SupportManager::journeys()->start('Ada'); // mutates the store
+```
+
+`fake()` also primes a fake authenticated session and current team, so
+tenant-scoped calls work without a login. Generic CRUD (list with pagination,
+find, create, update, delete) is inferred from each resource's path; non-RESTful
+actions and flat (non-JSON:API) endpoints are described by the factory itself
+(`SupportManager\Sdk\Testing\Factory` + `ProvidesFakeRoutes`). See
+`tests/Feature/Testing/FakeTest.php` for the full surface.
+
+> Reference factories ship for CarJourneys, Notifications (flat filter +
+> `unread_count`) and the Keysafe flat singleton. The remaining resources follow
+> the same recipe.
+
 ## Tests
 
 ```bash

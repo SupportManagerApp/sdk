@@ -67,6 +67,35 @@ Wrap calls and catch the typed exceptions (all extend `SupportManagerApiExceptio
 
 A 422 or 500 on a resource query throws exactly like it does on `login()` — never assume an empty result means "no data."
 
+## Testing — fake the API, never mock HTTP
+
+When testing code that uses the SDK, **do not** `Http::fake()` JSON:API envelopes by hand — that couples your tests to the SDK's wire format. Swap the SDK onto its in-memory fake and seed it with factories instead. Every call still runs through the real client pipeline (token renewal, JSON:API decoding, pagination, error mapping), so you exercise the SDK, not a stub.
+
+- `SupportManager::fake()` installs the fake and primes a fake authenticated session + current team, so tenant-scoped calls work with no login. It's idempotent — repeated calls return the same fake, so seeding accumulates.
+- Seed with deterministic factories from `SupportManager\Sdk\Testing\Factories\*` (one per resource; `count()`, `state()`, and domain states like `->ongoing()`):
+  ```php
+  use SupportManager\Sdk\Testing\Factories\CarJourneyFactory;
+
+  SupportManager::fake()->seed(
+      CarJourneyFactory::new()->count(3),
+      CarJourneyFactory::new()->ongoing()->state(['driver_name' => 'Ada']),
+  );
+
+  SupportManager::journeys()->all();        // paginated DTOs from the store
+  SupportManager::journeys()->find(2);      // a single DTO, or null
+  SupportManager::journeys()->start('Ada'); // mutates the store
+  ```
+- Drive the **unhappy path** to assert your error handling — failures are matched before seeded data and flow through the SDK's real typed exceptions:
+  ```php
+  SupportManager::fake()->failValidation('car-journeys', ['driver_name' => 'Required'], method: 'POST');
+  // → create() throws ApiValidationException with ->first('driver_name')
+
+  SupportManager::fake()->fail('payslips*', 500);  // → SupportManagerApiException
+  SupportManager::fake()->unreachable();           // connection failure → SupportManagerApiException
+  SupportManager::fake()->clearFailures();         // back to the happy path
+  ```
+- Every shipped resource has a factory. For a host-app resource, add one: extend `SupportManager\Sdk\Testing\Factory` (`definition()`, `path()`, `type()` — return `null` for a flat, non-JSON:API endpoint), and implement `ProvidesFakeRoutes` for any non-RESTful actions. Generic CRUD (list+pagination, find, create, update, delete) is automatic from `path()`.
+
 ## Autocomplete-friendly access
 
 - Prefer the **typed** accessor `SupportManager::resource(JourneysResource::class)` — its generics flow through `query()` → `Paginated<Journey>` → DTOs, so editors and PHPStan resolve concrete types end to end.

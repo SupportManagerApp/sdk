@@ -70,4 +70,7 @@ function probe_facade(): void
     assertType(\SupportManager\Sdk\Resources\PushNotifications\DeviceTokensResource::class, SupportManagerFacade::deviceTokens());
     assertType(\SupportManager\Sdk\Resources\Teams\TeamsResource::class, SupportManagerFacade::teams());
     assertType(\SupportManager\Sdk\Resources\Tasks\TasksResource::class, SupportManagerFacade::tasks());
+
+    // The testing fake is reachable, and typed, straight off the facade.
+    assertType(\SupportManager\Sdk\Testing\Fake::class, SupportManagerFacade::fake());
 }

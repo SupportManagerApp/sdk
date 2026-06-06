@@ -46,6 +46,7 @@ use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\Session\CurrentTeam;
+use SupportManager\Sdk\Testing\Fake;
 
 /**
  * The single fluent entry point to the SDK, surfaced as the `SupportManager`
@@ -70,6 +71,8 @@ final class SupportManager
 {
     /** @var array<string, class-string<Resource<*>>> */
     private array $resources = [];
+
+    private ?Fake $fake = null;
 
     public function __construct(
         private readonly SupportManagerClient $client,
@@ -118,6 +121,30 @@ final class SupportManager
     public function team(): CurrentTeam
     {
         return $this->team;
+    }
+
+    /**
+     * Swap the SDK onto an in-memory fake of the API, for tests and local
+     * development.
+     *
+     * Seed it with {@see \SupportManager\Sdk\Testing\Factory factories} and every
+     * SDK call runs through the real client pipeline into the fake instead of the
+     * network — so the host app never hand-rolls HTTP mocks of the JSON:API wire
+     * format. Installing also primes a fake authenticated session, so
+     * tenant-scoped calls work without a login. Repeated calls return the same
+     * fake, so seeding accumulates:
+     *
+     * ```php
+     * SupportManager::fake()->seed(CarJourneyFactory::new()->count(3));
+     * SupportManager::journeys()->all();
+     * ```
+     */
+    public function fake(): Fake
+    {
+        return $this->fake ??= (new Fake(
+            $this->session,
+            (string) $this->container->make('config')->get('supportmanager.base_url'),
+        ))->install();
     }
 
     // ──────────────────────────── Domain resources ────────────────────────────

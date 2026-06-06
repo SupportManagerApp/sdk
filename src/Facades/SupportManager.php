@@ -19,6 +19,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static SupportManagerClient auth()
  * @method static AuthSession session()
  * @method static CurrentTeam team()
+ * @method static \SupportManager\Sdk\Testing\Fake fake()
  * @method static void register(string $name, class-string<Resource<*>> $resourceClass)
  * @method static T resource<T of Resource>(class-string<T> $resourceClass)
  * @method static \SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource journeys()
