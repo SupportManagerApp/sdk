@@ -31,6 +31,8 @@ final class SdkServiceProvider extends ServiceProvider
         ));
 
         $this->app->singleton(AuthSession::class);
+
+        $this->app->singleton(SupportManager::class);
     }
 
     public function boot(): void

@@ -1,5 +1,4 @@
 {
-    "$schema": "https://getcomposer.org/schema.json",
     "name": "support-manager/sdk",
     "description": "PHP client SDK for the SupportManager backend API — authentication, session, and tenant-scoped module requests shared across first-party apps.",
     "type": "library",
@@ -14,6 +13,8 @@
         "illuminate/support": "^11.0 || ^12.0 || ^13.0"
     },
     "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/boost": "^2.4",
         "laravel/pint": "^1.27",
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0"
@@ -32,8 +33,15 @@
         "laravel": {
             "providers": [
                 "SupportManager\\Sdk\\SdkServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "SupportManager": "SupportManager\\Sdk\\Facades\\SupportManager"
+            }
         }
+    },
+    "scripts": {
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "test": "pest"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

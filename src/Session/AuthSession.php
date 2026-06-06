@@ -53,7 +53,7 @@ final class AuthSession
                 'id' => $tokens->user->id,
                 'name' => $tokens->user->name,
                 'email' => $tokens->user->email,
-            ]));
+            ], JSON_THROW_ON_ERROR));
         }
 
         if ($rememberDevice && $tokens->deviceToken !== null) {

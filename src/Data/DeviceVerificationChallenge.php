@@ -32,10 +32,13 @@ final readonly class DeviceVerificationChallenge
         return new self(
             verificationToken: (string) $data['verification_token'],
             expiresIn: (int) ($data['verification_token_expires_in'] ?? 0),
-            methods: array_map(
+            methods: array_values(array_map(
                 static fn (array $method): DeviceVerificationMethod => DeviceVerificationMethod::fromArray($method),
-                $data['available_methods'] ?? [],
-            ),
+                array_filter(
+                    is_array($data['available_methods'] ?? null) ? $data['available_methods'] : [],
+                    is_array(...),
+                ),
+            )),
             userId: isset($data['user']['id']) ? (int) $data['user']['id'] : null,
             userName: $data['user']['name'] ?? null,
         );

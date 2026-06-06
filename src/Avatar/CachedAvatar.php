@@ -131,8 +131,8 @@ final class CachedAvatar
     {
         $imageInfo = @getimagesizefromstring($body);
 
-        if (is_array($imageInfo) && isset($imageInfo['mime'])) {
-            return (string) $imageInfo['mime'];
+        if (is_array($imageInfo)) {
+            return $imageInfo['mime'];
         }
 
         $normalized = mb_strtolower(mb_trim(explode(';', $contentType ?? '')[0]));

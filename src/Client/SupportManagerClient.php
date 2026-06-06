@@ -6,11 +6,9 @@ namespace SupportManager\Sdk\Client;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use SupportManager\Sdk\Concerns\MapsApiErrors;
 use SupportManager\Sdk\Data\AuthTokens;
-use SupportManager\Sdk\Data\DeviceVerificationChallenge;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\DeviceVerificationRequiredException;
 use SupportManager\Sdk\Exceptions\InvalidCredentialsException;
@@ -27,6 +25,8 @@ use SupportManager\Sdk\Exceptions\SupportManagerApiException;
  */
 final class SupportManagerClient
 {
+    use MapsApiErrors;
+
     private readonly string $baseUrl;
 
     public function __construct(
@@ -262,64 +262,11 @@ final class SupportManagerClient
                 ? $request->get($uri)
                 : $request->post($uri, $data);
         } catch (ConnectionException $e) {
-            Log::warning('SupportManager API unreachable', [
-                'method' => $method,
-                'uri' => $this->baseUrl.'/'.$uri,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new SupportManagerApiException('Unable to reach SupportManager. Please check your connection and try again.', 0, $e);
+            throw $this->throwForConnectionFailure($e, $this->baseUrl.'/'.$uri);
         }
 
-        $this->throwForError($response, $method, $uri);
+        $this->throwForErrorResponse($response, $this->baseUrl.'/'.$uri);
 
         return $response->json() ?? [];
-    }
-
-    /**
-     * Map error status codes to typed exceptions, logging the raw response so
-     * unexpected failures are diagnosable from the device logs.
-     */
-    private function throwForError(Response $response, string $method, string $uri): void
-    {
-        if ($response->successful()) {
-            return;
-        }
-
-        $status = $response->status();
-        $body = $response->json() ?? [];
-        $apiMessage = is_array($body) ? ($body['message'] ?? null) : null;
-
-        if ($status === 403 && ($body['error_code'] ?? null) === 'DEVICE_VERIFICATION_REQUIRED') {
-            throw new DeviceVerificationRequiredException(
-                DeviceVerificationChallenge::fromArray($body['data'] ?? []),
-                $apiMessage ?? 'Device verification required',
-            );
-        }
-
-        if ($status === 401) {
-            throw new InvalidCredentialsException($apiMessage ?? 'Your email or password is incorrect.', 401);
-        }
-
-        if ($status === 422) {
-            throw new ApiValidationException($apiMessage ?? 'The information provided was invalid.', $body['errors'] ?? []);
-        }
-
-        // Anything else is unexpected (5xx, 404, an HTML error page, …). Log
-        // the raw response and surface the status so the cause is visible.
-        Log::warning('SupportManager API error', [
-            'method' => $method,
-            'uri' => $this->baseUrl.'/'.$uri,
-            'status' => $status,
-            'body' => mb_substr($response->body(), 0, 1000),
-        ]);
-
-        $message = $apiMessage ?? match (true) {
-            $status >= 500 => "SupportManager is having problems right now (HTTP {$status}). Please try again shortly.",
-            $status === 404 => 'The SupportManager service could not be found (HTTP 404). Check the API URL.',
-            default => "The SupportManager request failed (HTTP {$status}).",
-        };
-
-        throw new SupportManagerApiException($message, $status, body: $response->body());
     }
 }

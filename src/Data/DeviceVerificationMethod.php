@@ -18,7 +18,7 @@ final readonly class DeviceVerificationMethod
     ) {}
 
     /**
-     * @param  array{method: string, label: string, description: string, masked_destination?: string}  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {

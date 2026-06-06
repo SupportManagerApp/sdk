@@ -44,6 +44,7 @@ final readonly class AuthenticatedApi
      *
      * @throws SessionExpiredException when there is no session, or the refresh
      *                                 token is rejected on the retry path.
+     * @throws \Illuminate\Http\Client\ConnectionException when the API is unreachable.
      */
     public function send(Closure $callback, ?int $teamId = null): Response
     {
@@ -76,6 +77,7 @@ final readonly class AuthenticatedApi
      *
      * @throws SessionExpiredException when there is no session, or the session
      *                                 cannot be renewed while resolving the team.
+     * @throws \Illuminate\Http\Client\ConnectionException when the API is unreachable.
      */
     public function tenant(Closure $callback): Response
     {

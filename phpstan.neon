@@ -1,0 +1,13 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Level 8 gives full type + generics coverage (which is what proves the
+    # fluent chain autocompletes) without the level 9/10 deluge of "cast mixed
+    # to string" noise that decoding dynamic JSON payloads inherently triggers.
+    level: 8
+    paths:
+        - src
+        - tests/Fixtures
+        - tests/types
+    treatPhpDocTypesAsCertain: false
