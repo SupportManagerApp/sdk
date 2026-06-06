@@ -1,0 +1,125 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Support\Facades\Http;
+use SupportManager\Sdk\Data\Documents\Policy;
+use SupportManager\Sdk\Enums\Documents\PolicyCategory;
+use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Resources\Documents\PoliciesResource;
+
+function policiesResource(): PoliciesResource
+{
+    return app(PoliciesResource::class);
+}
+
+function policyPage(int $page, int $lastPage): array
+{
+    return [
+        'data' => [[
+            'type' => 'policies',
+            'id' => (string) $page,
+            'attributes' => [
+                'title' => "Policy {$page}",
+                'slug' => "policy-{$page}",
+                'content' => 'Policy content here...',
+                'category' => 'health_and_safety',
+                'category_label' => 'Health & Safety',
+                'version' => '2.1',
+                'effective_date' => '2024-01-01',
+                'review_date' => '2025-01-01',
+                'is_active' => true,
+                'team_id' => 42,
+                'created_by' => ['id' => 1, 'name' => 'Grace'],
+            ],
+        ]],
+        'meta' => ['current_page' => $page, 'last_page' => $lastPage, 'per_page' => 1, 'total' => $lastPage],
+        'links' => ['next' => $page < $lastPage ? 'https://api.test/api/v1/documents/policies?page='.($page + 1) : null],
+    ];
+}
+
+it('encodes filter, sort and pagination as Spatie-style query params', function () {
+    Http::fake(['api.test/api/v1/documents/policies*' => Http::response(policyPage(1, 1))]);
+    bootTenantSession();
+
+    policiesResource()->query()
+        ->filter('category', 'hr')
+        ->sort('title')
+        ->perPage(15)
+        ->get();
+
+    Http::assertSent(function ($request) {
+        $url = urldecode($request->url());
+
+        return str_contains($url, 'filter[category]=hr')
+            && str_contains($url, 'sort=title')
+            && str_contains($url, 'per_page=15')
+            && $request->hasHeader('X-Team-ID', '42');
+    });
+});
+
+it('hydrates policy DTOs including the typed category enum', function () {
+    Http::fake(['api.test/api/v1/documents/policies*' => Http::response(policyPage(1, 2))]);
+    bootTenantSession();
+
+    $page = policiesResource()->query()->get();
+
+    expect($page->items())->toHaveCount(1)
+        ->and($page->items()[0])->toBeInstanceOf(Policy::class)
+        ->and($page->items()[0]->title)->toBe('Policy 1')
+        ->and($page->items()[0]->category)->toBe(PolicyCategory::HealthAndSafety)
+        ->and($page->items()[0]->categoryLabel)->toBe('Health & Safety')
+        ->and($page->items()[0]->isActive)->toBeTrue()
+        ->and($page->items()[0]->createdByName)->toBe('Grace')
+        ->and($page->hasMorePages())->toBeTrue();
+});
+
+it('finds a single policy by id', function () {
+    Http::fake([
+        'api.test/api/v1/documents/policies/7' => Http::response([
+            'data' => ['type' => 'policies', 'id' => '7', 'attributes' => ['title' => 'Data Protection', 'category' => 'data_protection', 'is_active' => true]],
+        ]),
+    ]);
+    bootTenantSession();
+
+    $policy = policiesResource()->find(7);
+
+    expect($policy)->toBeInstanceOf(Policy::class)
+        ->and($policy->id)->toBe('7')
+        ->and($policy->category)->toBe(PolicyCategory::DataProtection);
+});
+
+it('returns null when finding a missing policy (404)', function () {
+    Http::fake(['api.test/api/v1/documents/policies/999' => Http::response(['message' => 'Not found'], 404)]);
+    bootTenantSession();
+
+    expect(policiesResource()->find(999))->toBeNull();
+});
+
+it('acknowledges a policy', function () {
+    Http::fake(['api.test/api/v1/documents/policies/7/acknowledge' => Http::response([
+        'message' => 'Policy acknowledged successfully.',
+        'data' => ['policy_id' => 7, 'acknowledged_at' => '2026-06-06T10:00:00Z'],
+    ], 201)]);
+    bootTenantSession();
+
+    policiesResource()->acknowledge(7);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'documents/policies/7/acknowledge')
+        && $request->method() === 'POST');
+});
+
+it('maps a 422 on the policies path to a validation exception', function () {
+    Http::fake(['api.test/api/v1/documents/policies*' => Http::response([
+        'message' => 'The given data was invalid',
+        'errors' => ['filter' => ['The category filter is invalid.']],
+    ], 422)]);
+    bootTenantSession();
+
+    try {
+        policiesResource()->query()->filter('category', 'bogus')->get();
+        test()->fail('Expected ApiValidationException');
+    } catch (ApiValidationException $e) {
+        expect($e->first('filter'))->toBe('The category filter is invalid.');
+    }
+});

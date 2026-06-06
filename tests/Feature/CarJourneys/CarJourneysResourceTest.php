@@ -4,23 +4,10 @@ declare(strict_types=1);
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
-use SupportManager\Sdk\Data\AuthTokens;
+use SupportManager\Sdk\Data\CarJourneys\CarJourney;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Session\AuthSession;
-use SupportManager\Sdk\Tests\Fixtures\CarJourneys\CarJourney;
-use SupportManager\Sdk\Tests\Fixtures\CarJourneys\CarJourneysResource;
-
-/**
- * Boot a real, container-wired session with a cached current team so tenant
- * requests skip the user/teams lookup and carry X-Team-ID straight away.
- */
-function bootTenantSession(int $teamId = 42): void
-{
-    $session = app(AuthSession::class);
-    $session->start(new AuthTokens('access-1', 'refresh-1', 'Bearer', 3600));
-    $session->setCurrentTeamId($teamId);
-}
+use SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource;
 
 function journeys(): CarJourneysResource
 {
@@ -120,7 +107,7 @@ it('returns null when finding a missing resource (404)', function () {
     expect(journeys()->find(999))->toBeNull();
 });
 
-it('hydrates a single DTO from a non-RESTful action via the item helper', function () {
+it('hydrates the ongoing journey via the item helper', function () {
     Http::fake([
         'api.test/api/v1/car-journeys/ongoing' => Http::response([
             'data' => ['type' => 'car-journeys', 'id' => '5', 'attributes' => ['driver_name' => 'Grace', 'is_ongoing' => true]],
@@ -131,11 +118,32 @@ it('hydrates a single DTO from a non-RESTful action via the item helper', functi
     expect(journeys()->ongoing()->driverName)->toBe('Grace');
 });
 
-it('returns null from a 404 action before mapping it as an error', function () {
+it('returns null from a 404 ongoing lookup before mapping it as an error', function () {
     Http::fake(['api.test/api/v1/car-journeys/ongoing' => Http::response(['message' => 'No ongoing journey found.'], 404)]);
     bootTenantSession();
 
     expect(journeys()->ongoing())->toBeNull();
+});
+
+it('starts a new journey', function () {
+    Http::fake(['api.test/api/v1/car-journeys/start' => Http::response([
+        'data' => ['type' => 'car-journeys', 'id' => '8', 'attributes' => ['driver_name' => 'Hopper', 'is_ongoing' => true]],
+    ])]);
+    bootTenantSession();
+
+    $journey = journeys()->start('Hopper', 'Client visit');
+
+    expect($journey->driverName)->toBe('Hopper');
+    Http::assertSent(fn ($request) => $request['driver_name'] === 'Hopper' && $request['comments'] === 'Client visit');
+});
+
+it('finishes an open journey', function () {
+    Http::fake(['api.test/api/v1/car-journeys/8/finish' => Http::response([
+        'data' => ['type' => 'car-journeys', 'id' => '8', 'attributes' => ['driver_name' => 'Hopper', 'is_ongoing' => false, 'trip_end' => '2026-06-06T12:00:00Z']],
+    ])]);
+    bootTenantSession();
+
+    expect(journeys()->finish(8)->isOngoing)->toBeFalse();
 });
 
 it('maps a 422 on the resource path to a validation exception', function () {

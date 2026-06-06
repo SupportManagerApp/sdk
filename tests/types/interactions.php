@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Tests\Types;
 
 use SupportManager\Sdk\Client\SupportManagerClient;
+use SupportManager\Sdk\Data\CarJourneys\CarJourney;
 use SupportManager\Sdk\Facades\SupportManager as SupportManagerFacade;
+use SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\Session\CurrentTeam;
 use SupportManager\Sdk\SupportManager;
-use SupportManager\Sdk\Tests\Fixtures\CarJourneys\CarJourney;
-use SupportManager\Sdk\Tests\Fixtures\CarJourneys\CarJourneysResource;
 
 use function PHPStan\Testing\assertType;
 
@@ -54,4 +54,16 @@ function probe_facade(): void
 
     // The generic @method tag flows the concrete type through the facade too.
     assertType(CarJourneysResource::class, SupportManagerFacade::resource(CarJourneysResource::class));
+
+    // Each first-party module accessor's @method tag resolves to its concrete
+    // resource class (a representative spread across the modules), so a regression
+    // in any of these tags fails CI here rather than silently degrading autocomplete.
+    assertType(CarJourneysResource::class, SupportManagerFacade::journeys());
+    assertType(\SupportManager\Sdk\Resources\Compliance\DBSChecksResource::class, SupportManagerFacade::dbsChecks());
+    assertType(\SupportManager\Sdk\Resources\Documents\PoliciesResource::class, SupportManagerFacade::policies());
+    assertType(\SupportManager\Sdk\Resources\Profile\ProfileResource::class, SupportManagerFacade::profile());
+    assertType(\SupportManager\Sdk\Resources\Household\MealPlanResource::class, SupportManagerFacade::mealPlan());
+    assertType(\SupportManager\Sdk\Resources\Leave\LeaveRequestsResource::class, SupportManagerFacade::leaveRequests());
+    assertType(\SupportManager\Sdk\Resources\Rota\ShiftsResource::class, SupportManagerFacade::shifts());
+    assertType(\SupportManager\Sdk\Resources\Payroll\PayslipsResource::class, SupportManagerFacade::payslips());
 }

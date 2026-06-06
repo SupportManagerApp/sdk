@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SupportManager\Sdk\Data\Payroll;
+
+/**
+ * An estimated-pay projection for a single month. Mirrors the platform's
+ * `EstimatedPayResource`.
+ *
+ * The platform returns this as a flat (non-JSON:API) `data` payload. The figures
+ * are split between the worked-hours/sleeps totals, any enhancement rows, the
+ * grand total, and — when a full net-pay estimate is available — the
+ * gross/net/deductions breakdown (otherwise those fields are null).
+ *
+ * @phpstan-type Money array{total_value: float, total_cost: float}
+ */
+final readonly class EstimatedPay
+{
+    /**
+     * @param  Money  $hours
+     * @param  Money  $sleeps
+     * @param  list<array{type: string, total_value: float, total_cost: float}>  $enhancements
+     * @param  Money  $grandTotal
+     * @param  array<string, mixed>|null  $deductions
+     */
+    public function __construct(
+        public int $year,
+        public int $month,
+        public ?string $monthLabel,
+        public array $hours,
+        public array $sleeps,
+        public array $enhancements,
+        public array $grandTotal,
+        public ?float $grossPay,
+        public ?float $netPay,
+        public ?float $deductionsTotal,
+        public ?array $deductions,
+    ) {}
+
+    /**
+     * @param  array<string, mixed>  $data  A flat (non-JSON:API) estimated-pay payload.
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            year: (int) ($data['year'] ?? 0),
+            month: (int) ($data['month'] ?? 0),
+            monthLabel: isset($data['month_label']) ? (string) $data['month_label'] : null,
+            hours: self::money($data['hours'] ?? null),
+            sleeps: self::money($data['sleeps'] ?? null),
+            enhancements: self::enhancements($data['enhancements'] ?? null),
+            grandTotal: self::money($data['grand_total'] ?? null),
+            grossPay: isset($data['gross_pay']) ? (float) $data['gross_pay'] : null,
+            netPay: isset($data['net_pay']) ? (float) $data['net_pay'] : null,
+            deductionsTotal: isset($data['deductions_total']) ? (float) $data['deductions_total'] : null,
+            deductions: is_array($data['deductions'] ?? null) ? $data['deductions'] : null,
+        );
+    }
+
+    /**
+     * @return array{total_value: float, total_cost: float}
+     */
+    private static function money(mixed $value): array
+    {
+        $value = is_array($value) ? $value : [];
+
+        return [
+            'total_value' => (float) ($value['total_value'] ?? 0),
+            'total_cost' => (float) ($value['total_cost'] ?? 0),
+        ];
+    }
+
+    /**
+     * @return list<array{type: string, total_value: float, total_cost: float}>
+     */
+    private static function enhancements(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(static function (mixed $row): array {
+            $row = is_array($row) ? $row : [];
+
+            return [
+                'type' => (string) ($row['type'] ?? ''),
+                'total_value' => (float) ($row['total_value'] ?? 0),
+                'total_cost' => (float) ($row['total_cost'] ?? 0),
+            ];
+        }, $value));
+    }
+}
