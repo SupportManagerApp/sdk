@@ -81,3 +81,16 @@ it('maps a 422 to a validation exception on create', function () {
         expect($e->first('user_id'))->toBe('The user id is required.');
     }
 });
+
+it('updates an adjustment', function () {
+    Http::fake(['api.test/api/v1/leave/adjustments/9' => Http::response([
+        'data' => ['type' => 'manual-adjustments', 'id' => '9', 'attributes' => ['hours_adjustment' => 3.5, 'reason' => 'Corrected']],
+    ])]);
+    bootTenantSession();
+
+    $adjustment = leaveAdjustments()->update(9, ['hours_adjustment' => 3.5, 'reason' => 'Corrected']);
+
+    expect($adjustment->hoursAdjustment)->toBe(3.5)
+        ->and($adjustment->reason)->toBe('Corrected');
+    Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'leave/adjustments/9'));
+});

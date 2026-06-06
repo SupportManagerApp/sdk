@@ -66,4 +66,8 @@ function probe_facade(): void
     assertType(\SupportManager\Sdk\Resources\Leave\LeaveRequestsResource::class, SupportManagerFacade::leaveRequests());
     assertType(\SupportManager\Sdk\Resources\Rota\ShiftsResource::class, SupportManagerFacade::shifts());
     assertType(\SupportManager\Sdk\Resources\Payroll\PayslipsResource::class, SupportManagerFacade::payslips());
+    assertType(\SupportManager\Sdk\Resources\Notifications\NotificationsResource::class, SupportManagerFacade::notifications());
+    assertType(\SupportManager\Sdk\Resources\PushNotifications\DeviceTokensResource::class, SupportManagerFacade::deviceTokens());
+    assertType(\SupportManager\Sdk\Resources\Teams\TeamsResource::class, SupportManagerFacade::teams());
+    assertType(\SupportManager\Sdk\Resources\Tasks\TasksResource::class, SupportManagerFacade::tasks());
 }

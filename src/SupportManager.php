@@ -24,6 +24,7 @@ use SupportManager\Sdk\Resources\Leave\LeaveBalanceResource;
 use SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource;
 use SupportManager\Sdk\Resources\Leave\LeaveRequestsResource;
 use SupportManager\Sdk\Resources\Leave\ManualAdjustmentsResource;
+use SupportManager\Sdk\Resources\Notifications\NotificationsResource;
 use SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\EstimatedPayResource;
 use SupportManager\Sdk\Resources\Payroll\P60sResource;
@@ -33,6 +34,7 @@ use SupportManager\Sdk\Resources\Payroll\PayslipsResource;
 use SupportManager\Sdk\Resources\Payroll\TimesheetsResource;
 use SupportManager\Sdk\Resources\Profile\ProfileResource;
 use SupportManager\Sdk\Resources\Profile\UsersResource;
+use SupportManager\Sdk\Resources\PushNotifications\DeviceTokensResource;
 use SupportManager\Sdk\Resources\Resource;
 use SupportManager\Sdk\Resources\Rota\AppointmentsResource;
 use SupportManager\Sdk\Resources\Rota\CalendarResource;
@@ -40,6 +42,8 @@ use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftSwapOffersResource;
 use SupportManager\Sdk\Resources\Rota\ShiftSwapsResource;
+use SupportManager\Sdk\Resources\Tasks\TasksResource;
+use SupportManager\Sdk\Resources\Teams\TeamsResource;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\Session\CurrentTeam;
 
@@ -235,6 +239,30 @@ final class SupportManager
     public function leaveAdmin(): AdminLeaveResource
     {
         return $this->resource(AdminLeaveResource::class);
+    }
+
+    /** Notifications — the current user's database notifications. */
+    public function notifications(): NotificationsResource
+    {
+        return $this->resource(NotificationsResource::class);
+    }
+
+    /** Push notifications — the current user's device (FCM) tokens and prompt state. */
+    public function deviceTokens(): DeviceTokensResource
+    {
+        return $this->resource(DeviceTokensResource::class);
+    }
+
+    /** Teams — the teams the current user belongs to (non-tenant). */
+    public function teams(): TeamsResource
+    {
+        return $this->resource(TeamsResource::class);
+    }
+
+    /** Tasks — the dashboard onboarding/compliance task list. */
+    public function tasks(): TasksResource
+    {
+        return $this->resource(TasksResource::class);
     }
 
     /** Rota — shifts, including today/available and applications. */

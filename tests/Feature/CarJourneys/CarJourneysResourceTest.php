@@ -195,3 +195,40 @@ it('returns a Laravel Collection from collect()', function () {
     expect($collection)->toBeInstanceOf(Collection::class)
         ->and($collection->first())->toBeInstanceOf(CarJourney::class);
 });
+
+it('creates a journey record directly', function () {
+    Http::fake(['api.test/api/v1/car-journeys' => Http::response([
+        'data' => ['type' => 'car-journeys', 'id' => '11', 'attributes' => ['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z', 'is_ongoing' => false]],
+    ], 201)]);
+    bootTenantSession();
+
+    $journey = journeys()->create(['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z']);
+
+    expect($journey)->toBeInstanceOf(CarJourney::class)
+        ->and($journey->id)->toBe('11')
+        ->and($journey->driverName)->toBe('Ada');
+    Http::assertSent(fn ($r) => $r->method() === 'POST'
+        && str_ends_with($r->url(), '/api/v1/car-journeys')
+        && $r['driver_name'] === 'Ada');
+});
+
+it('updates a journey record', function () {
+    Http::fake(['api.test/api/v1/car-journeys/11' => Http::response([
+        'data' => ['type' => 'car-journeys', 'id' => '11', 'attributes' => ['comments' => 'Edited']],
+    ])]);
+    bootTenantSession();
+
+    $journey = journeys()->update(11, ['comments' => 'Edited']);
+
+    expect($journey->comments)->toBe('Edited');
+    Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'car-journeys/11'));
+});
+
+it('deletes a journey record', function () {
+    Http::fake(['api.test/api/v1/car-journeys/11' => Http::response(['message' => 'deleted'])]);
+    bootTenantSession();
+
+    journeys()->destroy(11);
+
+    Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_contains($r->url(), 'car-journeys/11'));
+});

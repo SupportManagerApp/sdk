@@ -11,19 +11,53 @@ use SupportManager\Sdk\Resources\Resource;
 /**
  * Trip tracking for team vehicles.
  *
- * The collection (`query()`, `find()`, `all()`) plus the module's non-RESTful
- * actions: the single `ongoing()` journey, `start()`ing a new trip (which the
- * server uses to auto-close any open one), and `finish()`ing a trip.
+ * The full CRUD collection (`query()`, `find()`, `all()`, `create()`,
+ * `update()`, `destroy()`) plus the module's non-RESTful actions: the single
+ * `ongoing()` journey, `start()`ing a new trip (which the server uses to
+ * auto-close any open one), and `finish()`ing a trip.
+ *
+ * `start()`/`finish()` drive the live "open a trip now, close it later" flow;
+ * `create()`/`update()`/`destroy()` are the direct record management for
+ * back-filling or correcting logged journeys.
  *
  * ```php
  * SupportManager::journeys()->query()->filter('ongoing', true)->sort('-trip_start')->get();
  * SupportManager::journeys()->ongoing();
+ * SupportManager::journeys()->create(['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z']);
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<CarJourney>
  */
 final class CarJourneysResource extends Resource
 {
+    /**
+     * Create a journey record directly, returning the stored trip.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function create(array $data): ?CarJourney
+    {
+        return $this->item($this->post($this->path(), $data));
+    }
+
+    /**
+     * Update a journey record, returning the updated trip.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(string|int $id, array $data): ?CarJourney
+    {
+        return $this->item($this->patch("{$this->path()}/{$id}", $data));
+    }
+
+    /**
+     * Permanently delete a journey record.
+     */
+    public function destroy(string|int $id): void
+    {
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"), $this->path());
+    }
+
     /**
      * The one ongoing journey, or null when none is open (the platform 404s).
      */

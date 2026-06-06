@@ -11,8 +11,8 @@ use SupportManager\Sdk\Resources\Resource;
 /**
  * Manual adjustments to a user's leave balance (privileged).
  *
- * Exposes the index collection plus `create()` and `delete()`; the platform
- * does not implement a per-adjustment show endpoint.
+ * Exposes the index collection plus `create()`, `update()` and `destroy()`; the
+ * platform does not implement a per-adjustment show endpoint.
  *
  * ```php
  * SupportManager::leaveAdjustments()->query()->filter('user_id', 3)->get();
@@ -30,6 +30,16 @@ final class ManualAdjustmentsResource extends Resource
     public function create(array $data): ?ManualAdjustment
     {
         return $this->item($this->post($this->path(), $data));
+    }
+
+    /**
+     * Update a manual adjustment, returning the updated record.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(string|int $id, array $data): ?ManualAdjustment
+    {
+        return $this->item($this->patch("{$this->path()}/{$id}", $data));
     }
 
     /**
