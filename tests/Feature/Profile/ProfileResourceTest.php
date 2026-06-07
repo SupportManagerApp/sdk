@@ -25,7 +25,7 @@ function profileItem(string $type, string $id, array $attributes): array
     return ['data' => ['type' => $type, 'id' => $id, 'attributes' => $attributes]];
 }
 
-it('fetches the current user without a team header', function () {
+it('fetches the current user with a team header', function () {
     Http::fake(['api.test/api/v1/user' => Http::response(profileItem('users', '7', [
         'name' => 'Ada Lovelace',
         'email' => 'ada@example.com',
@@ -42,7 +42,7 @@ it('fetches the current user without a team header', function () {
         ->and($user->role)->toBe('employee');
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/user')
-        && ! $request->hasHeader('X-Team-ID'));
+        && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('shows the full profile with nested address and emergency contact', function () {
@@ -73,7 +73,7 @@ it('shows the full profile with nested address and emergency contact', function 
         ->and($profile->emergencyContact->name)->toBe('Jane')
         ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'employee']]);
 
-    Http::assertSent(fn ($request) => ! $request->hasHeader('X-Team-ID'));
+    Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('leaves nested relations null when absent', function () {
@@ -102,7 +102,7 @@ it('updates the profile via PATCH', function () {
     expect($profile->name)->toBe('Grace Hopper');
     Http::assertSent(fn ($request) => $request->method() === 'PATCH'
         && $request['name'] === 'Grace Hopper'
-        && ! $request->hasHeader('X-Team-ID'));
+        && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('maps a 422 on profile update to a validation exception', function () {
@@ -120,7 +120,7 @@ it('maps a 422 on profile update to a validation exception', function () {
     }
 });
 
-it('reads, saves and deletes the address without a team header', function () {
+it('reads, saves and deletes the address with a team header', function () {
     Http::fake([
         'api.test/api/v1/user/address' => Http::response(profileItem('addresses', '3', [
             'address_line_one' => '12 King St',
@@ -141,8 +141,8 @@ it('reads, saves and deletes the address without a team header', function () {
 
     profileResource()->deleteAddress();
 
-    Http::assertSent(fn ($request) => $request->method() === 'PUT' && ! $request->hasHeader('X-Team-ID'));
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE' && ! $request->hasHeader('X-Team-ID'));
+    Http::assertSent(fn ($request) => $request->method() === 'PUT' && $request->hasHeader('X-Team-ID', '42'));
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE' && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('returns null address when the server reports none', function () {
@@ -168,7 +168,7 @@ it('saves the emergency contact', function () {
 
     expect($contact)->toBeInstanceOf(EmergencyContact::class)
         ->and($contact->relationship)->toBe('Spouse');
-    Http::assertSent(fn ($request) => ! $request->hasHeader('X-Team-ID'));
+    Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('changes the password', function () {
@@ -181,7 +181,7 @@ it('changes the password', function () {
         && $request['current_password'] === 'old-secret'
         && $request['password'] === 'new-secret'
         && $request['password_confirmation'] === 'new-secret'
-        && ! $request->hasHeader('X-Team-ID'));
+        && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('deletes the avatar', function () {
@@ -192,7 +192,7 @@ it('deletes the avatar', function () {
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/user/avatar')
-        && ! $request->hasHeader('X-Team-ID'));
+        && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('reads bank details WITH a team header (tenant-scoped)', function () {

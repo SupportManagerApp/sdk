@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Profile;
 
-use Closure;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
@@ -15,12 +14,12 @@ use SupportManager\Sdk\Resources\Resource;
 /**
  * The team's user directory (`GET users`, `GET users/{user}`).
  *
- * Although it is a collection, the directory is authenticated-but-NOT
- * tenant-scoped at the route layer (the controller derives the team itself), so
- * the tenant-scoped base `query()`/`all()` would wrongly attach an X-Team-ID
- * header. Instead this resource hand-rolls {@see self::list()} and
- * {@see self::find()} through
- * {@see \SupportManager\Sdk\Client\AuthenticatedApi::send()}.
+ * The directory is tenant-scoped: the platform requires `X-Team-ID` on these
+ * routes (a 422 "Invalid or missing team" without it). It still hand-rolls
+ * {@see self::list()} and {@see self::find()} — rather than the base
+ * `query()`/`all()` — for its flat Spatie filter params and null-on-404
+ * lookup, but routes them through the tenant-scoped {@see Resource::tenant()}
+ * helper so each carries the current team's id.
  *
  * ```php
  * SupportManager::users()->list(['search' => 'ada']);
@@ -41,7 +40,7 @@ final class UsersResource extends Resource
      */
     public function list(array $filters = []): array
     {
-        $response = $this->sendUntenanted(
+        $response = $this->tenant(
             fn (PendingRequest $request): Response => $request->get('users', $filters),
         );
 
@@ -58,7 +57,7 @@ final class UsersResource extends Resource
      */
     public function find(string|int $id): ?DirectoryUser
     {
-        $response = $this->sendUntenanted(
+        $response = $this->tenant(
             fn (PendingRequest $request): Response => $request->get("users/{$id}"),
         );
 
@@ -81,15 +80,5 @@ final class UsersResource extends Resource
     protected function hydrate(ResourceObject $object): DirectoryUser
     {
         return DirectoryUser::fromArray($object->flat());
-    }
-
-    /**
-     * Issue an authenticated but NON-tenant request (no X-Team-ID).
-     *
-     * @param  Closure(PendingRequest): Response  $callback
-     */
-    private function sendUntenanted(Closure $callback): Response
-    {
-        return $this->api->send($callback);
     }
 }

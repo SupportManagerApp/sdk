@@ -27,7 +27,7 @@ function profileDirectoryPage(): array
     ];
 }
 
-it('lists directory users without a team header', function () {
+it('lists directory users with a team header', function () {
     Http::fake(['api.test/api/v1/users*' => Http::response(profileDirectoryPage())]);
     bootTenantSession();
 
@@ -39,7 +39,7 @@ it('lists directory users without a team header', function () {
         ->and($users[1]->role)->toBe('manager');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/api/v1/users')
-        && ! $request->hasHeader('X-Team-ID'));
+        && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('forwards search and sort filters as query params', function () {
@@ -73,7 +73,7 @@ it('finds a single directory user by id', function () {
         ->and($user->id)->toBe('2')
         ->and($user->mobileNumber)->toBe('+44 7700 900003');
 
-    Http::assertSent(fn ($request) => ! $request->hasHeader('X-Team-ID'));
+    Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('returns null when a directory user is not found (404)', function () {

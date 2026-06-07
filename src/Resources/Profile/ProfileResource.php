@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Profile;
 
-use Closure;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Profile\Address;
@@ -22,11 +21,12 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * Unlike most resources this is a singleton view of the current user rather than
  * a queryable collection, so it exposes intent-named actions instead of
- * `query()`/`find()`. Almost every endpoint here is authenticated but NOT
- * tenant-scoped (no `X-Team-ID`), so those calls go through
- * {@see \SupportManager\Sdk\Client\AuthenticatedApi::send()} directly rather than
- * the tenant-scoped base helpers. Bank details are the one exception — they are
- * tenant-scoped and use the base {@see Resource::get()}/{@see Resource::put()}.
+ * `query()`/`find()`. Every endpoint here is tenant-scoped: the platform's
+ * Profile route group requires `X-Team-ID` (it returns 422 "Invalid or missing
+ * team" without it), so each call goes through the tenant-scoped base helpers
+ * ({@see Resource::get()} / {@see Resource::put()} / {@see Resource::tenant()}),
+ * which resolve {@see \SupportManager\Sdk\Session\CurrentTeam} and forward the
+ * header automatically.
  *
  * ```php
  * SupportManager::profile()->me();
@@ -43,7 +43,7 @@ final class ProfileResource extends Resource
      */
     public function me(): ?User
     {
-        $response = $this->sendUntenanted(fn (PendingRequest $request): Response => $request->get('user'));
+        $response = $this->tenant(fn (PendingRequest $request): Response => $request->get('user'));
 
         $resource = $this->resourceFrom($response);
 
@@ -55,7 +55,7 @@ final class ProfileResource extends Resource
      */
     public function show(): ?Profile
     {
-        return $this->item($this->sendUntenanted(
+        return $this->item($this->tenant(
             fn (PendingRequest $request): Response => $request->get('user/profile'),
         ));
     }
@@ -67,7 +67,7 @@ final class ProfileResource extends Resource
      */
     public function update(array $data): ?Profile
     {
-        return $this->item($this->sendUntenanted(
+        return $this->item($this->tenant(
             fn (PendingRequest $request): Response => $request->patch('user/profile', $data),
         ));
     }
@@ -77,7 +77,7 @@ final class ProfileResource extends Resource
      */
     public function address(): ?Address
     {
-        $response = $this->sendUntenanted(fn (PendingRequest $request): Response => $request->get('user/address'));
+        $response = $this->tenant(fn (PendingRequest $request): Response => $request->get('user/address'));
 
         $resource = $this->resourceFrom($response);
 
@@ -91,7 +91,7 @@ final class ProfileResource extends Resource
      */
     public function saveAddress(array $data): ?Address
     {
-        $response = $this->sendUntenanted(
+        $response = $this->tenant(
             fn (PendingRequest $request): Response => $request->put('user/address', $data),
         );
 
@@ -105,7 +105,7 @@ final class ProfileResource extends Resource
      */
     public function deleteAddress(): void
     {
-        $this->sendUntenanted(fn (PendingRequest $request): Response => $request->delete('user/address'));
+        $this->tenant(fn (PendingRequest $request): Response => $request->delete('user/address'));
     }
 
     /**
@@ -113,7 +113,7 @@ final class ProfileResource extends Resource
      */
     public function emergencyContact(): ?EmergencyContact
     {
-        $response = $this->sendUntenanted(
+        $response = $this->tenant(
             fn (PendingRequest $request): Response => $request->get('user/emergency-contact'),
         );
 
@@ -129,7 +129,7 @@ final class ProfileResource extends Resource
      */
     public function saveEmergencyContact(array $data): ?EmergencyContact
     {
-        $response = $this->sendUntenanted(
+        $response = $this->tenant(
             fn (PendingRequest $request): Response => $request->put('user/emergency-contact', $data),
         );
 
@@ -143,7 +143,7 @@ final class ProfileResource extends Resource
      */
     public function deleteEmergencyContact(): void
     {
-        $this->sendUntenanted(
+        $this->tenant(
             fn (PendingRequest $request): Response => $request->delete('user/emergency-contact'),
         );
     }
@@ -155,7 +155,7 @@ final class ProfileResource extends Resource
      */
     public function changePassword(string $currentPassword, string $password, string $passwordConfirmation): void
     {
-        $this->sendUntenanted(fn (PendingRequest $request): Response => $request->put('user/password', [
+        $this->tenant(fn (PendingRequest $request): Response => $request->put('user/password', [
             'current_password' => $currentPassword,
             'password' => $password,
             'password_confirmation' => $passwordConfirmation,
@@ -167,12 +167,12 @@ final class ProfileResource extends Resource
      *
      * Note: uploading an avatar (`POST user/avatar`) is a multipart file upload
      * and is intentionally out of scope for this typed surface — issue it through
-     * {@see \SupportManager\Sdk\Client\AuthenticatedApi::send()} with an
-     * `attach()`ed request when needed.
+     * the tenant-scoped {@see Resource::tenant()} escape hatch with an
+     * `attach()`ed request when needed, so it still carries X-Team-ID.
      */
     public function deleteAvatar(): void
     {
-        $this->sendUntenanted(fn (PendingRequest $request): Response => $request->delete('user/avatar'));
+        $this->tenant(fn (PendingRequest $request): Response => $request->delete('user/avatar'));
     }
 
     /**
@@ -213,17 +213,6 @@ final class ProfileResource extends Resource
     protected function hydrate(ResourceObject $object): Profile
     {
         return Profile::fromArray($object->flat());
-    }
-
-    /**
-     * Issue an authenticated but NON-tenant request (no X-Team-ID), with the same
-     * 401-refresh-and-retry behaviour the tenant helpers get.
-     *
-     * @param  Closure(PendingRequest): Response  $callback
-     */
-    private function sendUntenanted(Closure $callback): Response
-    {
-        return $this->api->send($callback);
     }
 
     /**
