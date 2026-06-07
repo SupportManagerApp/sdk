@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use SupportManager\Sdk\Data\Payroll\AutomaticPayEnhancementSettings;
 use SupportManager\Sdk\Data\Payroll\EstimatedPay;
+use SupportManager\Sdk\Data\Payroll\EstimatedPayDeductions;
 use SupportManager\Sdk\Data\Payroll\P60;
 use SupportManager\Sdk\Data\Payroll\PayEnhancement;
 use SupportManager\Sdk\Data\Payroll\PayRun;
@@ -155,12 +156,12 @@ it('runs the pay-enhancement CRUD lifecycle', function () {
 
 // ── Estimated pay (flat singleton) ──────────────────────────────────────────
 
-it('serves the flat estimated-pay singleton', function () {
+it('serves the flat estimated-pay singleton with a typed deductions breakdown', function () {
     SupportManager::fake()->seed(EstimatedPayFactory::new());
 
     $estimate = SupportManager::estimatedPay()->show(['year' => 2026, 'month' => 6]);
     assert($estimate instanceof EstimatedPay);
-    assert(is_array($estimate->deductions));
+    assert($estimate->deductions instanceof EstimatedPayDeductions);
 
     expect($estimate->year)->toBe(2026)
         ->and($estimate->monthLabel)->toBe('June 2026')
@@ -169,7 +170,17 @@ it('serves the flat estimated-pay singleton', function () {
         ->and($estimate->enhancements[0]['type'])->toBe('Bank Holiday')
         ->and($estimate->grandTotal['total_cost'])->toBe(2570.0)
         ->and($estimate->grossPay)->toBe(2570.0)
-        ->and($estimate->deductions['income_tax'])->toBe(300.5);
+        ->and($estimate->deductions->incomeTax)->toBe(300.5)
+        ->and($estimate->deductions->nationalInsurance)->toBe(120.0)
+        ->and($estimate->deductions->pension)->toBe(40.0)
+        ->and($estimate->deductions->studentLoan)->toBe(9.5)
+        ->and($estimate->deductions->postgraduateLoan)->toBe(0.0)
+        ->and($estimate->deductions->corrections)->toHaveCount(1)
+        ->and($estimate->deductions->corrections[0]->description)->toBe('Prior-month underpayment')
+        ->and($estimate->deductions->corrections[0]->amount)->toBe(12.0)
+        ->and($estimate->deductions->earningsOrders)->toHaveCount(1)
+        ->and($estimate->deductions->earningsOrders[0]->description)->toBe('Attachment of Earnings')
+        ->and($estimate->deductions->earningsOrders[0]->amount)->toBe(25.0);
 });
 
 it('serves a worked-hours-only estimate with no net-pay breakdown', function () {
@@ -181,6 +192,21 @@ it('serves a worked-hours-only estimate with no net-pay breakdown', function () 
     expect($estimate->grossPay)->toBeNull()
         ->and($estimate->netPay)->toBeNull()
         ->and($estimate->deductions)->toBeNull();
+});
+
+it('resolves a distinct projection per month for month navigation', function () {
+    SupportManager::fake()->seed(
+        EstimatedPayFactory::new()->forMonth(2026, 6),
+        EstimatedPayFactory::new()->forMonth(2026, 7)->state(['gross_pay' => 3000.0]),
+    );
+
+    $june = SupportManager::estimatedPay()->show(['year' => 2026, 'month' => 6]);
+    $july = SupportManager::estimatedPay()->show(['year' => 2026, 'month' => 7]);
+
+    expect($june?->monthLabel)->toBe('June 2026')
+        ->and($june?->grossPay)->toBe(2570.0)
+        ->and($july?->monthLabel)->toBe('July 2026')
+        ->and($july?->grossPay)->toBe(3000.0);
 });
 
 // ── Pay runs (flat paginated index, read-only) ──────────────────────────────

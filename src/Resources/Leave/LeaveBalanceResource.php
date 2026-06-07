@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Leave;
 
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Leave\LeaveBalance;
+use SupportManager\Sdk\Data\Leave\LeaveYears;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -19,7 +20,9 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * ```php
  * SupportManager::leaveBalance()->show();
+ * SupportManager::leaveBalance()->show(['year' => 2025]);
  * SupportManager::leaveBalance()->forUser(3);
+ * SupportManager::leaveBalance()->availableYears();
  * SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
  * ```
  *
@@ -28,19 +31,39 @@ use SupportManager\Sdk\Resources\Resource;
 final class LeaveBalanceResource extends Resource
 {
     /**
-     * The current user's balance for the current leave year.
+     * The current user's balance, for the current leave year or the given one.
+     *
+     * @param  array<string, mixed>  $query  Optional `year`.
      */
-    public function show(): ?LeaveBalance
+    public function show(array $query = []): ?LeaveBalance
     {
-        return $this->balanceFromResponse($this->get('leave/balance'));
+        return $this->balanceFromResponse($this->get('leave/balance', $query));
     }
 
     /**
-     * Another user's balance (privileged), by user id.
+     * Another user's balance (privileged), by user id, for the current leave
+     * year or the given one.
+     *
+     * @param  array<string, mixed>  $query  Optional `year`.
      */
-    public function forUser(int|string $userId): ?LeaveBalance
+    public function forUser(int|string $userId, array $query = []): ?LeaveBalance
     {
-        return $this->balanceFromResponse($this->get("leave/balance/{$userId}"));
+        return $this->balanceFromResponse($this->get("leave/balance/{$userId}", $query));
+    }
+
+    /**
+     * The leave years the current user can select between (current plus next,
+     * minus any locked at year end), with display labels.
+     */
+    public function availableYears(): ?LeaveYears
+    {
+        $response = $this->get('leave/balance/years');
+
+        $this->throwForErrorResponse($response, 'leave/balance/years');
+
+        $data = $response->json('data');
+
+        return is_array($data) ? LeaveYears::fromArray($data) : null;
     }
 
     /**

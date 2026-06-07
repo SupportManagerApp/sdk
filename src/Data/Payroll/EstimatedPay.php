@@ -22,7 +22,6 @@ final readonly class EstimatedPay
      * @param  Money  $sleeps
      * @param  list<array{type: string, total_value: float, total_cost: float}>  $enhancements
      * @param  Money  $grandTotal
-     * @param  array<string, mixed>|null  $deductions
      */
     public function __construct(
         public int $year,
@@ -35,7 +34,7 @@ final readonly class EstimatedPay
         public ?float $grossPay,
         public ?float $netPay,
         public ?float $deductionsTotal,
-        public ?array $deductions,
+        public ?EstimatedPayDeductions $deductions,
     ) {}
 
     /**
@@ -54,7 +53,7 @@ final readonly class EstimatedPay
             grossPay: isset($data['gross_pay']) ? (float) $data['gross_pay'] : null,
             netPay: isset($data['net_pay']) ? (float) $data['net_pay'] : null,
             deductionsTotal: isset($data['deductions_total']) ? (float) $data['deductions_total'] : null,
-            deductions: is_array($data['deductions'] ?? null) ? $data['deductions'] : null,
+            deductions: is_array($data['deductions'] ?? null) ? EstimatedPayDeductions::fromArray($data['deductions']) : null,
         );
     }
 

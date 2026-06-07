@@ -50,7 +50,8 @@ it('fetches the estimated-pay projection and passes year/month/user_id', functio
         ->and($estimate->grandTotal['total_cost'])->toBe(2570.0)
         ->and($estimate->grossPay)->toBe(2570.0)
         ->and($estimate->netPay)->toBe(2100.0)
-        ->and($estimate->deductions['income_tax'])->toBe(300.5);
+        ->and($estimate->deductions?->incomeTax)->toBe(300.5)
+        ->and($estimate->deductions?->nationalInsurance)->toBe(170.0);
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());

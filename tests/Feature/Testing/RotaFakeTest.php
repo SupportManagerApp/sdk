@@ -130,6 +130,29 @@ it('makes an offer against an open swap', function () {
         ->and($offer?->status)->toBe('Pending Response');
 });
 
+it('narrows the swap list by scope, and lists all when unscoped', function () {
+    SupportManager::fake()->seed(
+        ShiftSwapFactory::new(),                  // incoming (directed at me)
+        ShiftSwapFactory::new()->openForOffers(), // available (open for offers)
+        ShiftSwapFactory::new()->mine(),          // raised by me
+    );
+
+    $incoming = SupportManager::shiftSwaps()->query()->filter('scope', 'incoming')->get();
+    expect($incoming->items())->toHaveCount(1)
+        ->and($incoming->items()[0]->id)->toBe('1')
+        ->and($incoming->items()[0]->type)->toBe('Directed');
+
+    $available = SupportManager::shiftSwaps()->query()->filter('scope', 'available')->get();
+    expect($available->items())->toHaveCount(1)
+        ->and($available->items()[0]->id)->toBe('2')
+        ->and($available->items()[0]->type)->toBe('Open');
+
+    expect(SupportManager::shiftSwaps()->query()->filter('scope', 'mine')->get()->items())->toHaveCount(1);
+
+    // Unscoped: every seeded swap, falling through to the generic list.
+    expect(SupportManager::shiftSwaps()->all()->items())->toHaveCount(3);
+});
+
 // ── Shift swap offers ─────────────────────────────────────────────────────────
 
 it('accepts an offer and returns the finalised parent swap', function () {

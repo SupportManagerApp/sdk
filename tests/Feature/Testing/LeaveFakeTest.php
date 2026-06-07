@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SupportManager\Sdk\Data\Leave\LeaveBalance;
 use SupportManager\Sdk\Data\Leave\LeaveEntitlement;
 use SupportManager\Sdk\Data\Leave\LeaveRequest;
+use SupportManager\Sdk\Data\Leave\LeaveYears;
 use SupportManager\Sdk\Data\Leave\ManualAdjustment;
 use SupportManager\Sdk\Enums\Leave\LeaveStatus;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
@@ -104,6 +105,40 @@ it('serves the flat leave balance for the current and another user', function ()
         ->and($balance?->sleeps->percentages)->toBeNull();
 
     expect(SupportManager::leaveBalance()->forUser(3)?->hours->approved)->toBe(16.0);
+});
+
+it('serves a distinct balance per leave year for year navigation', function () {
+    SupportManager::fake()->seed(
+        LeaveBalanceFactory::new()->forYear(2026),
+        LeaveBalanceFactory::new()->forYear(2025)->state([
+            'hours' => ['entitlement' => 224.0, 'pending' => 0.0, 'approved' => 224.0, 'remaining' => 0.0, 'percentages' => ['used' => 100]],
+        ]),
+    );
+
+    expect(SupportManager::leaveBalance()->show()?->year)->toBe(2026)
+        ->and(SupportManager::leaveBalance()->show(['year' => 2026])?->hours->remaining)->toBe(200.0)
+        ->and(SupportManager::leaveBalance()->show(['year' => 2025])?->hours->remaining)->toBe(0.0)
+        ->and(SupportManager::leaveBalance()->forUser(3, ['year' => 2025])?->year)->toBe(2025);
+});
+
+it('lists the selectable leave years with labels', function () {
+    SupportManager::fake()->seed(LeaveBalanceFactory::new());
+
+    $years = SupportManager::leaveBalance()->availableYears();
+
+    expect($years)->toBeInstanceOf(LeaveYears::class)
+        ->and($years?->years)->toBe([2026, 2027])
+        ->and($years?->current)->toBe(2026)
+        ->and($years?->labels)->toBe([2026 => '2026', 2027 => '2027']);
+});
+
+it('excludes a locked year from the selectable years', function () {
+    SupportManager::fake()->seed(LeaveBalanceFactory::new()->lockingYear(2026));
+
+    $years = SupportManager::leaveBalance()->availableYears();
+
+    expect($years?->years)->toBe([2027])
+        ->and($years?->current)->toBe(2026);
 });
 
 it('calculates the impact of a prospective request', function () {

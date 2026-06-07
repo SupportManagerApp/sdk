@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -21,8 +22,18 @@ use SupportManager\Sdk\Testing\RecordStore;
  * updated request) — and the `POST .../{id}/offers` action that creates a new
  * {@see ShiftSwapOffer} against an open swap.
  *
+ * Each seeded swap also carries the `scopes` it belongs to (the platform's
+ * `filter[scope]` values: `incoming` for directed-at-me, `available` for
+ * open-for-offers, `mine` for ones I requested). A scope-aware list route
+ * narrows the collection to `filter[scope]=…` so a feature test can distinguish
+ * the widget's directed and open lists; an unfiltered list returns every swap.
+ *
  * ```php
- * SupportManager::fake()->seed(ShiftSwapFactory::new()->count(2));
+ * SupportManager::fake()->seed(
+ *     ShiftSwapFactory::new(),                 // incoming (directed)
+ *     ShiftSwapFactory::new()->openForOffers(), // available (open)
+ * );
+ * SupportManager::shiftSwaps()->query()->filter('scope', 'available')->get();
  * SupportManager::shiftSwaps()->accept(1, ['respondent_shift_ids' => [12]]);
  * SupportManager::shiftSwaps()->offer(1, ['offered_shift_ids' => [34]]);
  * ```
@@ -65,13 +76,14 @@ final class ShiftSwapFactory extends Factory implements ProvidesFakeRoutes
             'requires_manager_approval' => false,
             'offers' => [],
             'offers_count' => 0,
+            'scopes' => ['incoming'],
             'created_at' => '2026-06-06T09:00:00Z',
             'updated_at' => '2026-06-06T09:00:00Z',
         ];
     }
 
     /**
-     * An open-for-offers swap (no directed target).
+     * An open-for-offers swap (no directed target) — in the `available` scope.
      */
     public function openForOffers(): static
     {
@@ -80,7 +92,16 @@ final class ShiftSwapFactory extends Factory implements ProvidesFakeRoutes
             'status' => 'Open for Offers',
             'status_label' => 'Open for Offers',
             'target_user' => null,
+            'scopes' => ['available'],
         ]);
+    }
+
+    /**
+     * A swap the current user raised — in the `mine` scope.
+     */
+    public function mine(): static
+    {
+        return $this->state(['scopes' => ['mine']]);
     }
 
     /**
@@ -108,6 +129,28 @@ final class ShiftSwapFactory extends Factory implements ProvidesFakeRoutes
         };
 
         return [
+            // Scope-aware list: when filter[scope] is present, narrow to the
+            // swaps in that scope (else fall through to the generic list).
+            FakeRoute::get('rota/shift-swaps', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $filters = $fake->query($request)['filter'] ?? null;
+                $scope = is_array($filters) ? ($filters['scope'] ?? null) : null;
+
+                if ($scope === null) {
+                    return null;
+                }
+
+                $records = array_values(array_filter(
+                    $store->all('rota/shift-swaps'),
+                    static fn (array $record): bool => in_array(
+                        (string) $scope,
+                        array_map('strval', (array) ($record['scopes'] ?? [])),
+                        true,
+                    ),
+                ));
+
+                return $fake->paginate('rota/shift-swaps', 'shift-swap-requests', $records, $request);
+            }),
+
             $transition('cancel'),
             $transition('accept'),
             $transition('decline'),
