@@ -1,6 +1,6 @@
 # SupportManager SDK
 
-`support-manager/sdk` is the shared PHP client for the SupportManager backend API (v1). When this package is installed, talk to the API **only** through it — never hand-roll `Http::` calls, token storage, or refresh logic.
+`supportmanager/sdk` is the shared PHP client for the SupportManager backend API (v1). When this package is installed, talk to the API **only** through it — never hand-roll `Http::` calls, token storage, or refresh logic.
 
 ## Setup (required)
 

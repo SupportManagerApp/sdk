@@ -1,6 +1,6 @@
 # SupportManager PHP SDK
 
-`support-manager/sdk` — the shared PHP client for the SupportManager backend
+`supportmanager/sdk` — the shared PHP client for the SupportManager backend
 API (v1). It is consumed by every first-party Laravel app (the NativePHP mobile
 app today, a desktop app later) so the networking layer is written once, not
 duplicated per platform.

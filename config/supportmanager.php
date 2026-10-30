@@ -12,11 +12,11 @@ return [
     | Configuration for the SupportManager backend that client apps talk to.
     | "base_url" is the application root (NOT including /api/v1); the API
     | client appends the versioned path itself. Auth endpoints live on the
-    | central domain, e.g. https://app.supportmanager.com/api/v1/auth/login.
+    | central domain, e.g. https://app.support-manager.co.uk/api/v1/auth/login.
     |
     */
 
-    'base_url' => env('SUPPORTMANAGER_API_URL', 'https://app.share.support-manager.co.uk'),
+    'base_url' => env('SUPPORTMANAGER_API_URL', 'https://app.support-manager.co.uk'),
 
     /*
     | Sent as "device_name" when issuing tokens so users can identify and
