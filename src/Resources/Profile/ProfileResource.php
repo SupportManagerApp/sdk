@@ -17,7 +17,8 @@ use SupportManager\Sdk\Resources\Resource;
 
 /**
  * The authenticated user's own profile — identity, personal details, address,
- * emergency contact, avatar, password and payroll bank details.
+ * emergency contact, avatar (upload and removal), password and payroll bank
+ * details.
  *
  * Unlike most resources this is a singleton view of the current user rather than
  * a queryable collection, so it exposes intent-named actions instead of
@@ -163,12 +164,40 @@ final class ProfileResource extends Resource
     }
 
     /**
-     * Remove the user's avatar (`DELETE user/avatar`).
+     * Upload a new avatar image (`POST user/avatar`), returning its new URL.
      *
-     * Note: uploading an avatar (`POST user/avatar`) is a multipart file upload
-     * and is intentionally out of scope for this typed surface — issue it through
-     * the tenant-scoped {@see Resource::tenant()} escape hatch with an
-     * `attach()`ed request when needed, so it still carries X-Team-ID.
+     * Sent as a multipart `avatar` file part through the tenant-scoped
+     * {@see Resource::tenant()} helper, so it still carries X-Team-ID. The
+     * server accepts JPG/JPEG/PNG up to 2MB and answers a bad file with a 422
+     * ({@see \SupportManager\Sdk\Exceptions\ApiValidationException} on
+     * `avatar`). The response is a plain `{data: {avatar_url}}` body rather
+     * than a JSON:API document; the URL is a short-lived signed link, so
+     * re-read {@see self::me()} rather than caching it.
+     *
+     * Takes the raw bytes rather than a path or stream so a host app can pass
+     * whatever it holds — `$upload->get()` and `$upload->getClientOriginalName()`
+     * from an `UploadedFile`, `Storage::get(...)`, or `file_get_contents(...)` —
+     * and so the body can be replayed when the request is retried after a
+     * token refresh.
+     *
+     * @param  string  $contents  The image's raw bytes.
+     * @param  string  $filename  The client filename, e.g. `avatar.png`; its extension sets the part's Content-Type.
+     */
+    public function uploadAvatar(string $contents, string $filename): ?string
+    {
+        $response = $this->tenant(fn (PendingRequest $request): Response => $request
+            ->attach('avatar', $contents, $filename)
+            ->post('user/avatar'));
+
+        $this->throwForErrorResponse($response, 'user/avatar');
+
+        $url = $response->json('data.avatar_url');
+
+        return is_string($url) ? $url : null;
+    }
+
+    /**
+     * Remove the user's avatar (`DELETE user/avatar`), reverting to the default.
      */
     public function deleteAvatar(): void
     {

@@ -7,8 +7,8 @@ namespace SupportManager\Sdk\Data\Rota;
 /**
  * Helpers for reading resources nested inside a JSON:API attribute bag.
  *
- * The platform serialises related rota records (a swap's entries, an offer's
- * entries, an application's shift) inline as either a bare flat object or a
+ * The platform serialises related rota records (such as an application's
+ * shift) inline as either a bare flat object or a
  * `{data: {id, attributes}}` JSON:API object. These helpers normalise both
  * shapes into the flat array a DTO's `fromArray()` expects.
  */

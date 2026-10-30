@@ -27,6 +27,7 @@ use SupportManager\Sdk\Resources\Leave\ManualAdjustmentsResource;
 use SupportManager\Sdk\Resources\Notifications\NotificationsResource;
 use SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\EstimatedPayResource;
+use SupportManager\Sdk\Resources\Payroll\P45sResource;
 use SupportManager\Sdk\Resources\Payroll\P60sResource;
 use SupportManager\Sdk\Resources\Payroll\PayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\PayRunsResource;
@@ -38,10 +39,9 @@ use SupportManager\Sdk\Resources\PushNotifications\DeviceTokensResource;
 use SupportManager\Sdk\Resources\Resource;
 use SupportManager\Sdk\Resources\Rota\AppointmentsResource;
 use SupportManager\Sdk\Resources\Rota\CalendarResource;
+use SupportManager\Sdk\Resources\Rota\QuickAddResource;
 use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
-use SupportManager\Sdk\Resources\Rota\ShiftSwapOffersResource;
-use SupportManager\Sdk\Resources\Rota\ShiftSwapsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
 use SupportManager\Sdk\Session\AuthSession;
@@ -127,7 +127,7 @@ final class SupportManager
      * Swap the SDK onto an in-memory fake of the API, for tests and local
      * development.
      *
-     * Seed it with {@see \SupportManager\Sdk\Testing\Factory factories} and every
+     * Seed it with {@see Testing\Factory factories} and every
      * SDK call runs through the real client pipeline into the fake instead of the
      * network — so the host app never hand-rolls HTTP mocks of the JSON:API wire
      * format. Installing also primes a fake authenticated session, so
@@ -304,18 +304,6 @@ final class SupportManager
         return $this->resource(ShiftApplicationsResource::class);
     }
 
-    /** Rota — shift swap requests and their workflow. */
-    public function shiftSwaps(): ShiftSwapsResource
-    {
-        return $this->resource(ShiftSwapsResource::class);
-    }
-
-    /** Rota — offers made against shift swap requests. */
-    public function shiftSwapOffers(): ShiftSwapOffersResource
-    {
-        return $this->resource(ShiftSwapOffersResource::class);
-    }
-
     /** Rota — appointments, including upcoming. */
     public function appointments(): AppointmentsResource
     {
@@ -328,6 +316,12 @@ final class SupportManager
         return $this->resource(CalendarResource::class);
     }
 
+    /** Rota — quick-add text parsing (submit, then poll by token). */
+    public function quickAdd(): QuickAddResource
+    {
+        return $this->resource(QuickAddResource::class);
+    }
+
     /** Payroll — payslips, with latest and download. */
     public function payslips(): PayslipsResource
     {
@@ -338,6 +332,12 @@ final class SupportManager
     public function p60s(): P60sResource
     {
         return $this->resource(P60sResource::class);
+    }
+
+    /** Payroll — P45 documents, with download. */
+    public function p45s(): P45sResource
+    {
+        return $this->resource(P45sResource::class);
     }
 
     /** Payroll — timesheets, with download. */

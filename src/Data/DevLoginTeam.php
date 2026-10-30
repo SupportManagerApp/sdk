@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SupportManager\Sdk\Data;
+
+/**
+ * A team membership on a {@see DevLoginUser}, with the role and status the
+ * account holds in that team.
+ *
+ * `role` (e.g. Admin, Manager, PA, Family Member, Contractor) and `status` are
+ * open-ended on the platform, so they are kept as strings; either is null when
+ * the account has no settings row for the team. The `id` is the value to send
+ * as `X-Team-ID` once logged in.
+ */
+final readonly class DevLoginTeam
+{
+    public function __construct(
+        public int $id,
+        public string $slug,
+        public string $name,
+        public ?string $role = null,
+        public ?string $status = null,
+    ) {}
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            id: (int) $data['id'],
+            slug: (string) ($data['slug'] ?? ''),
+            name: (string) ($data['name'] ?? ''),
+            role: isset($data['role']) ? (string) $data['role'] : null,
+            status: isset($data['status']) ? (string) $data['status'] : null,
+        );
+    }
+}

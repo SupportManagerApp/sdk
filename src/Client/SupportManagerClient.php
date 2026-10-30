@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Client;
 
+use GuzzleHttp\Psr7\MultipartStream;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Psr\Http\Message\RequestInterface;
 use SupportManager\Sdk\Concerns\MapsApiErrors;
 use SupportManager\Sdk\Data\AuthTokens;
+use SupportManager\Sdk\Data\DevLoginUser;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\DeviceVerificationRequiredException;
+use SupportManager\Sdk\Exceptions\DevLoginUnavailableException;
 use SupportManager\Sdk\Exceptions\InvalidCredentialsException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 
@@ -101,7 +106,112 @@ final class SupportManagerClient
      */
     public function logout(string $accessToken): void
     {
-        $this->postJson('auth/logout', [], ['Authorization' => "Bearer {$accessToken}"]);
+        $this->postJson('auth/logout', [], $this->bearerHeaders($accessToken));
+    }
+
+    // ──────────────────────────── Companion devices ────────────────────────────
+
+    /**
+     * Issue a separate token pair for a companion device paired with the
+     * calling device (e.g. an Apple Watch paired with the iPhone holding
+     * $accessToken), so it can reach the API on its own.
+     *
+     * The companion inherits the caller's device trust — no verification step
+     * runs. Its tokens carry the `companion` ability and a 7-day refresh
+     * lifetime, which {@see self::refresh()} preserves. The returned tokens
+     * carry no user.
+     *
+     * $deviceName must not be a prefix of, nor be prefixed by, any existing
+     * device name on the account: tokens are revoked by name prefix, so a
+     * colliding name would sign the other device out.
+     *
+     * @throws InvalidCredentialsException when $accessToken is missing/invalid (401)
+     * @throws ApiValidationException when $deviceName collides with an existing device (422)
+     * @throws SupportManagerApiException on any other failure, including a 403 when
+     *                                    the caller is itself a companion device or
+     *                                    the token lacks the `access` ability
+     */
+    public function issueCompanionToken(string $accessToken, string $deviceName): AuthTokens
+    {
+        $data = $this->postJson('auth/companion-token', [
+            'device_name' => $deviceName,
+        ], $this->bearerHeaders($accessToken));
+
+        return AuthTokens::fromArray($data['data']);
+    }
+
+    /**
+     * Revoke a companion device's tokens without disturbing the calling
+     * device's session — e.g. when the watch is lost. $deviceName must match
+     * the name the companion tokens were issued under exactly. To revoke the
+     * calling device itself use {@see self::logout()}.
+     *
+     * @throws InvalidCredentialsException when $accessToken is missing/invalid (401)
+     * @throws ApiValidationException when $deviceName is the calling device's own name (422)
+     * @throws SupportManagerApiException on any other failure, including a 404 when
+     *                                    no tokens exist for $deviceName
+     */
+    public function revokeCompanionToken(string $accessToken, string $deviceName): void
+    {
+        $this->deleteJson('auth/companion-token', [
+            'device_name' => $deviceName,
+        ], $this->bearerHeaders($accessToken));
+    }
+
+    // ───────────────────────────── Developer login ─────────────────────────────
+
+    /**
+     * List the accounts available for password-free developer login, with
+     * their team memberships, for a "sign in as…" picker.
+     *
+     * NON-PRODUCTION ONLY. The platform registers these routes solely on
+     * environments with developer login enabled (local, develop, development,
+     * feature, testing — never production or a production host); everywhere
+     * else they do not exist. Requires no authentication.
+     *
+     * @return list<DevLoginUser>
+     *
+     * @throws DevLoginUnavailableException when the environment has no developer login (404)
+     * @throws SupportManagerApiException on any other failure
+     */
+    public function devLoginUsers(): array
+    {
+        $data = $this->handleDevLogin('get', 'auth/dev/users');
+
+        return array_values(array_map(
+            static fn (array $user): DevLoginUser => DevLoginUser::fromArray($user),
+            array_filter(is_array($data['data'] ?? null) ? $data['data'] : [], is_array(...)),
+        ));
+    }
+
+    /**
+     * Issue a token pair for the chosen account ({@see self::devLoginUsers()})
+     * with no password and no device verification. The tokens behave exactly
+     * like a real login's, including {@see self::refresh()}.
+     *
+     * NON-PRODUCTION ONLY — see {@see self::devLoginUsers()}. Never ship a
+     * build that relies on this.
+     *
+     * Unlike {@see self::login()}, $deviceName does not fall back to the
+     * configured device name: when omitted the platform issues the tokens
+     * under "Developer Login", deliberately distinct from any real device so
+     * its prefix-based token revocation cannot sign a genuine device out.
+     *
+     * @throws DevLoginUnavailableException when the environment has no developer login (404)
+     * @throws ApiValidationException when the user id is unknown (422)
+     * @throws SupportManagerApiException on any other failure
+     */
+    public function devLogin(int $userId, ?string $deviceName = null): AuthTokens
+    {
+        $payload = ['user_id' => $userId];
+
+        if ($deviceName !== null) {
+            $payload['device_name'] = $deviceName;
+        }
+
+        $data = $this->handleDevLogin('post', 'auth/dev/login', $payload);
+
+        return AuthTokens::fromArray($data['data']);
     }
 
     // ──────────────────────────── Device verification ────────────────────────────
@@ -210,6 +320,22 @@ final class SupportManagerClient
         return $request;
     }
 
+    /**
+     * Give a multipart body its `multipart/form-data; boundary=…` Content-Type.
+     *
+     * {@see self::pending()} pins `Content-Type: application/json`, and neither
+     * `attach()` nor Guzzle replaces an explicit header — so without this an
+     * uploaded file goes out labelled as JSON and the server sees no file.
+     */
+    private static function multipartContentType(RequestInterface $request): RequestInterface
+    {
+        $body = $request->getBody();
+
+        return $body instanceof MultipartStream
+            ? $request->withHeader('Content-Type', 'multipart/form-data; boundary='.$body->getBoundary())
+            : $request;
+    }
+
     // ───────────────────────────────── Internals ─────────────────────────────────
 
     private function pending(): PendingRequest
@@ -217,6 +343,7 @@ final class SupportManagerClient
         return Http::baseUrl($this->baseUrl)
             ->acceptJson()
             ->asJson()
+            ->withRequestMiddleware(self::multipartContentType(...))
             ->timeout($this->timeout)
             ->connectTimeout($this->connectTimeout);
     }
@@ -227,6 +354,14 @@ final class SupportManagerClient
     private function verificationHeaders(string $verificationToken): array
     {
         return ['Authorization' => "VerificationSession {$verificationToken}"];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function bearerHeaders(string $accessToken): array
+    {
+        return ['Authorization' => "Bearer {$accessToken}"];
     }
 
     /**
@@ -249,6 +384,38 @@ final class SupportManagerClient
     }
 
     /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $headers
+     * @return array<string, mixed>
+     */
+    private function deleteJson(string $uri, array $data = [], array $headers = []): array
+    {
+        return $this->handle($this->pending()->withHeaders($headers), 'delete', $uri, $data);
+    }
+
+    /**
+     * Like {@see self::handle()}, but a 404 means the environment has no
+     * developer login (the routes are unregistered) rather than a broken API
+     * URL, so it is raised as {@see DevLoginUnavailableException} and not
+     * logged as an API error.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function handleDevLogin(string $method, string $uri, array $data = []): array
+    {
+        $response = $this->send($this->pending(), $method, $uri, $data);
+
+        if ($response->status() === 404) {
+            throw new DevLoginUnavailableException(body: $response->body());
+        }
+
+        $this->throwForErrorResponse($response, $this->baseUrl.'/'.$uri);
+
+        return $response->json() ?? [];
+    }
+
+    /**
      * Execute the request, normalising connection failures and error
      * responses into typed exceptions, and return the decoded JSON body.
      *
@@ -257,16 +424,29 @@ final class SupportManagerClient
      */
     private function handle(PendingRequest $request, string $method, string $uri, array $data = []): array
     {
-        try {
-            $response = $method === 'get'
-                ? $request->get($uri)
-                : $request->post($uri, $data);
-        } catch (ConnectionException $e) {
-            throw $this->throwForConnectionFailure($e, $this->baseUrl.'/'.$uri);
-        }
+        $response = $this->send($request, $method, $uri, $data);
 
         $this->throwForErrorResponse($response, $this->baseUrl.'/'.$uri);
 
         return $response->json() ?? [];
+    }
+
+    /**
+     * Execute the request, normalising connection failures into a
+     * {@see SupportManagerApiException}, and return the raw response.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function send(PendingRequest $request, string $method, string $uri, array $data = []): Response
+    {
+        try {
+            return match ($method) {
+                'get' => $request->get($uri),
+                'delete' => $request->delete($uri, $data),
+                default => $request->post($uri, $data),
+            };
+        } catch (ConnectionException $e) {
+            throw $this->throwForConnectionFailure($e, $this->baseUrl.'/'.$uri);
+        }
     }
 }

@@ -21,9 +21,10 @@ use SupportManager\Sdk\Testing\RecordStore;
  * stores ONE record under the `user` path and hand-routes every endpoint. All of
  * them speak JSON:API — they hydrate via `Document`/`ResourceObject` — so the
  * `type()` is `users` and responses are `{data: {type, id, attributes}}`
- * documents. Profile is non-tenant (no X-Team-ID) but flows through the fake
- * normally; bank-details is the one tenant-scoped endpoint, but at the fake layer
- * it is just another route.
+ * documents. The exception is `user/avatar`: its multipart upload answers a
+ * plain `{data: {avatar_url}}` body (and a 422 when no `avatar` part is sent),
+ * and its removal a bare 204. Every `user/*` route is tenant-scoped (X-Team-ID),
+ * but at the fake layer each is just another route.
  *
  * The seeded record carries the full profile plus its nested `address`,
  * `emergency_contact` and `bank_details`; each route projects the slice it owns.
@@ -171,8 +172,29 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                 ['message' => 'Password changed successfully.'],
             )),
 
-            // user/avatar — removal.
-            FakeRoute::delete('user/avatar', static fn (): mixed => Http::response(['message' => 'Deleted'])),
+            // user/avatar — multipart upload & removal. The upload stores a
+            // fake signed URL on the record (so `me()` reflects it) and answers
+            // the platform's plain `{data: {avatar_url}}` body.
+            FakeRoute::post('user/avatar', static function (RecordStore $store, array $matches, Request $request): mixed {
+                $part = self::avatarPart($request);
+
+                if ($part === null) {
+                    return Http::response([
+                        'message' => 'An avatar image is required.',
+                        'errors' => ['avatar' => ['An avatar image is required.']],
+                    ], 422);
+                }
+
+                $url = 'https://cdn.test/avatars/'.rawurlencode($part['filename'] ?? 'avatar');
+                $store->put('user', [[...self::record($store), 'avatar' => $url]]);
+
+                return Http::response(['data' => ['avatar_url' => $url]]);
+            }),
+            FakeRoute::delete('user/avatar', static function (RecordStore $store): mixed {
+                $store->put('user', [[...self::record($store), 'avatar' => null]]);
+
+                return Http::response('', 204);
+            }),
 
             // user/bank-details — tenant-scoped read & replace.
             FakeRoute::get('user/bank-details', static fn (RecordStore $store): mixed => self::nestedResponse(
@@ -195,6 +217,28 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
     private static function record(RecordStore $store): array
     {
         return $store->all('user')[0] ?? ['id' => '0', 'name' => ''];
+    }
+
+    /**
+     * The multipart `avatar` file part of an upload request, or null when the
+     * request is not multipart or carries no `avatar` part.
+     *
+     * @return array{name: string, contents: mixed, filename?: string}|null
+     */
+    private static function avatarPart(Request $request): ?array
+    {
+        if (! $request->isMultipart()) {
+            return null;
+        }
+
+        foreach ($request->data() as $part) {
+            if (is_array($part) && ($part['name'] ?? null) === 'avatar' && ($part['contents'] ?? '') !== '') {
+                /** @var array{name: string, contents: mixed, filename?: string} $part */
+                return $part;
+            }
+        }
+
+        return null;
     }
 
     /**

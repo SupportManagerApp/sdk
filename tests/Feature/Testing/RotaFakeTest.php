@@ -6,21 +6,20 @@ use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\Appointment;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
+use SupportManager\Sdk\Data\Rota\QuickAddParse;
 use SupportManager\Sdk\Data\Rota\Shift;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
-use SupportManager\Sdk\Data\Rota\ShiftSwapOffer;
-use SupportManager\Sdk\Data\Rota\ShiftSwapRequest;
 use SupportManager\Sdk\Enums\Rota\EntryType;
-use SupportManager\Sdk\Enums\Rota\ShiftSwapStatus;
+use SupportManager\Sdk\Enums\Rota\QuickAddIntent;
+use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\AnniversaryFactory;
 use SupportManager\Sdk\Testing\Factories\AppointmentFactory;
 use SupportManager\Sdk\Testing\Factories\BankHolidayFactory;
 use SupportManager\Sdk\Testing\Factories\BirthdayFactory;
+use SupportManager\Sdk\Testing\Factories\QuickAddParseFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftApplicationFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftFactory;
-use SupportManager\Sdk\Testing\Factories\ShiftSwapFactory;
-use SupportManager\Sdk\Testing\Factories\ShiftSwapOfferFactory;
 
 // Host-style tests: seed factories, call the SDK normally, assert on DTOs.
 // No Http::fake(), no JSON:API envelopes by hand.
@@ -70,6 +69,66 @@ it('applies for an available shift and records the application', function () {
         ->and(SupportManager::shiftApplications()->all()->total())->toBe(1);
 });
 
+it('serves the unpaginated upcoming shift feed, bounded by limit', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new()->count(2),
+        ShiftFactory::new()->upcoming()->count(3),
+    );
+
+    expect(SupportManager::shifts()->upcoming())->toHaveCount(3)
+        ->and(SupportManager::shifts()->upcoming(['limit' => 2]))->toHaveCount(2);
+});
+
+it('creates a shift from quick-add fields as published overtime', function () {
+    SupportManager::fake()->seed(ShiftFactory::new()->count(1));
+
+    $shift = SupportManager::shifts()->create([
+        'assignee_id' => 12,
+        'date' => '2026-08-17',
+        'start_time' => '09:00',
+        'end_time' => '17:00',
+        'notes' => 'covering for Jane',
+    ]);
+
+    expect($shift?->id)->toBe('2')
+        ->and($shift->userId)->toBe(12)
+        ->and($shift->type)->toBe(EntryType::OvertimeHours)
+        ->and($shift->isOvertime)->toBeTrue()
+        ->and($shift->isPublished)->toBeTrue()
+        ->and($shift->start)->toBe('2026-08-17T09:00:00+00:00')
+        ->and($shift->end)->toBe('2026-08-17T17:00:00+00:00')
+        ->and($shift->duration)->toBe(8.0)
+        ->and($shift->notes)->toBe('covering for Jane')
+        ->and(SupportManager::shifts()->find(2)?->userId)->toBe(12)
+        ->and(SupportManager::shifts()->all()->total())->toBe(2);
+});
+
+it('rolls an overnight sleeping night and defaults a missing end to an hour', function () {
+    SupportManager::fake()->seed(ShiftFactory::new()->count(0));
+
+    $night = SupportManager::shifts()->create([
+        'assignee_id' => 12,
+        'date' => '2026-08-17',
+        'start_time' => '22:00',
+        'end_time' => '07:00',
+        'is_sleeping_night' => true,
+    ]);
+    $short = SupportManager::shifts()->create(['assignee_id' => 12, 'date' => '2026-08-17', 'start_time' => '09:00']);
+
+    expect($night?->type)->toBe(EntryType::OvertimeSleepingNight)
+        ->and($night->isSleepingNight)->toBeTrue()
+        ->and($night->end)->toBe('2026-08-18T07:00:00+00:00')
+        ->and($night->duration)->toBe(9.0)
+        ->and($short?->end)->toBe('2026-08-17T10:00:00+00:00');
+});
+
+it('rejects a shift missing its required fields', function () {
+    SupportManager::fake()->seed(ShiftFactory::new()->count(0));
+
+    expect(fn () => SupportManager::shifts()->create(['date' => '2026-08-17']))
+        ->toThrow(ApiValidationException::class);
+});
+
 // ── Shift applications ────────────────────────────────────────────────────────
 
 it('lists seeded applications with their nested shift and cancels one', function () {
@@ -85,94 +144,6 @@ it('lists seeded applications with their nested shift and cancels one', function
     SupportManager::shiftApplications()->cancel(1);
 
     expect(SupportManager::shiftApplications()->all()->total())->toBe(1);
-});
-
-// ── Shift swaps ──────────────────────────────────────────────────────────────
-
-it('finds a swap with typed status and nested entries', function () {
-    SupportManager::fake()->seed(ShiftSwapFactory::new()->count(2));
-
-    $swap = SupportManager::shiftSwaps()->find(1);
-
-    expect($swap)->toBeInstanceOf(ShiftSwapRequest::class)
-        ->and($swap?->status)->toBe(ShiftSwapStatus::PendingResponse)
-        ->and($swap?->requesterName)->toBe('Requester 1')
-        ->and($swap?->requesterEntries)->toHaveCount(1)
-        ->and($swap?->requesterEntries[0]->side)->toBe('requester');
-});
-
-it('creates a swap and runs each workflow transition', function () {
-    SupportManager::fake()->seed(ShiftSwapFactory::new()->count(1));
-
-    $created = SupportManager::shiftSwaps()->create(['type' => 'Directed', 'target_user_id' => 2]);
-    expect($created?->id)->toBe('2');
-
-    $cases = [
-        'cancel' => ShiftSwapStatus::Cancelled,
-        'accept' => ShiftSwapStatus::BothAgreed,
-        'decline' => ShiftSwapStatus::Declined,
-        'approve' => ShiftSwapStatus::Approved,
-        'reject' => ShiftSwapStatus::Rejected,
-    ];
-
-    foreach ($cases as $action => $expected) {
-        $swap = SupportManager::shiftSwaps()->{$action}(1);
-        expect($swap?->status)->toBe($expected);
-    }
-});
-
-it('makes an offer against an open swap', function () {
-    SupportManager::fake()->seed(ShiftSwapFactory::new()->openForOffers());
-
-    $offer = SupportManager::shiftSwaps()->offer(1, ['offered_shift_ids' => [34]]);
-
-    expect($offer)->toBeInstanceOf(ShiftSwapOffer::class)
-        ->and($offer?->status)->toBe('Pending Response');
-});
-
-it('narrows the swap list by scope, and lists all when unscoped', function () {
-    SupportManager::fake()->seed(
-        ShiftSwapFactory::new(),                  // incoming (directed at me)
-        ShiftSwapFactory::new()->openForOffers(), // available (open for offers)
-        ShiftSwapFactory::new()->mine(),          // raised by me
-    );
-
-    $incoming = SupportManager::shiftSwaps()->query()->filter('scope', 'incoming')->get();
-    expect($incoming->items())->toHaveCount(1)
-        ->and($incoming->items()[0]->id)->toBe('1')
-        ->and($incoming->items()[0]->type)->toBe('Directed');
-
-    $available = SupportManager::shiftSwaps()->query()->filter('scope', 'available')->get();
-    expect($available->items())->toHaveCount(1)
-        ->and($available->items()[0]->id)->toBe('2')
-        ->and($available->items()[0]->type)->toBe('Open');
-
-    expect(SupportManager::shiftSwaps()->query()->filter('scope', 'mine')->get()->items())->toHaveCount(1);
-
-    // Unscoped: every seeded swap, falling through to the generic list.
-    expect(SupportManager::shiftSwaps()->all()->items())->toHaveCount(3);
-});
-
-// ── Shift swap offers ─────────────────────────────────────────────────────────
-
-it('accepts an offer and returns the finalised parent swap', function () {
-    SupportManager::fake()->seed(
-        ShiftSwapFactory::new()->openForOffers(),
-        ShiftSwapOfferFactory::new()->forSwap(1),
-    );
-
-    $swap = SupportManager::shiftSwapOffers()->accept(1);
-
-    expect($swap)->toBeInstanceOf(ShiftSwapRequest::class)
-        ->and($swap?->id)->toBe('1')
-        ->and($swap?->status)->toBe(ShiftSwapStatus::Approved);
-});
-
-it('declines and withdraws an offer, returning the updated offer', function () {
-    SupportManager::fake()->seed(ShiftSwapOfferFactory::new()->count(2));
-
-    expect(SupportManager::shiftSwapOffers()->decline(1)?->status)->toBe('Declined')
-        ->and(SupportManager::shiftSwapOffers()->withdraw(2)?->status)->toBe('Cancelled');
 });
 
 // ── Appointments ──────────────────────────────────────────────────────────────
@@ -192,6 +163,108 @@ it('lists, finds and serves upcoming appointments', function () {
         ->and(SupportManager::appointments()->find(999))->toBeNull()
         ->and($upcoming)->toHaveCount(1)
         ->and($upcoming[0]->title)->toBe('Soon');
+});
+
+it('creates timed and all-day appointments from quick-add fields', function () {
+    SupportManager::fake()->seed(AppointmentFactory::new()->count(1));
+
+    $dentist = SupportManager::appointments()->create([
+        'title' => 'Dentist',
+        'date' => '2026-08-18',
+        'start_time' => '15:30',
+        'duration_minutes' => 30,
+        'location' => '12 High Street',
+        'notes' => 'Bring a list of current medication.',
+    ]);
+    $holiday = SupportManager::appointments()->create([
+        'title' => 'Holiday in France',
+        'date' => '2026-08-12',
+        'end_date' => '2026-08-19',
+        'is_all_day' => true,
+    ]);
+    $late = SupportManager::appointments()->create(['title' => 'Gig', 'date' => '2026-08-18', 'start_time' => '22:00', 'end_time' => '01:00']);
+
+    expect($dentist?->id)->toBe('2')
+        ->and($dentist->start)->toBe('2026-08-18T15:30:00+00:00')
+        ->and($dentist->end)->toBe('2026-08-18T16:00:00+00:00')
+        ->and($dentist->notes)->toBe('Bring a list of current medication.')
+        ->and($holiday?->isAllDay)->toBeTrue()
+        ->and($holiday->start)->toBe('2026-08-12T00:00:00+00:00')
+        ->and($holiday->end)->toBe('2026-08-19T23:59:59+00:00')
+        ->and($late?->end)->toBe('2026-08-19T01:00:00+00:00')
+        ->and(SupportManager::appointments()->all()->total())->toBe(4);
+});
+
+it('rejects a timed appointment without a start time', function () {
+    SupportManager::fake()->seed(AppointmentFactory::new()->count(0));
+
+    expect(fn () => SupportManager::appointments()->create(['title' => 'Dentist', 'date' => '2026-08-18']))
+        ->toThrow(ApiValidationException::class);
+});
+
+// ── Quick add (flat) ──────────────────────────────────────────────────────────
+
+it('parses then polls a scripted quick-add outcome', function () {
+    SupportManager::fake()->seed(QuickAddParseFactory::new());
+
+    $quickAdd = SupportManager::quickAdd();
+    $parse = $quickAdd->parse('dentist tuesday half three', 'Europe/London');
+    $state = $quickAdd->poll((string) $parse?->token);
+
+    expect($parse)->toBeInstanceOf(QuickAddParse::class)
+        ->and($parse->isPending())->toBeTrue()
+        ->and($parse->expiresIn)->toBe(300)
+        ->and($state?->isCompleted())->toBeTrue()
+        ->and($state->result?->intent)->toBe(QuickAddIntent::Appointment)
+        ->and($state->result->title)->toBe('Dentist')
+        ->and($state->result->durationMinutes)->toBe(30)
+        ->and(SupportManager::fake()->store()->all('rota/quick-add/parse')[0]['text'])->toBe('dentist tuesday half three')
+        ->and(SupportManager::fake()->store()->all('rota/quick-add/parse')[0]['timezone'])->toBe('Europe/London');
+});
+
+it('confirms a parsed shift straight into shifts()->create()', function () {
+    SupportManager::fake()->seed(
+        QuickAddParseFactory::new()->shift(),
+        ShiftFactory::new()->count(0),
+    );
+
+    $quickAdd = SupportManager::quickAdd();
+    $result = $quickAdd->poll((string) $quickAdd->parse('Sarah 9-5 Monday, tag training')?->token)?->result;
+    $shift = SupportManager::shifts()->create($result?->toShiftPayload() ?? []);
+
+    expect($result?->intent)->toBe(QuickAddIntent::Shift)
+        ->and($result->assigneeId)->toBe(12)
+        ->and($shift?->userId)->toBe(12)
+        ->and($shift->start)->toBe('2026-08-17T09:00:00+00:00')
+        ->and($shift->end)->toBe('2026-08-17T17:00:00+00:00');
+});
+
+it('consumes scripted outcomes in order, then answers failed', function () {
+    SupportManager::fake()->seed(
+        QuickAddParseFactory::new()->pending(),
+        QuickAddParseFactory::new()->failed('Try again.'),
+    );
+
+    $quickAdd = SupportManager::quickAdd();
+    $first = $quickAdd->parse('first');
+    $second = $quickAdd->parse('second');
+    $third = $quickAdd->parse('third');
+
+    expect($first?->token)->not->toBe($second?->token)
+        ->and($quickAdd->poll((string) $first?->token)?->isPending())->toBeTrue()
+        ->and($quickAdd->poll((string) $second?->token)?->hint)->toBe('Try again.')
+        ->and($quickAdd->poll((string) $third?->token)?->isFailed())->toBeTrue()
+        ->and($quickAdd->poll((string) $third?->token)?->hint)->toBe(QuickAddParseFactory::FAILURE_HINT);
+});
+
+it('404s an unknown or unclaimed quick-add token', function () {
+    SupportManager::fake()->seed(QuickAddParseFactory::new());
+
+    $quickAdd = SupportManager::quickAdd();
+
+    expect($quickAdd->poll('00000000-0000-4000-8000-000000000001'))->toBeNull()
+        ->and($quickAdd->poll('nope'))->toBeNull()
+        ->and(fn () => $quickAdd->parse('x'))->toThrow(ApiValidationException::class);
 });
 
 // ── Calendar feeds (flat) ─────────────────────────────────────────────────────

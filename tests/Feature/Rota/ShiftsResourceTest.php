@@ -152,3 +152,68 @@ it('maps a 422 on apply to a validation exception', function () {
     expect(fn () => rotaShifts()->apply(3))
         ->toThrow(ApiValidationException::class);
 });
+
+it('lists upcoming shifts and forwards query overrides', function () {
+    Http::fake(['api.test/api/v1/rota/shifts/upcoming*' => Http::response([
+        'data' => [['type' => 'rota-entries', 'id' => '9', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]]],
+        'meta' => ['team_id' => 42, 'mode' => 'team', 'days' => 7, 'limit' => 10],
+    ])]);
+    bootTenantSession();
+
+    $shifts = rotaShifts()->upcoming(['days' => 7, 'mode' => 'team']);
+
+    expect($shifts)->toHaveCount(1)
+        ->and($shifts[0])->toBeInstanceOf(Shift::class)
+        ->and($shifts[0]->id)->toBe('9');
+    Http::assertSent(function ($request) {
+        $url = urldecode($request->url());
+
+        return str_contains($url, 'rota/shifts/upcoming')
+            && str_contains($url, 'days=7')
+            && str_contains($url, 'mode=team');
+    });
+});
+
+it('creates a shift and hydrates the stored rota entry', function () {
+    Http::fake(['api.test/api/v1/rota/shifts' => Http::response([
+        'data' => ['type' => 'rota-entries', 'id' => '51', 'attributes' => [
+            'user_id' => 12,
+            'type' => 'Overtime Sleeping Night',
+            'start' => '2026-08-17T22:00:00+01:00',
+            'end' => '2026-08-18T07:00:00+01:00',
+            'duration' => 9,
+            'is_sleeping_night' => true,
+            'is_overtime' => true,
+        ]],
+        'meta' => ['team_id' => 42],
+    ], 201)]);
+    bootTenantSession();
+
+    $shift = rotaShifts()->create([
+        'assignee_id' => 12,
+        'date' => '2026-08-17',
+        'start_time' => '22:00',
+        'end_time' => '07:00',
+        'is_sleeping_night' => true,
+    ]);
+
+    expect($shift)->toBeInstanceOf(Shift::class)
+        ->and($shift->id)->toBe('51')
+        ->and($shift->type)->toBe(EntryType::OvertimeSleepingNight)
+        ->and($shift->isSleepingNight)->toBeTrue();
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && $request['assignee_id'] === 12
+        && $request['start_time'] === '22:00'
+        && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('maps a 422 on create to a validation exception', function () {
+    Http::fake(['api.test/api/v1/rota/shifts' => Http::response([
+        'message' => 'The selected assignee is not a member of this team.',
+        'errors' => ['assignee_id' => ['The selected assignee is not a member of this team.']],
+    ], 422)]);
+    bootTenantSession();
+
+    expect(fn () => rotaShifts()->create(['assignee_id' => 999, 'date' => '2026-08-17', 'start_time' => '09:00']))
+        ->toThrow(ApiValidationException::class);
+});

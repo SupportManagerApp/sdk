@@ -9,7 +9,9 @@ use SupportManager\Sdk\Data\Profile\EmergencyContact;
 use SupportManager\Sdk\Data\Profile\Profile;
 use SupportManager\Sdk\Data\Profile\User;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Resources\Profile\ProfileResource;
+use SupportManager\Sdk\Testing\Factories\ProfileFactory;
 
 function profileResource(): ProfileResource
 {
@@ -182,6 +184,57 @@ it('changes the password', function () {
         && $request['password'] === 'new-secret'
         && $request['password_confirmation'] === 'new-secret'
         && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('uploads the avatar as a multipart file with a team header', function () {
+    Http::fake(['api.test/api/v1/user/avatar' => Http::response(['data' => ['avatar_url' => 'https://cdn.test/avatars/new.png']])]);
+    bootTenantSession();
+
+    $url = profileResource()->uploadAvatar('PNG-BYTES', 'me.png');
+
+    expect($url)->toBe('https://cdn.test/avatars/new.png');
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/user/avatar')
+        && $request->hasHeader('X-Team-ID', '42')
+        && str_starts_with($request->header('Content-Type')[0], 'multipart/form-data; boundary=')
+        && $request->hasFile('avatar', 'PNG-BYTES', 'me.png')
+        && str_contains($request->body(), 'name="avatar"; filename="me.png"'));
+});
+
+it('maps a 422 on avatar upload to a validation exception', function () {
+    Http::fake(['api.test/api/v1/user/avatar' => Http::response([
+        'message' => 'The avatar must be a JPG, JPEG, or PNG file.',
+        'errors' => ['avatar' => ['The avatar must be a JPG, JPEG, or PNG file.']],
+    ], 422)]);
+    bootTenantSession();
+
+    try {
+        profileResource()->uploadAvatar('GIF89a', 'me.gif');
+        test()->fail('Expected ApiValidationException');
+    } catch (ApiValidationException $e) {
+        expect($e->first('avatar'))->toBe('The avatar must be a JPG, JPEG, or PNG file.');
+    }
+});
+
+it('uploads and removes the avatar through the fake', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    $url = SupportManager::profile()->uploadAvatar('PNG-BYTES', 'me.png');
+
+    expect($url)->toBe('https://cdn.test/avatars/me.png')
+        ->and(SupportManager::profile()->me()?->avatar)->toBe('https://cdn.test/avatars/me.png');
+
+    SupportManager::profile()->deleteAvatar();
+
+    expect(SupportManager::profile()->me()?->avatar)->toBeNull();
+});
+
+it('rejects an empty avatar upload through the fake', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    expect(fn () => SupportManager::profile()->uploadAvatar('', 'me.png'))
+        ->toThrow(ApiValidationException::class, 'An avatar image is required.');
 });
 
 it('deletes the avatar', function () {
