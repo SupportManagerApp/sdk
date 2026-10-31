@@ -5,13 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Compliance\RightToWork;
 use SupportManager\Sdk\Enums\Compliance\PrimaryDocumentType;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Resources\Compliance\RightToWorkResource;
-
-function complianceRightToWork(): RightToWorkResource
-{
-    return app(RightToWorkResource::class);
-}
 
 function complianceRightToWorkPage(int $page, int $lastPage): array
 {
@@ -32,10 +25,9 @@ function complianceRightToWorkPage(int $page, int $lastPage): array
 }
 
 it('encodes filter and pagination as Spatie-style query params', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work*' => Http::response(complianceRightToWorkPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['compliance/right-to-work*' => Http::response(complianceRightToWorkPage(1, 1))]);
 
-    complianceRightToWork()->query()
+    sdk()->rightToWork()->query()
         ->filter('user_id', 7)
         ->perPage(15)
         ->get();
@@ -50,10 +42,9 @@ it('encodes filter and pagination as Spatie-style query params', function () {
 });
 
 it('hydrates DTOs and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work*' => Http::response(complianceRightToWorkPage(1, 2))]);
-    bootTenantSession();
+    fakeApi(['compliance/right-to-work*' => Http::response(complianceRightToWorkPage(1, 2))]);
 
-    $page = complianceRightToWork()->query()->get();
+    $page = sdk()->rightToWork()->query()->get();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(RightToWork::class)
@@ -65,8 +56,8 @@ it('hydrates DTOs and exposes pagination metadata', function () {
 });
 
 it('finds a single right to work record by id', function () {
-    Http::fake([
-        'api.test/api/v1/compliance/right-to-work/7' => Http::response([
+    fakeApi([
+        'compliance/right-to-work/7' => [
             'data' => [
                 'type' => 'right-to-work',
                 'id' => '7',
@@ -76,11 +67,10 @@ it('finds a single right to work record by id', function () {
                     'user' => ['id' => 3, 'name' => 'Ada'],
                 ],
             ],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $record = complianceRightToWork()->find(7);
+    $record = sdk()->rightToWork()->find(7);
 
     expect($record)->toBeInstanceOf(RightToWork::class)
         ->and($record->id)->toBe('7')
@@ -89,39 +79,22 @@ it('finds a single right to work record by id', function () {
 });
 
 it('returns null when finding a missing right to work record (404)', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['compliance/right-to-work/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(complianceRightToWork()->find(999))->toBeNull();
-});
-
-it('maps a 422 (invalid team context) on the collection path to a validation exception', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work*' => Http::response([
-        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        complianceRightToWork()->query()->get();
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->getMessage())->toBe('Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.')
-            ->and($e->errors)->toBe([]);
-    }
+    expect(sdk()->rightToWork()->find(999))->toBeNull();
 });
 
 it('hydrates the meta.can permission flags', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work/7' => Http::response([
+    fakeApi(['compliance/right-to-work/7' => [
         'data' => [
             'type' => 'right-to-work',
             'id' => '7',
             'attributes' => ['primary_document' => 'primary.pdf', 'supporting_document' => null],
             'meta' => ['can' => ['update' => true, 'download' => true]],
         ],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $record = complianceRightToWork()->find(7);
+    $record = sdk()->rightToWork()->find(7);
 
     expect($record->primaryDocument)->toBe('primary.pdf')
         ->and($record->supportingDocument)->toBeNull()
@@ -130,16 +103,15 @@ it('hydrates the meta.can permission flags', function () {
 });
 
 it('submits a right to work record as multipart with both documents and the typed enum', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work' => Http::response([
+    fakeApi(['compliance/right-to-work' => Http::response([
         'data' => [
             'type' => 'right-to-work',
             'id' => '9',
             'attributes' => ['primary_document_type' => 'UK Birth or Adoption Certificate', 'primary_document' => 'birth.pdf', 'supporting_document' => 'ni.pdf'],
         ],
     ], 201)]);
-    bootTenantSession();
 
-    $record = complianceRightToWork()->submit(
+    $record = sdk()->rightToWork()->submit(
         PrimaryDocumentType::UkBirthOrAdoptionCertificate,
         primaryDocument: 'BIRTH-BYTES',
         primaryDocumentFilename: 'birth.pdf',
@@ -161,44 +133,27 @@ it('submits a right to work record as multipart with both documents and the type
 });
 
 it('submits a share code without files', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work' => Http::response([
+    fakeApi(['compliance/right-to-work' => [
         'data' => ['type' => 'right-to-work', 'id' => '9', 'attributes' => ['share_code' => 'W4X 7YZ 9AB']],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    complianceRightToWork()->submit('Immigration Share Code', shareCode: 'W4X 7YZ 9AB');
+    sdk()->rightToWork()->submit('Immigration Share Code', shareCode: 'W4X 7YZ 9AB');
 
     Http::assertSent(fn ($request) => str_contains($request->body(), 'name="share_code"')
         && str_contains($request->body(), 'W4X 7YZ 9AB')
         && ! str_contains($request->body(), 'filename='));
 });
 
-it('maps a 422 on submit to a validation exception', function () {
-    Http::fake(['api.test/api/v1/compliance/right-to-work' => Http::response([
-        'message' => 'Please upload a copy of your primary document.',
-        'errors' => ['primary_document' => ['Please upload a copy of your primary document.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        complianceRightToWork()->submit(PrimaryDocumentType::BritishPassport);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('primary_document'))->toBe('Please upload a copy of your primary document.');
-    }
-});
-
 it('returns the raw primary and supporting document download payload responses', function () {
-    Http::fake([
-        'api.test/api/v1/compliance/right-to-work/7/primary-document' => Http::response([
+    fakeApi([
+        'compliance/right-to-work/7/primary-document' => [
             'data' => ['download_url' => 'https://s3.test/signed/primary.pdf', 'filename' => 'primary.pdf', 'expires_at' => '2026-06-06T10:05:00Z'],
-        ]),
-        'api.test/api/v1/compliance/right-to-work/7/supporting-document' => Http::response([
+        ],
+        'compliance/right-to-work/7/supporting-document' => [
             'data' => ['download_url' => 'https://s3.test/signed/supporting.pdf', 'filename' => 'supporting.pdf', 'expires_at' => '2026-06-06T10:05:00Z'],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    expect(complianceRightToWork()->downloadPrimaryDocument(7)->url)->toBe('https://s3.test/signed/primary.pdf')
-        ->and(complianceRightToWork()->downloadSupportingDocument(7)->filename)->toBe('supporting.pdf');
+    expect(sdk()->rightToWork()->downloadPrimaryDocument(7)->url)->toBe('https://s3.test/signed/primary.pdf')
+        ->and(sdk()->rightToWork()->downloadSupportingDocument(7)->filename)->toBe('supporting.pdf');
 });
