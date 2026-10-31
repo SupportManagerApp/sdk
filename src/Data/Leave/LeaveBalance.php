@@ -11,6 +11,8 @@ namespace SupportManager\Sdk\Data\Leave;
  * Mirrors the platform's `LeaveBalanceResource`. This endpoint is not a
  * JSON:API resource object — it has no `id`/`type` — so it is hydrated straight
  * from the response `data` block rather than via the base `item()` helper.
+ * {@see $breakdown} is present only when the balance was fetched with
+ * `include=breakdown`, and null otherwise.
  */
 final readonly class LeaveBalance
 {
@@ -18,6 +20,7 @@ final readonly class LeaveBalance
         public ?int $year,
         public LeaveBalanceLine $hours,
         public LeaveBalanceLine $sleeps,
+        public ?LeaveEntitlementBreakdown $breakdown,
     ) {}
 
     /**
@@ -34,6 +37,7 @@ final readonly class LeaveBalance
             year: isset($data['year']) ? (int) $data['year'] : null,
             hours: LeaveBalanceLine::fromArray($hours),
             sleeps: LeaveBalanceLine::fromArray($sleeps),
+            breakdown: is_array($data['breakdown'] ?? null) ? LeaveEntitlementBreakdown::fromArray($data['breakdown']) : null,
         );
     }
 }

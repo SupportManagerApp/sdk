@@ -15,7 +15,8 @@ use SupportManager\Sdk\Resources\Resource;
  * (non-JSON:API) `data` payload, so this resource hand-rolls `show()` rather
  * than using the collection machinery. Pass `year`, `month`, and (for
  * privileged callers) `user_id` to target a specific projection; all default
- * server-side to the current month and authenticated user.
+ * server-side to the current month and authenticated user. A `user_id` outside
+ * the current team is a 422; family members and contractors get a 403.
  *
  * ```php
  * SupportManager::estimatedPay()->show(['year' => 2026, 'month' => 6]);

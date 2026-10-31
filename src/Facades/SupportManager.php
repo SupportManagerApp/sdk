@@ -48,6 +48,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static \SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource leaveEntitlements()
  * @method static \SupportManager\Sdk\Resources\Leave\LeaveBalanceResource leaveBalance()
  * @method static \SupportManager\Sdk\Resources\Leave\AdminLeaveResource leaveAdmin()
+ * @method static \SupportManager\Sdk\Resources\Leave\NotWorkingNoticesResource leaveNotWorkingNotices()
  * @method static \SupportManager\Sdk\Resources\Rota\ShiftsResource shifts()
  * @method static \SupportManager\Sdk\Resources\Rota\ShiftAmendmentRequestsResource shiftAmendmentRequests()
  * @method static \SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource shiftApplications()
@@ -64,6 +65,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static \SupportManager\Sdk\Resources\Payroll\EstimatedPayResource estimatedPay()
  * @method static \SupportManager\Sdk\Resources\Payroll\PayRunsResource payRuns()
  * @method static \SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource automaticPayEnhancements()
+ * @method static \SupportManager\Sdk\Resources\Payroll\StarterDeclarationResource starterDeclaration()
  *
  * @see \SupportManager\Sdk\SupportManager
  */

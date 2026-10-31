@@ -13,12 +13,15 @@ use SupportManager\Sdk\Resources\Resource;
  * Leaver P45 documents for the current team.
  *
  * The collection (`query()`, `find()`, `all()`) — filterable by `employee_id`
- * and `tax_year`, sortable by `leaving_date`/`published_at` (default
- * `-leaving_date`) — plus a raw PDF `download()`. Non-privileged users only
- * ever see their own P45s; anyone else's is a 403.
+ * and `tax_year` (the year the employee left in, e.g. `2026-27`), sortable by
+ * `leaving_date`/`published_at` (default `-leaving_date`) — plus a raw PDF
+ * `download()`. Non-privileged users only ever see their own P45s; anyone
+ * else's is a 403. Opening a P45 with `find()` or downloading it marks it
+ * `viewed`, as the web app does.
  *
  * ```php
- * SupportManager::p45s()->query()->filter('tax_year', '2025/26')->get();
+ * SupportManager::p45s()->query()->filter('tax_year', '2026-27')->get();
+ * SupportManager::p45s()->find(1);
  * ```
  *
  * @extends resource<P45>
@@ -28,7 +31,7 @@ final class P45sResource extends Resource
     /**
      * Download a P45 as a PDF. Returns the raw binary {@see Response} — the body
      * is the PDF, not a JSON:API document, so it is intentionally not hydrated
-     * into a DTO.
+     * into a DTO. Each download is recorded in the platform's audit log.
      */
     public function download(string|int $id): Response
     {

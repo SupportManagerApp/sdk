@@ -26,6 +26,7 @@ use SupportManager\Sdk\Resources\Leave\LeaveBalanceResource;
 use SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource;
 use SupportManager\Sdk\Resources\Leave\LeaveRequestsResource;
 use SupportManager\Sdk\Resources\Leave\ManualAdjustmentsResource;
+use SupportManager\Sdk\Resources\Leave\NotWorkingNoticesResource;
 use SupportManager\Sdk\Resources\Notifications\NotificationsResource;
 use SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\EstimatedPayResource;
@@ -34,6 +35,7 @@ use SupportManager\Sdk\Resources\Payroll\P60sResource;
 use SupportManager\Sdk\Resources\Payroll\PayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\PayRunsResource;
 use SupportManager\Sdk\Resources\Payroll\PayslipsResource;
+use SupportManager\Sdk\Resources\Payroll\StarterDeclarationResource;
 use SupportManager\Sdk\Resources\Payroll\TimesheetsResource;
 use SupportManager\Sdk\Resources\Profile\ProfileResource;
 use SupportManager\Sdk\Resources\Profile\UsersResource;
@@ -286,6 +288,12 @@ final class SupportManager
         return $this->resource(AdminLeaveResource::class);
     }
 
+    /** Leave — contractors' not-working notices, with withdraw. */
+    public function leaveNotWorkingNotices(): NotWorkingNoticesResource
+    {
+        return $this->resource(NotWorkingNoticesResource::class);
+    }
+
     /** Notifications — the current user's database notifications. */
     public function notifications(): NotificationsResource
     {
@@ -410,6 +418,12 @@ final class SupportManager
     public function automaticPayEnhancements(): AutomaticPayEnhancementsResource
     {
         return $this->resource(AutomaticPayEnhancementsResource::class);
+    }
+
+    /** Payroll — the current employee's own starter declaration (singleton). */
+    public function starterDeclaration(): StarterDeclarationResource
+    {
+        return $this->resource(StarterDeclarationResource::class);
     }
 
     /**
