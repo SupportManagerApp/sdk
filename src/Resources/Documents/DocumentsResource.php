@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Documents;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Documents\Document;
+use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * ```php
  * SupportManager::documents()->query()->filter('name', 'contract')->get();
- * SupportManager::documents()->download(7)->json('data.download_url');
+ * SupportManager::documents()->download(7)->url;
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<Document>
@@ -29,14 +29,15 @@ use SupportManager\Sdk\Resources\Resource;
 final class DocumentsResource extends Resource
 {
     /**
-     * Fetch the download payload for a document. The platform returns a plain
-     * JSON body — `{data: {download_url, filename, expires_at}}` — not a JSON:API
-     * resource, so the raw {@see Response} is handed back untouched. Read it via
-     * `->json('data.download_url')` (the URL is a short-lived signed link).
+     * A short-lived link to a document's file. The platform answers with
+     * `{data: {download_url, filename, expires_at}}` rather than the file, so
+     * this returns a {@see DownloadLink}; the URL is a signed link that expires
+     * after five minutes. An error response (e.g. a 404 for a document the
+     * user cannot see) throws.
      */
-    public function download(string|int $id): Response
+    public function download(string|int $id): DownloadLink
     {
-        return $this->get("documents/documents/{$id}/download");
+        return $this->downloadLink("documents/documents/{$id}/download");
     }
 
     protected function path(): string
