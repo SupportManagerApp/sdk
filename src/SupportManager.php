@@ -160,19 +160,19 @@ final class SupportManager
         return $this->resource(CarJourneysResource::class);
     }
 
-    /** Compliance — DBS checks (read-only). */
+    /** Compliance — DBS checks, with self-submission and certificate download. */
     public function dbsChecks(): DBSChecksResource
     {
         return $this->resource(DBSChecksResource::class);
     }
 
-    /** Compliance — right to work records (read-only). */
+    /** Compliance — right to work records, with self-submission and document downloads. */
     public function rightToWork(): RightToWorkResource
     {
         return $this->resource(RightToWorkResource::class);
     }
 
-    /** Compliance — drivers licence checks (read-only). */
+    /** Compliance — drivers licence checks, with self-submission and result download. */
     public function driversLicenceChecks(): DriversLicenceChecksResource
     {
         return $this->resource(DriversLicenceChecksResource::class);
