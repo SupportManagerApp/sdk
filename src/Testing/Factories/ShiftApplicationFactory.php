@@ -22,7 +22,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  * ```php
  * SupportManager::fake()->seed(ShiftApplicationFactory::new()->count(2));
  * SupportManager::shiftApplications()->query()->filter('status', 'Pending')->get();
- * SupportManager::shiftApplications()->cancel(1);
+ * SupportManager::shiftApplications()->destroy(1);
  * ```
  */
 final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoutes
