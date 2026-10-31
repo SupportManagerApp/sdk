@@ -60,32 +60,23 @@ it('hydrates applications and their nested shift', function () {
         ->and($page->total())->toBe(1);
 });
 
-it('cancels a pending application', function () {
+it('retracts a pending application', function () {
     Http::fake(['api.test/api/v1/rota/shift-applications/12' => Http::response(['message' => 'Retracted'])]);
     bootTenantSession();
 
-    rotaApplications()->cancel(12);
+    rotaApplications()->destroy(12);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'rota/shift-applications/12'));
 });
 
-it('removes via the alias', function () {
-    Http::fake(['api.test/api/v1/rota/shift-applications/12' => Http::response(['message' => 'Retracted'])]);
-    bootTenantSession();
-
-    rotaApplications()->remove(12);
-
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE');
-});
-
-it('throws when cancelling a non-pending application (422)', function () {
+it('throws when retracting a non-pending application (422)', function () {
     Http::fake(['api.test/api/v1/rota/shift-applications/12' => Http::response([
         'message' => 'Only pending applications can be retracted.',
     ], 422)]);
     bootTenantSession();
 
-    expect(fn () => rotaApplications()->cancel(12))
+    expect(fn () => rotaApplications()->destroy(12))
         ->toThrow(ApiValidationException::class);
 });
 

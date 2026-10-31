@@ -13,14 +13,14 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * Index-only collection (`query()`, `all()`), newest first, filterable by
  * `status` and sortable by `created_at` or `start`, plus `create()` to ask for
- * an overtime shift and `cancel()` to withdraw one. Managers approve (creating
+ * an overtime shift and `destroy()` to withdraw one. Managers approve (creating
  * the shift) or reject requests on the web. The platform exposes no show
  * route, so `find()` is not used here.
  *
  * ```php
  * SupportManager::shiftRequests()->create(['date' => '2026-11-20', 'start_time' => '09:00', 'end_time' => '17:00', 'type' => 'Overtime Hours']);
  * SupportManager::shiftRequests()->query()->filter('status', 'Pending')->sort('start')->get();
- * SupportManager::shiftRequests()->cancel($requestId);
+ * SupportManager::shiftRequests()->destroy($requestId);
  * ```
  *
  * @extends Resource<ShiftRequest>
@@ -46,9 +46,19 @@ final class ShiftRequestsResource extends Resource
      * request's `canDelete` is true; anything else is a 403. The platform
      * returns only a confirmation message, so nothing is hydrated.
      */
-    public function cancel(string|int $id): void
+    public function destroy(string|int $id): void
     {
         $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
+    }
+
+    /**
+     * @deprecated Use {@see self::destroy()}, the name every resource gives a DELETE of one record.
+     */
+    public function cancel(string|int $id): void
+    {
+        $this->deprecated(__FUNCTION__, 'destroy');
+
+        $this->destroy($id);
     }
 
     protected function path(): string

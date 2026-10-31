@@ -391,6 +391,21 @@ abstract class Resource
         return $link;
     }
 
+    // ─────────────────────────────── Deprecations ───────────────────────────────
+
+    /**
+     * Raise an `E_USER_DEPRECATED` from a renamed method's old name before it
+     * forwards to the new one. Laravel sends it to the `deprecations` log
+     * channel, so callers get a warning instead of a fatal error.
+     */
+    protected function deprecated(string $method, string $replacement): void
+    {
+        trigger_error(
+            sprintf('%s::%s() is deprecated; call %s() instead.', static::class, $method, $replacement),
+            E_USER_DEPRECATED,
+        );
+    }
+
     /**
      * Hydrate each object row of a plain `data` list.
      *

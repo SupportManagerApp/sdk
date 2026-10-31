@@ -13,7 +13,7 @@ use SupportManager\Sdk\Resources\Resource;
  * Household chores.
  *
  * The collection (`query()`, `find()`, `all()`) plus writes — `create()`,
- * `update()`, `delete()`, limited to admins and managers — and the lifecycle
+ * `update()`, `destroy()`, limited to admins and managers — and the lifecycle
  * actions any team member may use: `complete()` (records who did it and when),
  * `snooze()` (hides it until a given date), and their bulk forms
  * `completeMany()`/`completeGroup()` and `markNotNeeded()`/
@@ -56,14 +56,26 @@ final class ChoresResource extends Resource
     }
 
     /**
-     * Delete a chore. The base helper's signature is preserved for LSP, but
-     * callers pass just the id: `->delete(5)`.
+     * Delete a chore (`DELETE household/chores/{id}`).
+     */
+    public function destroy(string|int $id): void
+    {
+        $this->throwForErrorResponse(parent::delete("{$this->path()}/{$id}"));
+    }
+
+    /**
+     * Overrides the base `delete()` request helper, and returns its response,
+     * only so that v0.2.0 callers of `->delete($id)` keep working.
+     *
+     * @deprecated Use {@see self::destroy()}, the name every resource gives a DELETE of one record.
      *
      * @param  array<string, mixed>  $data
      */
     public function delete(string|int $id, array $data = []): Response
     {
-        $response = parent::delete("household/chores/{$id}", $data);
+        $this->deprecated(__FUNCTION__, 'destroy');
+
+        $response = parent::delete("{$this->path()}/{$id}", $data);
 
         $this->throwForErrorResponse($response);
 
