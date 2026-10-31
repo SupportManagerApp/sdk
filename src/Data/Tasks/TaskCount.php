@@ -8,7 +8,7 @@ namespace SupportManager\Sdk\Data\Tasks;
  * The dashboard task badge counts: the user's own outstanding tasks, the
  * manager inbox (0 for non-privileged users), and their sum.
  *
- * Mirrors the platform's `GET tasks/tasks/count` payload.
+ * Mirrors the platform's `GET tasks/count` payload.
  */
 final readonly class TaskCount
 {

@@ -3,11 +3,17 @@
 declare(strict_types=1);
 
 use SupportManager\Sdk\Data\Profile\Address;
+use SupportManager\Sdk\Data\Profile\AddressSuggestion;
 use SupportManager\Sdk\Data\Profile\BankDetails;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
 use SupportManager\Sdk\Data\Profile\EmergencyContact;
+use SupportManager\Sdk\Data\Profile\EmploymentSummary;
 use SupportManager\Sdk\Data\Profile\Profile;
+use SupportManager\Sdk\Data\Profile\SuggestedAddress;
 use SupportManager\Sdk\Data\Profile\User;
+use SupportManager\Sdk\Data\Profile\UserOption;
+use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\DirectoryUserFactory;
 use SupportManager\Sdk\Testing\Factories\ProfileFactory;
@@ -29,7 +35,7 @@ it('returns the identity card via GET user', function () {
         ->and($user->role)->toBe('employee');
 });
 
-it('shows the full profile with nested address and emergency contact', function () {
+it('shows the full profile with nested address and emergency contacts', function () {
     SupportManager::fake()->seed(ProfileFactory::new());
 
     $profile = SupportManager::profile()->show();
@@ -42,8 +48,10 @@ it('shows the full profile with nested address and emergency contact', function 
         ->and($profile->hasSecondFactor)->toBeFalse()
         ->and($profile->address)->toBeInstanceOf(Address::class)
         ->and($profile->address?->town)->toBe('London')
-        ->and($profile->emergencyContact)->toBeInstanceOf(EmergencyContact::class)
-        ->and($profile->emergencyContact?->name)->toBe('Jane Doe')
+        ->and($profile->isViewOnly)->toBeFalse()
+        ->and($profile->emergencyContacts)->toHaveCount(1)
+        ->and($profile->emergencyContacts[0])->toBeInstanceOf(EmergencyContact::class)
+        ->and($profile->emergencyContacts[0]->name)->toBe('Jane Doe')
         ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'employee']]);
 });
 
@@ -56,7 +64,8 @@ it('leaves nested relations null when seeded without details', function () {
     assert($profile instanceof Profile);
 
     expect($profile->address)->toBeNull()
-        ->and($profile->emergencyContact)->toBeNull()
+        ->and($profile->emergencyContacts)->toBe([])
+        ->and(SupportManager::profile()->emergencyContacts())->toBe([])
         ->and(SupportManager::profile()->address())->toBeNull()
         ->and(SupportManager::profile()->bankDetails())->toBeNull();
 });
@@ -71,6 +80,12 @@ it('updates the profile via PATCH and persists', function () {
 
     expect($updated->name)->toBe('Grace Hopper')
         ->and(SupportManager::profile()->show()?->name)->toBe('Grace Hopper');
+});
+
+it('reads a former PA profile as view-only', function () {
+    SupportManager::fake()->seed(ProfileFactory::new()->viewOnly());
+
+    expect(SupportManager::profile()->show()?->isViewOnly)->toBeTrue();
 });
 
 it('honours withSecondFactor state', function () {
@@ -103,25 +118,104 @@ it('reads, saves and deletes the address', function () {
     expect(SupportManager::profile()->address())->toBeNull();
 });
 
-it('reads and saves the emergency contact', function () {
+it('searches address suggestions and saves the chosen one', function () {
     SupportManager::fake()->seed(ProfileFactory::new());
 
-    $contact = SupportManager::profile()->emergencyContact();
-    expect($contact)->toBeInstanceOf(EmergencyContact::class);
-    assert($contact instanceof EmergencyContact);
-    expect($contact->relationship)->toBe('Spouse');
+    $suggestions = SupportManager::profile()->addressSuggestions('downing');
 
-    $saved = SupportManager::profile()->saveEmergencyContact([
-        'name' => 'John Roe',
-        'relationship' => 'Brother',
-        'phone_number' => '+44 7700 900099',
+    expect($suggestions)->toHaveCount(1)
+        ->and($suggestions[0])->toBeInstanceOf(AddressSuggestion::class)
+        ->and($suggestions[0]->id)->toBe('23747771')
+        ->and(SupportManager::profile()->addressSuggestions('SW1A 2AA'))->toHaveCount(1)
+        ->and(SupportManager::profile()->addressSuggestions('nowhere'))->toBe([]);
+
+    $suggested = SupportManager::profile()->addressSuggestion($suggestions[0]->id);
+    expect($suggested)->toBeInstanceOf(SuggestedAddress::class);
+    assert($suggested instanceof SuggestedAddress);
+    expect($suggested->addressLineTwo)->toBeNull()
+        ->and($suggested->postcode)->toBe('SW1A 2AA');
+
+    SupportManager::profile()->saveAddress($suggested->toArray());
+
+    expect(SupportManager::profile()->address()?->addressLineOne)->toBe('10 Downing Street')
+        ->and(SupportManager::profile()->addressSuggestion('missing'))->toBeNull();
+});
+
+it('rejects an address search shorter than three characters', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    expect(fn () => SupportManager::profile()->addressSuggestions('SW'))
+        ->toThrow(ApiValidationException::class, 'The q field must be at least 3 characters.');
+});
+
+it('lists, saves and deletes emergency contacts', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    $contacts = SupportManager::profile()->emergencyContacts();
+    expect($contacts)->toHaveCount(1)
+        ->and($contacts[0])->toBeInstanceOf(EmergencyContact::class)
+        ->and($contacts[0]->id)->toBe('5')
+        ->and($contacts[0]->relationship)->toBe('Spouse');
+
+    $saved = SupportManager::profile()->saveEmergencyContacts([
+        ['id' => 5, 'name' => 'Jane Roe', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002'],
+        ['name' => 'John Roe', 'relationship' => 'Brother', 'phone_number' => '+44 7700 900099'],
     ]);
 
-    expect($saved)->toBeInstanceOf(EmergencyContact::class);
-    assert($saved instanceof EmergencyContact);
-    expect($saved->name)->toBe('John Roe')
-        ->and($saved->relationship)->toBe('Brother')
-        ->and(SupportManager::profile()->emergencyContact()?->name)->toBe('John Roe');
+    expect($saved)->toHaveCount(2)
+        ->and($saved[0]->id)->toBe('5')
+        ->and($saved[0]->name)->toBe('Jane Roe')
+        ->and($saved[1]->id)->toBe('6')
+        ->and($saved[1]->name)->toBe('John Roe')
+        ->and(SupportManager::profile()->show()?->emergencyContacts)->toHaveCount(2);
+
+    SupportManager::profile()->deleteEmergencyContact(5);
+
+    $remaining = SupportManager::profile()->emergencyContacts();
+    expect($remaining)->toHaveCount(1)
+        ->and($remaining[0]->name)->toBe('John Roe');
+});
+
+it('rejects saving an emergency contact id the user does not own', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    expect(fn () => SupportManager::profile()->saveEmergencyContacts([
+        ['id' => 999, 'name' => 'Jane', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002'],
+    ]))->toThrow(ApiValidationException::class, 'The emergency contact could not be found.');
+});
+
+it('throws when deleting an unknown emergency contact', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    expect(fn () => SupportManager::profile()->deleteEmergencyContact(999))
+        ->toThrow(SupportManagerApiException::class);
+});
+
+it('reads the employment summary and downloads the confirmation letter', function () {
+    SupportManager::fake()->seed(ProfileFactory::new());
+
+    $employment = SupportManager::profile()->employment();
+
+    expect($employment)->toBeInstanceOf(EmploymentSummary::class);
+    assert($employment instanceof EmploymentSummary);
+    expect($employment->id)->toBe('1')
+        ->and($employment->contractType)->toBe('Permanent Contracted Employee')
+        ->and($employment->currentRateOfPay?->hourlyRate)->toBe(12.5)
+        ->and($employment->workingPattern?->weeklyAverageHours)->toBe(37.5)
+        ->and($employment->contractedAnnualSalary)->toBe(28535.0);
+
+    $letter = SupportManager::profile()->employmentConfirmationLetter('ABC Mortgages Ltd');
+
+    expect($letter->status())->toBe(200)
+        ->and($letter->body())->toBe('%PDF-1.4 confirmation-letter-bytes')
+        ->and($letter->header('Content-Type'))->toBe('application/pdf');
+});
+
+it('refuses employment details to a user without any', function () {
+    SupportManager::fake()->seed(ProfileFactory::new()->withoutEmployment());
+
+    expect(fn () => SupportManager::profile()->employment())->toThrow(SupportManagerApiException::class)
+        ->and(SupportManager::profile()->employmentConfirmationLetter()->status())->toBe(403);
 });
 
 it('changes the password and removes the avatar without error', function () {
@@ -172,6 +266,22 @@ it('lists directory users and finds one by id', function () {
     assert($found instanceof DirectoryUser);
     expect($found->id)->toBe('2')
         ->and($found->name)->toBe('Teammate 2');
+});
+
+it('lists picker options for the seeded directory users, by name', function () {
+    SupportManager::fake()->seed(
+        DirectoryUserFactory::new()->state(['name' => 'Zoe']),
+        DirectoryUserFactory::new()->state(['name' => 'Ada', 'avatar' => 'https://cdn.test/ada.png']),
+    );
+
+    $options = SupportManager::users()->options();
+
+    expect($options)->toHaveCount(2)
+        ->and($options[0])->toBeInstanceOf(UserOption::class)
+        ->and($options[0]->id)->toBe('2')
+        ->and($options[0]->name)->toBe('Ada')
+        ->and($options[0]->avatar)->toBe('https://cdn.test/ada.png')
+        ->and($options[1]->name)->toBe('Zoe');
 });
 
 it('returns null for a directory user miss', function () {

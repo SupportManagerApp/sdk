@@ -6,7 +6,7 @@ namespace SupportManager\Sdk\Data\Tasks;
 
 /**
  * The authenticated user's task completion progress, mirroring the platform's
- * `GET tasks/tasks/progress` payload. `percentage` is 100 when there are no
+ * `GET tasks/progress` payload. `percentage` is 100 when there are no
  * tasks.
  */
 final readonly class TaskProgress
