@@ -14,8 +14,10 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * The collection (`query()`, `find()`, `all()`) plus a `download()` action that
  * returns a short-lived download URL rather than a hydratable resource.
- * Non-privileged callers only see their own documents — that scoping happens
- * server-side.
+ * Visibility is scoped server-side: everyone sees their own personal documents
+ * and the team documents shared with them; privileged users also see every
+ * colleague's personal documents. Filter by `scope` (`personal` / `team`),
+ * `document_folder_id`, `user_id` and `name` (partial).
  *
  * ```php
  * SupportManager::documents()->query()->filter('name', 'contract')->get();

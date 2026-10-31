@@ -22,7 +22,8 @@ function policyPage(int $page, int $lastPage): array
             'attributes' => [
                 'title' => "Policy {$page}",
                 'slug' => "policy-{$page}",
-                'content' => 'Policy content here...',
+                'content_html' => '<p>Policy content here...</p>',
+                'acknowledged_at' => '2026-02-01T09:00:00.000000Z',
                 'category' => 'health_and_safety',
                 'category_label' => 'Health & Safety',
                 'version' => '2.1',
@@ -71,6 +72,8 @@ it('hydrates policy DTOs including the typed category enum', function () {
         ->and($page->items()[0]->categoryLabel)->toBe('Health & Safety')
         ->and($page->items()[0]->isActive)->toBeTrue()
         ->and($page->items()[0]->createdByName)->toBe('Grace')
+        ->and($page->items()[0]->contentHtml)->toBe('<p>Policy content here...</p>')
+        ->and($page->items()[0]->acknowledgedAt)->toBe('2026-02-01T09:00:00.000000Z')
         ->and($page->hasMorePages())->toBeTrue();
 });
 

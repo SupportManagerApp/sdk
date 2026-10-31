@@ -184,7 +184,7 @@ final class SupportManager
         return $this->resource(DocumentsResource::class);
     }
 
-    /** Documents — document folders (read-only). */
+    /** Documents — document folders (read-only, with breadcrumb ancestors on find). */
     public function documentFolders(): DocumentFoldersResource
     {
         return $this->resource(DocumentFoldersResource::class);
