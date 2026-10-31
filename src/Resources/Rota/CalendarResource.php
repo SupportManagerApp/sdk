@@ -8,20 +8,23 @@ use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
+use SupportManager\Sdk\Data\Rota\CalendarFeed;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
- * The read-only rota calendar feeds: bank holidays, birthdays and work
- * anniversaries for a date range.
+ * The rota calendar feeds: bank holidays, birthdays and work anniversaries for
+ * a date range, plus the address of the caller's iCalendar subscription feed.
  *
- * Unlike the rest of the module these endpoints return flat `{data: [...]}`
- * rows rather than JSON:API resource objects, so each feed reads the raw `data`
- * array directly. Every feed requires a `filter[start_date]` and
+ * Unlike the rest of the module these endpoints return flat `{data: ...}`
+ * bodies rather than JSON:API resource objects, so each reads the raw `data`
+ * directly. Every date feed requires a `filter[start_date]` and
  * `filter[end_date]` (`Y-m-d`).
  *
  * ```php
  * SupportManager::rotaCalendar()->bankHolidays(['filter' => ['start_date' => '2026-01-01', 'end_date' => '2026-12-31']]);
+ * SupportManager::rotaCalendar()->feed()->url;
+ * SupportManager::rotaCalendar()->regenerateFeed();
  * ```
  *
  * @extends resource<BankHoliday>
@@ -61,6 +64,24 @@ final class CalendarResource extends Resource
         return $this->rows($this->get('rota/anniversaries', $query), Anniversary::fromArray(...));
     }
 
+    /**
+     * The address of the caller's iCalendar feed of the team appointments they
+     * can see; `url` is null until one is issued with {@see self::regenerateFeed()}.
+     */
+    public function feed(): CalendarFeed
+    {
+        return $this->calendarFeed($this->get('rota/calendar-feed'), 'rota/calendar-feed');
+    }
+
+    /**
+     * Issue a new feed address. The old one stops working, so calendars
+     * subscribed to it must subscribe again.
+     */
+    public function regenerateFeed(): CalendarFeed
+    {
+        return $this->calendarFeed($this->post('rota/calendar-feed/token'), 'rota/calendar-feed/token');
+    }
+
     protected function path(): string
     {
         return 'rota/bank-holidays';
@@ -69,6 +90,19 @@ final class CalendarResource extends Resource
     protected function hydrate(ResourceObject $object): BankHoliday
     {
         return BankHoliday::fromArray($object->flat());
+    }
+
+    /**
+     * Parse the calendar-feed endpoints' flat `{data: {url}}` body.
+     */
+    private function calendarFeed(Response $response, string $context): CalendarFeed
+    {
+        $this->throwForErrorResponse($response, $context);
+
+        /** @var array<string, mixed> $data */
+        $data = is_array($response->json('data')) ? $response->json('data') : [];
+
+        return CalendarFeed::fromArray($data);
     }
 
     /**

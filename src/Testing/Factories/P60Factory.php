@@ -7,14 +7,16 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake end-of-tax-year P60 documents.
  *
- * A JSON:API collection (type `p60s`): generic list/find come for free; this
- * factory adds the raw PDF `{id}/download`. The side-loaded detail rows
+ * A JSON:API collection (type `p60s`): the generic list comes for free; this
+ * factory adds `find()` and the raw PDF `{id}/download`, both of which mark the
+ * P60 `viewed` as the platform does. The side-loaded detail rows
  * (pay details, NI contributions, …) live inline in {@see withDetails()}.
  *
  * ```php
@@ -78,8 +80,17 @@ final class P60Factory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // Opening or downloading marks the P60 viewed, as the platform does.
+            FakeRoute::get('payroll/p60s/{id}', static function (RecordStore $store, array $matches): mixed {
+                $record = $store->update('payroll/p60s', $matches[1], ['viewed' => true]);
+
+                return $record === null
+                    ? Http::response(['message' => 'Not found'], 404)
+                    : Http::response(Json::item('p60s', $record));
+            }),
+
             FakeRoute::get('payroll/p60s/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->find('payroll/p60s', $matches[1]) === null) {
+                if ($store->update('payroll/p60s', $matches[1], ['viewed' => true]) === null) {
                     return Http::response(['message' => 'Not found'], 404);
                 }
 

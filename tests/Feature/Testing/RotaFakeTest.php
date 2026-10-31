@@ -6,20 +6,29 @@ use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\Appointment;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
+use SupportManager\Sdk\Data\Rota\CalendarFeed;
 use SupportManager\Sdk\Data\Rota\QuickAddParse;
 use SupportManager\Sdk\Data\Rota\Shift;
+use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
+use SupportManager\Sdk\Data\Rota\ShiftRequest;
+use SupportManager\Sdk\Data\Rota\SleepoverStartOption;
 use SupportManager\Sdk\Enums\Rota\EntryType;
 use SupportManager\Sdk\Enums\Rota\QuickAddIntent;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\AnniversaryFactory;
 use SupportManager\Sdk\Testing\Factories\AppointmentFactory;
 use SupportManager\Sdk\Testing\Factories\BankHolidayFactory;
 use SupportManager\Sdk\Testing\Factories\BirthdayFactory;
+use SupportManager\Sdk\Testing\Factories\CalendarFeedFactory;
 use SupportManager\Sdk\Testing\Factories\QuickAddParseFactory;
+use SupportManager\Sdk\Testing\Factories\ShiftAmendmentRequestFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftApplicationFactory;
+use SupportManager\Sdk\Testing\Factories\ShiftBlockFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftFactory;
+use SupportManager\Sdk\Testing\Factories\ShiftRequestFactory;
 
 // Host-style tests: seed factories, call the SDK normally, assert on DTOs.
 // No Http::fake(), no JSON:API envelopes by hand.
@@ -297,4 +306,255 @@ it('reads the flat birthday and anniversary feeds', function () {
         ->and($anniversaries)->toHaveCount(1)
         ->and($anniversaries[0])->toBeInstanceOf(Anniversary::class)
         ->and($anniversaries[0]->years)->toBe(5);
+});
+
+// ── Wave 2: permissions, amendments, shift requests, sleepovers, feed ───────
+
+it('carries the fake shift and appointment meta.can flags onto the DTOs', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new(),
+        ShiftFactory::new()->available(),
+        AppointmentFactory::new(),
+    );
+
+    $assigned = SupportManager::shifts()->find(1);
+    $open = SupportManager::shifts()->find(2);
+    $appointment = SupportManager::appointments()->find(1);
+
+    expect($assigned?->canRequestAmendment)->toBeTrue()
+        ->and($assigned->canApply)->toBeFalse()
+        ->and($assigned->cannotApplyReason)->toBe('You cannot apply for this shift.')
+        ->and($open?->canApply)->toBeTrue()
+        ->and($open->cannotApplyReason)->toBeNull()
+        ->and($appointment?->canUpdate)->toBeTrue()
+        ->and($appointment->canDelete)->toBeTrue()
+        ->and($appointment->viewerIds)->toBe([]);
+});
+
+it('requests an amendment on the shift day and lists it', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new(),
+        ShiftAmendmentRequestFactory::new()->count(0),
+    );
+
+    $amendment = SupportManager::shifts()->requestAmendment(1, [
+        'proposed_start_time' => '15:00',
+        'proposed_end_time' => '01:00',
+        'requested_tags' => ['Driving'],
+        'reason' => 'Stayed late',
+    ]);
+
+    $listed = SupportManager::shiftAmendmentRequests()->query()->filter('rota_entry_id', 1)->get();
+
+    expect($amendment)->toBeInstanceOf(ShiftAmendmentRequest::class)
+        ->and($amendment->rotaEntryId)->toBe(1)
+        ->and($amendment->proposedStart)->toBe('2026-06-06T15:00:00+00:00')
+        ->and($amendment->proposedEnd)->toBe('2026-06-07T01:00:00+00:00')
+        ->and($amendment->requestedTags)->toBe(['Driving'])
+        ->and($amendment->status)->toBe('Pending')
+        ->and($listed->total())->toBe(1)
+        ->and($listed->items()[0]->reason)->toBe('Stayed late');
+});
+
+it('rejects an amendment without both times, or while one is pending', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new(),
+        ShiftAmendmentRequestFactory::new()->count(0),
+    );
+
+    expect(fn () => SupportManager::shifts()->requestAmendment(1, ['proposed_start_time' => '15:00']))
+        ->toThrow(ApiValidationException::class);
+
+    SupportManager::shifts()->requestAmendment(1, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']);
+
+    expect(fn () => SupportManager::shifts()->requestAmendment(1, ['proposed_start_time' => '16:00', 'proposed_end_time' => '23:00']))
+        ->toThrow(SupportManagerApiException::class)
+        ->and(fn () => SupportManager::shifts()->requestAmendment(99, ['proposed_start_time' => '16:00', 'proposed_end_time' => '23:00']))
+        ->toThrow(SupportManagerApiException::class);
+});
+
+it('filters seeded amendment requests by status', function () {
+    SupportManager::fake()->seed(
+        ShiftAmendmentRequestFactory::new()->count(2),
+        ShiftAmendmentRequestFactory::new()->approved(),
+    );
+
+    $approved = SupportManager::shiftAmendmentRequests()->query()->filter('status', 'Approved')->get();
+
+    expect(SupportManager::shiftAmendmentRequests()->all()->total())->toBe(3)
+        ->and($approved->total())->toBe(1)
+        ->and($approved->items()[0]->reviewedBy)->toBe(2);
+});
+
+it('creates shift requests, pinning a sleeping night to 23:00-07:00', function () {
+    SupportManager::fake()->seed(ShiftRequestFactory::new()->count(0));
+
+    $late = SupportManager::shiftRequests()->create([
+        'date' => '2026-11-20',
+        'start_time' => '18:00',
+        'end_time' => '02:00',
+        'type' => 'Overtime Hours',
+        'reason' => 'Covering Sam',
+    ]);
+    $night = SupportManager::shiftRequests()->create([
+        'date' => '2026-11-21',
+        'start_time' => '09:00',
+        'end_time' => '17:00',
+        'type' => 'Overtime Sleeping Night',
+    ]);
+
+    expect($late)->toBeInstanceOf(ShiftRequest::class)
+        ->and($late->type)->toBe(EntryType::OvertimeHours)
+        ->and($late->end)->toBe('2026-11-21T02:00:00+00:00')
+        ->and($late->reason)->toBe('Covering Sam')
+        ->and($late->status)->toBe('Pending')
+        ->and($late->canDelete)->toBeTrue()
+        ->and($night?->type)->toBe(EntryType::OvertimeSleepingNight)
+        ->and($night->start)->toBe('2026-11-21T23:00:00+00:00')
+        ->and($night->end)->toBe('2026-11-22T07:00:00+00:00')
+        ->and(SupportManager::shiftRequests()->all()->total())->toBe(2);
+});
+
+it('rejects a shift request missing fields or asking for a non-overtime type', function () {
+    SupportManager::fake()->seed(ShiftRequestFactory::new()->count(0));
+
+    expect(fn () => SupportManager::shiftRequests()->create(['date' => '2026-11-20']))
+        ->toThrow(ApiValidationException::class)
+        ->and(fn () => SupportManager::shiftRequests()->create(['date' => '2026-11-20', 'start_time' => '09:00', 'end_time' => '17:00', 'type' => 'Sickness']))
+        ->toThrow(ApiValidationException::class);
+});
+
+it('cancels only a pending shift request', function () {
+    SupportManager::fake()->seed(
+        ShiftRequestFactory::new(),
+        ShiftRequestFactory::new()->approved(),
+    );
+
+    $approved = SupportManager::shiftRequests()->query()->filter('status', 'Approved')->get()->items()[0];
+
+    SupportManager::shiftRequests()->cancel(1);
+
+    expect(SupportManager::shiftRequests()->all()->total())->toBe(1)
+        ->and($approved->canDelete)->toBeFalse()
+        ->and($approved->rotaEntryId)->toBe(100)
+        ->and(fn () => SupportManager::shiftRequests()->cancel(2))->toThrow(SupportManagerApiException::class);
+});
+
+it('lists sleepover start options', function () {
+    SupportManager::fake()->seed(
+        ShiftBlockFactory::new(),
+        ShiftBlockFactory::new()->withoutStartOptions(),
+    );
+
+    $options = SupportManager::shiftBlocks()->startOptions(1);
+
+    expect($options)->toHaveCount(3)
+        ->and($options[0])->toBeInstanceOf(SleepoverStartOption::class)
+        ->and($options[1]->time)->toBe('20:00')
+        ->and($options[2]->compliant)->toBeFalse()
+        ->and($options[2]->reason)->not->toBeNull()
+        ->and(SupportManager::shiftBlocks()->startOptions(2))->toBe([])
+        ->and(fn () => SupportManager::shiftBlocks()->startOptions(99))->toThrow(SupportManagerApiException::class);
+});
+
+it('applies for and withdraws a sleepover as a whole', function () {
+    SupportManager::fake()->seed(
+        ShiftBlockFactory::new(),
+        ShiftFactory::new()->sleepoverSegment(1)->count(3),
+        ShiftApplicationFactory::new()->count(0),
+    );
+
+    $applications = SupportManager::shiftBlocks()->apply(1, '20:00');
+
+    expect($applications)->toHaveCount(3)
+        ->and($applications[0])->toBeInstanceOf(ShiftApplication::class)
+        ->and($applications[0]->startTime)->toBe('20:00')
+        ->and($applications[0]->rotaEntry?->shiftBlockId)->toBe(1)
+        ->and(SupportManager::shiftApplications()->all()->total())->toBe(3)
+        ->and(fn () => SupportManager::shiftBlocks()->apply(1))->toThrow(ApiValidationException::class);
+
+    SupportManager::shiftBlocks()->cancel(1);
+
+    expect(SupportManager::shiftApplications()->all()->total())->toBe(0)
+        ->and(fn () => SupportManager::shiftBlocks()->cancel(1))->toThrow(ApiValidationException::class);
+});
+
+it('routes sleepover segments away from the per-shift apply and cancel', function () {
+    SupportManager::fake()->seed(
+        ShiftBlockFactory::new(),
+        ShiftFactory::new()->sleepoverSegment(1),
+        ShiftApplicationFactory::new()->count(0),
+    );
+
+    expect(fn () => SupportManager::shifts()->apply(1))->toThrow(ApiValidationException::class);
+
+    SupportManager::shiftBlocks()->apply(1);
+
+    expect(fn () => SupportManager::shiftApplications()->cancel(1))->toThrow(ApiValidationException::class)
+        ->and(fn () => SupportManager::shiftBlocks()->apply(1, '8pm'))->toThrow(ApiValidationException::class);
+});
+
+it('refuses to cancel an application that is no longer pending', function () {
+    SupportManager::fake()->seed(ShiftApplicationFactory::new()->approved());
+
+    expect(fn () => SupportManager::shiftApplications()->cancel(1))->toThrow(ApiValidationException::class);
+});
+
+it('updates an appointment, re-spanning a move and forgetting viewers when made public', function () {
+    SupportManager::fake()->seed(
+        AppointmentFactory::new()->state(['is_private' => true, 'viewer_ids' => [5, 8]]),
+    );
+
+    $renamed = SupportManager::appointments()->update(1, ['title' => 'Team review']);
+    $moved = SupportManager::appointments()->update(1, ['date' => '2026-08-25', 'start_time' => '22:00', 'end_time' => '01:00']);
+    $public = SupportManager::appointments()->update(1, ['is_private' => false]);
+
+    expect($renamed?->title)->toBe('Team review')
+        ->and($renamed->start)->toBe('2026-06-07T10:00:00Z')
+        ->and($renamed->viewerIds)->toBe([5, 8])
+        ->and($moved?->start)->toBe('2026-08-25T22:00:00+00:00')
+        ->and($moved->end)->toBe('2026-08-26T01:00:00+00:00')
+        ->and($public?->isPrivate)->toBeFalse()
+        ->and($public->viewerIds)->toBe([])
+        ->and($public->title)->toBe('Team review');
+});
+
+it('rejects an appointment move without its date or start time', function () {
+    SupportManager::fake()->seed(AppointmentFactory::new());
+
+    expect(fn () => SupportManager::appointments()->update(1, ['start_time' => '10:00']))
+        ->toThrow(ApiValidationException::class)
+        ->and(fn () => SupportManager::appointments()->update(1, ['date' => '2026-08-25']))
+        ->toThrow(ApiValidationException::class)
+        ->and(SupportManager::appointments()->update(1, ['date' => '2026-08-25', 'is_all_day' => true])?->isAllDay)
+        ->toBeTrue();
+});
+
+it('deletes an appointment', function () {
+    SupportManager::fake()->seed(AppointmentFactory::new()->count(2));
+
+    SupportManager::appointments()->destroy(1);
+
+    expect(SupportManager::appointments()->all()->total())->toBe(1)
+        ->and(fn () => SupportManager::appointments()->destroy(1))->toThrow(SupportManagerApiException::class);
+});
+
+it('reads and regenerates the calendar feed address', function () {
+    SupportManager::fake()->seed(CalendarFeedFactory::new());
+
+    $before = SupportManager::rotaCalendar()->feed();
+    $first = SupportManager::rotaCalendar()->regenerateFeed();
+    $second = SupportManager::rotaCalendar()->regenerateFeed();
+
+    expect($before)->toBeInstanceOf(CalendarFeed::class)
+        ->and($before->url)->toBeNull()
+        ->and($first->url)->toEndWith('.ics')
+        ->and($second->url)->not->toBe($first->url)
+        ->and(SupportManager::rotaCalendar()->feed()->url)->toBe($second->url);
+});
+
+it('seeds an already-issued calendar feed', function () {
+    SupportManager::fake()->seed(CalendarFeedFactory::new()->issued());
+
+    expect(SupportManager::rotaCalendar()->feed()->url)->toStartWith('https://supportmanager.test/calendar/');
 });

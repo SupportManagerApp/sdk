@@ -36,6 +36,7 @@ final class ChoreCategoryFactory extends Factory
             'color' => '#ff0000',
             'icon' => 'broom',
             'chores_count' => 4,
+            'due_chores_count' => 1,
             'created_at' => '2026-01-01T09:00:00Z',
             'updated_at' => '2026-01-01T10:00:00Z',
         ];

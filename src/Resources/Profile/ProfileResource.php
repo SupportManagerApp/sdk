@@ -7,17 +7,21 @@ namespace SupportManager\Sdk\Resources\Profile;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Profile\Address;
+use SupportManager\Sdk\Data\Profile\AddressSuggestion;
 use SupportManager\Sdk\Data\Profile\BankDetails;
 use SupportManager\Sdk\Data\Profile\EmergencyContact;
+use SupportManager\Sdk\Data\Profile\EmploymentSummary;
 use SupportManager\Sdk\Data\Profile\Profile;
+use SupportManager\Sdk\Data\Profile\SuggestedAddress;
 use SupportManager\Sdk\Data\Profile\User;
 use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
- * The authenticated user's own profile — identity, personal details, address,
- * emergency contact, avatar (upload and removal), password and payroll bank
+ * The authenticated user's own profile — identity, personal details, address
+ * (with UK address lookup), emergency contacts, employment summary and
+ * confirmation letter, avatar (upload and removal), password and payroll bank
  * details.
  *
  * Unlike most resources this is a singleton view of the current user rather than
@@ -29,10 +33,15 @@ use SupportManager\Sdk\Resources\Resource;
  * which resolve {@see \SupportManager\Sdk\Session\CurrentTeam} and forward the
  * header automatically.
  *
+ * Former PAs can read their profile, address, emergency contacts, bank details
+ * and employment summary, but every write answers 403;
+ * {@see Profile::$isViewOnly} tells the client to hide edit controls.
+ *
  * ```php
  * SupportManager::profile()->me();
  * SupportManager::profile()->update(['name' => 'Ada Lovelace']);
  * SupportManager::profile()->saveAddress([...]);
+ * SupportManager::profile()->saveEmergencyContacts([['name' => 'Jane Doe', ...]]);
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<Profile>
@@ -64,7 +73,11 @@ final class ProfileResource extends Resource
     /**
      * Update the user's profile (`PATCH user/profile`), returning the fresh copy.
      *
-     * @param  array<string, mixed>  $data  e.g. name, mobile_number, date_of_birth, gender.
+     * Send only the fields to change; omitted fields keep their stored values.
+     * The email must not belong to another account. `show_birthday_on_roster`
+     * is ignored while an admin is impersonating the user.
+     *
+     * @param  array<string, mixed>  $data  Any of title, name, email, mobile_number, ni_number, date_of_birth, gender, show_birthday_on_roster.
      */
     public function update(array $data): ?Profile
     {
@@ -110,43 +123,136 @@ final class ProfileResource extends Resource
     }
 
     /**
-     * The user's emergency contact (`GET user/emergency-contact`), or null.
-     */
-    public function emergencyContact(): ?EmergencyContact
-    {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('user/emergency-contact'),
-        );
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : EmergencyContact::fromArray($resource->flat());
-    }
-
-    /**
-     * Create or replace the user's emergency contact (`PUT user/emergency-contact`).
+     * UK addresses matching a postcode or partial address
+     * (`GET user/address/suggestions?q=`), the same lookup the web profile
+     * uses. Empty when nothing matches or the lookup is unavailable; a search
+     * shorter than three characters is a 422
+     * ({@see \SupportManager\Sdk\Exceptions\ApiValidationException} on `q`).
      *
-     * @param  array<string, mixed>  $data  name, relationship, phone_number.
+     * @return list<AddressSuggestion>
      */
-    public function saveEmergencyContact(array $data): ?EmergencyContact
+    public function addressSuggestions(string $search): array
     {
         $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->put('user/emergency-contact', $data),
+            fn (PendingRequest $request): Response => $request->get('user/address/suggestions', ['q' => $search]),
         );
 
-        $resource = $this->resourceFrom($response);
+        $this->throwForErrorResponse($response, 'user/address/suggestions');
 
-        return $resource === null ? null : EmergencyContact::fromArray($resource->flat());
+        /** @var list<array<string, mixed>> $data */
+        $data = $response->json('data', []);
+
+        return array_values(array_map(AddressSuggestion::fromArray(...), $data));
     }
 
     /**
-     * Delete the user's emergency contact (`DELETE user/emergency-contact`).
+     * The address fields for one suggestion (`GET user/address/suggestions/{id}`),
+     * ready to pass to {@see self::saveAddress()} via
+     * {@see SuggestedAddress::toArray()}, or null when the lookup no longer
+     * knows the id (404).
      */
-    public function deleteEmergencyContact(): void
+    public function addressSuggestion(string $id): ?SuggestedAddress
     {
-        $this->tenant(
-            fn (PendingRequest $request): Response => $request->delete('user/emergency-contact'),
+        $response = $this->tenant(
+            fn (PendingRequest $request): Response => $request->get('user/address/suggestions/'.rawurlencode($id)),
         );
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        $this->throwForErrorResponse($response, 'user/address/suggestions/{id}');
+
+        $data = $response->json('data');
+
+        return is_array($data) ? SuggestedAddress::fromArray($data) : null;
+    }
+
+    /**
+     * Every emergency contact the user has in the current team
+     * (`GET user/emergency-contacts`), oldest first; empty when none are set.
+     *
+     * @return list<EmergencyContact>
+     */
+    public function emergencyContacts(): array
+    {
+        return $this->emergencyContactsFrom($this->tenant(
+            fn (PendingRequest $request): Response => $request->get('user/emergency-contacts'),
+        ));
+    }
+
+    /**
+     * Create or update several emergency contacts at once
+     * (`PUT user/emergency-contacts`), returning the user's full list.
+     *
+     * A contact with an `id` updates that contact; one without is created.
+     * Contacts left out of the list are kept, so remove them with
+     * {@see self::deleteEmergencyContact()}. An `id` that is not one of the
+     * user's own contacts in the current team is a 422 on `contacts.N.id`.
+     *
+     * @param  list<array<string, mixed>>  $contacts  Each: id (optional), name, relationship, phone_number.
+     * @return list<EmergencyContact>
+     */
+    public function saveEmergencyContacts(array $contacts): array
+    {
+        return $this->emergencyContactsFrom($this->tenant(
+            fn (PendingRequest $request): Response => $request->put('user/emergency-contacts', ['contacts' => $contacts]),
+        ));
+    }
+
+    /**
+     * Delete one of the user's emergency contacts
+     * (`DELETE user/emergency-contacts/{contact}`).
+     *
+     * Unlike the other removals here this throws on failure: a contact that is
+     * not the user's own in the current team answers 404, surfaced as a
+     * {@see \SupportManager\Sdk\Exceptions\SupportManagerApiException}.
+     */
+    public function deleteEmergencyContact(string|int $id): void
+    {
+        $response = $this->tenant(
+            fn (PendingRequest $request): Response => $request->delete("user/emergency-contacts/{$id}"),
+        );
+
+        $this->throwForErrorResponse($response, "user/emergency-contacts/{$id}");
+    }
+
+    /**
+     * The user's employment summary (`GET user/employment`): start and leaving
+     * dates, length of employment, contract type, current rate of pay, working
+     * pattern and contracted annual salary.
+     *
+     * Only PAs, managers and former PAs have one; anyone else gets a 403,
+     * surfaced as a {@see \SupportManager\Sdk\Exceptions\SupportManagerApiException}.
+     */
+    public function employment(): ?EmploymentSummary
+    {
+        $response = $this->tenant(fn (PendingRequest $request): Response => $request->get('user/employment'));
+
+        $resource = $this->resourceFrom($response);
+
+        return $resource === null ? null : EmploymentSummary::fromArray($resource->flat());
+    }
+
+    /**
+     * Download an employment confirmation letter as a PDF
+     * (`GET user/employment/confirmation-letter`), the same letter as the web
+     * profile's button. Returns the raw binary {@see Response} — the body is the
+     * PDF, not a JSON:API document, so it is intentionally not hydrated into a
+     * DTO. PAs and managers only.
+     *
+     * @param  string|null  $recipientName  Who the letter is addressed to; the platform defaults to "To Whom It May Concern".
+     * @param  bool  $includeGrossPay  Include gross pay from the last three finalised payslips.
+     */
+    public function employmentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Response
+    {
+        $query = ['include_gross_pay' => $includeGrossPay ? 1 : 0];
+
+        if ($recipientName !== null) {
+            $query['recipient_name'] = $recipientName;
+        }
+
+        return $this->get('user/employment/confirmation-letter', $query);
     }
 
     /**
@@ -168,7 +274,8 @@ final class ProfileResource extends Resource
      *
      * Sent as a multipart `avatar` file part through the tenant-scoped
      * {@see Resource::tenant()} helper, so it still carries X-Team-ID. The
-     * server accepts JPG/JPEG/PNG up to 2MB and answers a bad file with a 422
+     * server accepts any image type up to 15MB, replacing (and deleting) any
+     * previous avatar, and answers a bad file with a 422
      * ({@see \SupportManager\Sdk\Exceptions\ApiValidationException} on
      * `avatar`). The response is a plain `{data: {avatar_url}}` body rather
      * than a JSON:API document; the URL is a short-lived signed link, so
@@ -197,7 +304,8 @@ final class ProfileResource extends Resource
     }
 
     /**
-     * Remove the user's avatar (`DELETE user/avatar`), reverting to the default.
+     * Remove the user's avatar (`DELETE user/avatar`). The avatar URL then falls
+     * back to a generated initials image; succeeds whether or not one was set.
      */
     public function deleteAvatar(): void
     {
@@ -242,6 +350,22 @@ final class ProfileResource extends Resource
     protected function hydrate(ResourceObject $object): Profile
     {
         return Profile::fromArray($object->flat());
+    }
+
+    /**
+     * Map error responses, then hydrate a JSON:API collection of emergency
+     * contacts.
+     *
+     * @return list<EmergencyContact>
+     */
+    private function emergencyContactsFrom(Response $response): array
+    {
+        $this->throwForErrorResponse($response, 'user/emergency-contacts');
+
+        return array_map(
+            static fn (ResourceObject $resource): EmergencyContact => EmergencyContact::fromArray($resource->flat()),
+            Document::fromArray($response->json() ?? [])->resources(),
+        );
     }
 
     /**

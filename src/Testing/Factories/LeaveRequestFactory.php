@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -15,10 +16,15 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake leave (holiday) requests.
  *
- * Generic CRUD (list, find, create, update, delete) comes for free from the
- * resource path; this factory adds the approval-workflow transitions —
+ * Generic CRUD (find, create, update, delete) comes for free from the resource
+ * path. The index is a custom route so its `meta` carries the platform's
+ * `status_counts` (every seeded request, ignoring filters and paging), with the
+ * usual exact-match `filter[key]` equality. This factory also adds the
+ * approval-workflow transitions —
  * {@see approve()}, {@see reject()}, {@see cancel()} — as `{id}/{action}`
  * routes that move a request's status and merge any approver comments/reason.
+ * Each record carries the viewer's `meta.can` permissions, which a cancelled
+ * request loses.
  *
  * ```php
  * SupportManager::fake()->seed(
@@ -52,6 +58,8 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
             'end_date' => '2026-07-05T08:00:00Z',
             'type' => 'Whole Days',
             'type_label' => 'Whole Days',
+            'leave_type' => 'annual_leave',
+            'leave_type_label' => 'Annual leave',
             'status' => 'Pending',
             'hours' => 30.0,
             'sleeps' => 0.0,
@@ -59,6 +67,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
             'approver_comments' => null,
             'created_at' => '2026-01-01T09:00:00Z',
             'updated_at' => '2026-01-01T09:00:00Z',
+            'meta' => ['can' => self::can(editDates: true, cancel: true)],
         ];
     }
 
@@ -83,12 +92,45 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
      */
     public function cancelled(): static
     {
-        return $this->state(['status' => 'Cancelled']);
+        return $this->state(['status' => 'Cancelled', 'meta' => ['can' => self::can(editDates: false, cancel: false)]]);
+    }
+
+    /**
+     * Make the request's dates no longer editable (approved or rejected and
+     * starting within 28 days), as `meta.can.edit_dates` reports it.
+     */
+    public function datesLocked(): static
+    {
+        return $this->state(['meta' => ['can' => self::can(editDates: false, cancel: true)]]);
     }
 
     public function fakeRoutes(): array
     {
         return [
+            FakeRoute::get('leave/requests', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $records = $store->all('leave/requests');
+                $counts = ['Pending' => 0, 'Approved' => 0, 'Rejected' => 0, 'Cancelled' => 0];
+
+                foreach ($records as $record) {
+                    $status = (string) ($record['status'] ?? '');
+
+                    if (isset($counts[$status])) {
+                        $counts[$status]++;
+                    }
+                }
+
+                $filters = $fake->query($request)['filter'] ?? [];
+
+                foreach (is_array($filters) ? $filters : [] as $key => $value) {
+                    $records = array_values(array_filter(
+                        $records,
+                        static fn (array $record): bool => isset($record[$key]) && (string) $record[$key] === (string) $value,
+                    ));
+                }
+
+                return $fake->paginate('leave/requests', 'leave-requests', $records, $request, ['status_counts' => $counts]);
+            }),
+
             FakeRoute::patch('leave/requests/{id}/approve', static function (RecordStore $store, array $matches): mixed {
                 $updated = $store->update('leave/requests', $matches[1], ['status' => 'Approved']);
 
@@ -110,12 +152,25 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
             }),
 
             FakeRoute::patch('leave/requests/{id}/cancel', static function (RecordStore $store, array $matches): mixed {
-                $updated = $store->update('leave/requests', $matches[1], ['status' => 'Cancelled']);
+                $updated = $store->update('leave/requests', $matches[1], [
+                    'status' => 'Cancelled',
+                    'meta' => ['can' => self::can(editDates: false, cancel: false)],
+                ]);
 
                 return $updated === null
                     ? Http::response(['message' => 'Not found'], 404)
                     : Http::response(Json::item('leave-requests', $updated));
             }),
         ];
+    }
+
+    /**
+     * The viewer's `meta.can` block for a request.
+     *
+     * @return array{edit_dates: bool, cancel: bool, request_reapproval: bool}
+     */
+    private static function can(bool $editDates, bool $cancel): array
+    {
+        return ['edit_dates' => $editDates, 'cancel' => $cancel, 'request_reapproval' => false];
     }
 }

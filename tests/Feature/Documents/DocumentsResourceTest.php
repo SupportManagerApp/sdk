@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Documents\Document;
+use SupportManager\Sdk\Enums\Documents\DocumentScope;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 
@@ -20,7 +21,7 @@ function documentsPage(int $page, int $lastPage): array
             'id' => (string) $page,
             'attributes' => [
                 'name' => "Document {$page}",
-                'file' => "documents/{$page}.pdf",
+                'scope' => 'personal',
                 'team_id' => 42,
                 'user_id' => 9,
                 'user' => ['id' => 9, 'name' => 'Ada'],
@@ -66,6 +67,7 @@ it('hydrates document DTOs and exposes pagination metadata', function () {
         ->and($page->items()[0]->userName)->toBe('Ada')
         ->and($page->items()[0]->documentFolderName)->toBe('Contracts')
         ->and($page->items()[0]->uploadedByName)->toBe('Grace')
+        ->and($page->items()[0]->scope)->toBe(DocumentScope::Personal)
         ->and($page->lastPage())->toBe(3)
         ->and($page->hasMorePages())->toBeTrue();
 });
@@ -73,7 +75,7 @@ it('hydrates document DTOs and exposes pagination metadata', function () {
 it('finds a single document by id', function () {
     Http::fake([
         'api.test/api/v1/documents/documents/7' => Http::response([
-            'data' => ['type' => 'documents', 'id' => '7', 'attributes' => ['name' => 'NDA', 'file' => 'documents/7.pdf']],
+            'data' => ['type' => 'documents', 'id' => '7', 'attributes' => ['name' => 'NDA', 'scope' => 'team', 'user_id' => null]],
         ]),
     ]);
     bootTenantSession();
@@ -82,7 +84,9 @@ it('finds a single document by id', function () {
 
     expect($document)->toBeInstanceOf(Document::class)
         ->and($document->id)->toBe('7')
-        ->and($document->name)->toBe('NDA');
+        ->and($document->name)->toBe('NDA')
+        ->and($document->scope)->toBe(DocumentScope::Team)
+        ->and($document->userId)->toBeNull();
 });
 
 it('returns null when finding a missing document (404)', function () {

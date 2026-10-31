@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Documents;
 
+use SupportManager\Sdk\Enums\Documents\DocumentScope;
+
 /**
  * An uploaded document file, optionally assigned to a user and filed in a
  * folder.
  *
- * Mirrors the platform's `DocumentResource` attributes. The `user`,
+ * Mirrors the platform's `DocumentResource` attributes. `scope` is the typed
+ * enum (null for a value the SDK does not know yet); a team document with no
+ * `userId` is shared with the whole team. The file itself is never exposed —
+ * fetch it via {@see \SupportManager\Sdk\Resources\Documents\DocumentsResource::download()}.
+ * The `user`,
  * `documentFolder` and `uploadedBy` relations are only populated when the
  * server includes them; their flattened names mirror the resource's nested
  * arrays.
@@ -21,7 +27,7 @@ final readonly class Document
     public function __construct(
         public string $id,
         public string $name,
-        public ?string $file,
+        public ?DocumentScope $scope,
         public ?int $teamId,
         public ?int $userId,
         public ?string $userName,
@@ -50,7 +56,7 @@ final readonly class Document
         return new self(
             id: (string) ($data['id'] ?? ''),
             name: (string) ($data['name'] ?? ''),
-            file: isset($data['file']) ? (string) $data['file'] : null,
+            scope: isset($data['scope']) ? DocumentScope::tryFrom((string) $data['scope']) : null,
             teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
             userId: isset($data['user_id']) ? (int) $data['user_id'] : null,
             userName: isset($user['name']) ? (string) $user['name'] : null,

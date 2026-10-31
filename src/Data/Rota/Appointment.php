@@ -9,7 +9,9 @@ namespace SupportManager\Sdk\Data\Rota;
  *
  * Mirrors the platform's `AppointmentResource` attributes. `viewerIds` is the
  * users a private appointment is shared with, and is null unless the platform
- * loaded that relationship.
+ * loaded that relationship. `canUpdate` and `canDelete` come from the
+ * platform's `meta.can` flags — whether `update()` and `destroy()` are open to
+ * the caller — and read false when the response carried no meta.
  */
 final readonly class Appointment
 {
@@ -31,6 +33,8 @@ final readonly class Appointment
         public ?string $end,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public bool $canUpdate = false,
+        public bool $canDelete = false,
     ) {}
 
     /**
@@ -38,6 +42,12 @@ final readonly class Appointment
      */
     public static function fromArray(array $data): self
     {
+        /** @var array<string, mixed> $meta */
+        $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
+
+        /** @var array<string, mixed> $can */
+        $can = is_array($meta['can'] ?? null) ? $meta['can'] : [];
+
         return new self(
             id: (string) ($data['id'] ?? ''),
             teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
@@ -55,6 +65,8 @@ final readonly class Appointment
             end: isset($data['end']) ? (string) $data['end'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            canUpdate: (bool) ($can['update'] ?? false),
+            canDelete: (bool) ($can['delete'] ?? false),
         );
     }
 }

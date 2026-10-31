@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 use SupportManager\Sdk\Data\Household\Chore;
 use SupportManager\Sdk\Data\Household\ChoreCategory;
+use SupportManager\Sdk\Data\Household\Consumable;
 use SupportManager\Sdk\Data\Household\MealPlan;
 use SupportManager\Sdk\Data\Household\ShoppingListItem;
 use SupportManager\Sdk\Enums\Household\ChoreFrequency;
+use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\ChoreCategoryFactory;
 use SupportManager\Sdk\Testing\Factories\ChoreFactory;
+use SupportManager\Sdk\Testing\Factories\ConsumableFactory;
 use SupportManager\Sdk\Testing\Factories\MealPlanFactory;
 use SupportManager\Sdk\Testing\Factories\ShoppingListItemFactory;
 
@@ -125,7 +129,7 @@ it('lists seeded chore categories as DTOs', function () {
 
 // ── Meal plan (flat singleton) ──────────────────────────────────────────────────
 
-it('shows the meal plan from a flat data body', function () {
+it('shows the meal plan from a JSON:API body', function () {
     SupportManager::fake()->seed(MealPlanFactory::new());
 
     $plan = SupportManager::mealPlan()->show();
@@ -154,4 +158,121 @@ it('removes a meal plan day', function () {
     $updated = SupportManager::mealPlan()->removeDay('monday');
 
     expect($updated->monday)->toBeNull();
+});
+
+// ── Chores: wave 2 bulk actions and permissions ─────────────────────────────────
+
+it('seeds chores as a non-privileged user sees them, or editable', function () {
+    SupportManager::fake()->seed(ChoreFactory::new(), ChoreFactory::new()->editable()->inCategory(2, 'Garden'));
+
+    $chores = SupportManager::chores()->all()->items();
+
+    expect($chores[0]->canUpdate)->toBeFalse()
+        ->and($chores[0]->canDelete)->toBeFalse()
+        ->and($chores[0]->categoryName)->toBeNull()
+        ->and($chores[1]->canUpdate)->toBeTrue()
+        ->and($chores[1]->canDelete)->toBeTrue()
+        ->and($chores[1]->categoryName)->toBe('Garden');
+});
+
+it('completes several chores by id', function () {
+    SupportManager::fake()->seed(ChoreFactory::new()->overdue()->count(3));
+
+    $completed = SupportManager::chores()->completeMany([1, 3]);
+
+    expect($completed)->toHaveCount(2)
+        ->and($completed[0]->isOverdue)->toBeFalse()
+        ->and($completed[1]->id)->toBe('3')
+        ->and(SupportManager::chores()->find(2)?->isOverdue)->toBeTrue();
+});
+
+it('completes every chore in a name group', function () {
+    SupportManager::fake()->seed(
+        ChoreFactory::new()->overdue()->named('Water plants'),
+        ChoreFactory::new()->overdue()->named('  WATER PLANTS '),
+        ChoreFactory::new()->overdue()->named('Vacuum'),
+    );
+
+    $completed = SupportManager::chores()->completeGroup('water plants');
+
+    expect($completed)->toHaveCount(2)
+        ->and($completed[0]->normalizedName)->toBe('water plants')
+        ->and(SupportManager::chores()->find(3)?->isOverdue)->toBeTrue();
+});
+
+it('marks chores not needed today, snoozing them until tomorrow', function () {
+    SupportManager::fake()->seed(ChoreFactory::new()->named('Bins')->count(2));
+
+    $byId = SupportManager::chores()->markNotNeeded([1]);
+    $byGroup = SupportManager::chores()->markGroupNotNeeded('bins');
+
+    expect($byId[0]->isSnoozed)->toBeTrue()
+        ->and($byId[0]->snoozedUntil)->toBe('2026-01-02')
+        ->and($byId[0]->snoozedAt)->toBe('2026-01-01')
+        ->and($byGroup)->toHaveCount(2);
+});
+
+it('rejects an empty, unknown or ambiguous bulk selection', function () {
+    SupportManager::fake()->seed(ChoreFactory::new()->count(1));
+
+    expect(fn () => SupportManager::chores()->completeGroup('Nothing'))->toThrow(ApiValidationException::class)
+        ->and(fn () => SupportManager::chores()->completeMany([999]))->toThrow(ApiValidationException::class)
+        ->and(fn () => SupportManager::chores()->markNotNeeded([]))->toThrow(ApiValidationException::class);
+});
+
+it('reports the due chores count on seeded categories', function () {
+    SupportManager::fake()->seed(ChoreCategoryFactory::new()->state(['due_chores_count' => 3]));
+
+    expect(SupportManager::choreCategories()->all()->items()[0]->dueChoresCount)->toBe(3);
+});
+
+it('seeds shopping list sections and notes', function () {
+    SupportManager::fake()->seed(ShoppingListItemFactory::new()->state(['notes' => 'Semi-skimmed']));
+
+    $item = SupportManager::shoppingList()->find(1);
+
+    expect($item?->section)->toBe('dairy_eggs_and_chilled')
+        ->and($item?->notes)->toBe('Semi-skimmed');
+});
+
+// ── Consumables ────────────────────────────────────────────────────────────────
+
+it('lists seeded consumables with their variants', function () {
+    SupportManager::fake()->seed(ConsumableFactory::new()->count(2), ConsumableFactory::new()->lowStock());
+
+    $page = SupportManager::consumables()->all();
+
+    expect($page->items())->toHaveCount(3)
+        ->and($page->items()[0])->toBeInstanceOf(Consumable::class)
+        ->and($page->items()[0]->name)->toBe('Consumable 1')
+        ->and($page->items()[0]->variants)->toHaveCount(2)
+        ->and($page->items()[0]->variants[0]->id)->toBe(101)
+        ->and($page->items()[0]->variants[0]->isLowStock)->toBeFalse()
+        ->and($page->items()[2]->variants[0]->isLowStock)->toBeTrue();
+});
+
+it('adjusts a variant\'s stock, never below zero, and flags low stock', function () {
+    SupportManager::fake()->seed(ConsumableFactory::new()->withVariants([
+        ['id' => 7, 'size' => 'Large', 'quantity' => 2, 'minimum_stock' => 2],
+    ]));
+
+    $down = SupportManager::consumables()->adjustStock(7, -1);
+
+    expect($down?->variants[0]->quantity)->toBe(1)
+        ->and($down?->variants[0]->isLowStock)->toBeTrue();
+
+    SupportManager::consumables()->adjustStock(7, -1);
+    $floored = SupportManager::consumables()->adjustStock(7, -1);
+
+    expect($floored?->variants[0]->quantity)->toBe(0)
+        ->and(SupportManager::consumables()->all()->items()[0]->variants[0]->quantity)->toBe(0);
+
+    expect(SupportManager::consumables()->adjustStock(7, 1)?->variants[0]->quantity)->toBe(1);
+});
+
+it('rejects an invalid adjustment and an unknown variant', function () {
+    SupportManager::fake()->seed(ConsumableFactory::new());
+
+    expect(fn () => SupportManager::consumables()->adjustStock(101, 2))->toThrow(ApiValidationException::class)
+        ->and(fn () => SupportManager::consumables()->adjustStock(999, 1))->toThrow(SupportManagerApiException::class);
 });

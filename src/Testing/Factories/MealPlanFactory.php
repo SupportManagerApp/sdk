@@ -13,9 +13,8 @@ use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
- * Fake the team's weekly meal plan — a flat singleton (`type()` is null, so the
- * body is a bare `{data: {team_id, days: {...}, updated_at}}`, not a JSON:API
- * document).
+ * Fake the team's weekly meal plan — a singleton served as a JSON:API resource
+ * (`meal_plans`), as the platform's `MealPlanResource` is.
  *
  * The platform takes day updates as flat top-level keys (`{monday: 'Pasta'}`) but
  * nests them under `days` in the response, and clears a single day via
@@ -34,6 +33,11 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
     public function path(): string
     {
         return 'household/meal-plan';
+    }
+
+    public function type(): string
+    {
+        return 'meal_plans';
     }
 
     public function definition(int $index): array
@@ -71,7 +75,7 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
     {
         return [
             FakeRoute::get('household/meal-plan', static fn (RecordStore $store): mixed => Http::response(
-                Json::item(null, self::current($store)),
+                Json::item('meal_plans', self::current($store)),
             )),
 
             // Day updates arrive as flat top-level keys; merge them into `days`.
@@ -89,7 +93,7 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
                 $plan['days'] = $days;
                 $store->put('household/meal-plan', [$plan]);
 
-                return Http::response(Json::item(null, $plan));
+                return Http::response(Json::item('meal_plans', $plan));
             }),
 
             FakeRoute::delete('household/meal-plan/days/{day}', static function (RecordStore $store, array $matches): mixed {
@@ -106,19 +110,21 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
                 $plan['days'] = $days;
                 $store->put('household/meal-plan', [$plan]);
 
-                return Http::response(Json::item(null, $plan));
+                return Http::response(Json::item('meal_plans', $plan));
             }),
         ];
     }
 
     /**
-     * The current stored plan, or an empty week when nothing is seeded.
+     * The current stored plan, or an unsaved empty week (an empty-string id, as
+     * the platform reports) when nothing is seeded.
      *
      * @return array<string, mixed>
      */
     private static function current(RecordStore $store): array
     {
         return $store->all('household/meal-plan')[0] ?? [
+            'id' => '',
             'team_id' => 42,
             'days' => array_fill_keys(self::DAYS, null),
             'updated_at' => '2026-01-01T10:00:00Z',

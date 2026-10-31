@@ -8,8 +8,13 @@ namespace SupportManager\Sdk\Data\Compliance;
  * A driving licence verification record for an employee.
  *
  * Mirrors the platform's `DriversLicenceCheckResource` attributes. Sensitive
- * fields (`driversLicenceNumber`, `checkCode`, `checkResult`, `notes`) are
- * decrypted server-side and only returned to authorised viewers.
+ * fields (`driversLicenceNumber`, `checkCode`, `checkResult`) are decrypted
+ * server-side and only returned to authorised viewers; `notes` (the
+ * reviewer's) is only sent to privileged users. `checkResultDocument` is the
+ * uploaded file's name — fetch it via
+ * {@see \SupportManager\Sdk\Resources\Compliance\DriversLicenceChecksResource::downloadCheckResultDocument()}.
+ * `canUpdate`/`canDownload` are the server's `meta.can` flags for the
+ * authenticated user (update is true only for the record's own employee).
  */
 final readonly class DriversLicenceCheck
 {
@@ -26,6 +31,8 @@ final readonly class DriversLicenceCheck
         public ?string $notes,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public bool $canUpdate = false,
+        public bool $canDownload = false,
     ) {}
 
     /**
@@ -35,6 +42,9 @@ final readonly class DriversLicenceCheck
     {
         /** @var array{id?: mixed, name?: mixed} $user */
         $user = is_array($data['user'] ?? null) ? $data['user'] : [];
+
+        /** @var array{update?: mixed, download?: mixed} $can */
+        $can = is_array($data['meta']['can'] ?? null) ? $data['meta']['can'] : [];
 
         return new self(
             id: (string) ($data['id'] ?? ''),
@@ -49,6 +59,8 @@ final readonly class DriversLicenceCheck
             notes: isset($data['notes']) ? (string) $data['notes'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            canUpdate: (bool) ($can['update'] ?? false),
+            canDownload: (bool) ($can['download'] ?? false),
         );
     }
 }

@@ -64,7 +64,14 @@ it('hydrates timesheet DTOs and exposes pagination metadata', function () {
 it('finds a timesheet by id', function () {
     Http::fake([
         'api.test/api/v1/payroll/timesheets/3' => Http::response([
-            'data' => ['type' => 'timesheets', 'id' => '3', 'attributes' => ['status' => 'approved', 'comments' => 'OK', 'gross_pay' => 2000.0]],
+            'data' => ['type' => 'timesheets', 'id' => '3', 'attributes' => [
+                'status' => 'approved',
+                'comments' => 'OK',
+                'gross_pay' => 2000.0,
+                'shift_hours_total' => '152.50',
+                'sleep_count' => 12,
+                'additional_payments_total' => '86.40',
+            ]],
         ]),
     ]);
     bootTenantSession();
@@ -74,7 +81,10 @@ it('finds a timesheet by id', function () {
     expect($timesheet)->toBeInstanceOf(Timesheet::class)
         ->and($timesheet->id)->toBe('3')
         ->and($timesheet->status)->toBe('approved')
-        ->and($timesheet->comments)->toBe('OK');
+        ->and($timesheet->comments)->toBe('OK')
+        ->and($timesheet->shiftHoursTotal)->toBe('152.50')
+        ->and($timesheet->sleepCount)->toBe(12)
+        ->and($timesheet->additionalPaymentsTotal)->toBe('86.40');
 });
 
 it('returns null when finding a missing timesheet (404)', function () {

@@ -24,7 +24,7 @@ function payrollP45Page(int $page, int $lastPage): array
                 'team_id' => 42,
                 'employee_id' => 7,
                 'employee' => ['id' => 7, 'name' => "Employee {$page}"],
-                'tax_year' => '2025/26',
+                'tax_year' => '2025-26',
                 'leaving_date' => '2026-01-31',
                 'tax_code' => '1257L',
                 'week1_month1' => true,
@@ -49,12 +49,12 @@ it('encodes filter, sort and pagination as Spatie-style query params', function 
     Http::fake(['api.test/api/v1/payroll/p45s*' => Http::response(payrollP45Page(1, 1))]);
     bootTenantSession();
 
-    payrollP45s()->query()->filter('tax_year', '2025/26')->sort('-leaving_date')->perPage(20)->get();
+    payrollP45s()->query()->filter('tax_year', '2025-26')->sort('-leaving_date')->perPage(20)->get();
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
 
-        return str_contains($url, 'filter[tax_year]=2025/26')
+        return str_contains($url, 'filter[tax_year]=2025-26')
             && str_contains($url, 'sort=-leaving_date')
             && str_contains($url, 'per_page=20')
             && $request->hasHeader('X-Team-ID', '42');
@@ -71,7 +71,7 @@ it('hydrates P45 DTOs and exposes pagination metadata', function () {
     expect($p45)->toBeInstanceOf(P45::class)
         ->and($p45->teamId)->toBe(42)
         ->and($p45->employeeName)->toBe('Employee 1')
-        ->and($p45->taxYear)->toBe('2025/26')
+        ->and($p45->taxYear)->toBe('2025-26')
         ->and($p45->leavingDate)->toBe('2026-01-31')
         ->and($p45->taxCode)->toBe('1257L')
         ->and($p45->week1Month1)->toBeTrue()
@@ -152,11 +152,11 @@ it('downloads a P45 PDF as a raw response with a team header', function () {
 it('lists, filters and finds seeded P45s through the fake', function () {
     SupportManager::fake()->seed(
         P45Factory::new()->viewed()->count(2),
-        P45Factory::new()->withThisEmployment()->state(['tax_year' => '2024/25']),
+        P45Factory::new()->withThisEmployment()->state(['tax_year' => '2024-25']),
     );
 
     $page = payrollP45s()->all();
-    $filtered = payrollP45s()->query()->filter('tax_year', '2024/25')->get();
+    $filtered = payrollP45s()->query()->filter('tax_year', '2024-25')->get();
 
     $p45 = payrollP45s()->find(3);
     assert($p45 instanceof P45);
@@ -178,4 +178,15 @@ it('downloads a seeded P45 PDF through the fake', function () {
     expect($response->body())->toBe('%PDF-1.4 p45-bytes')
         ->and($response->header('Content-Type'))->toBe('application/pdf')
         ->and(payrollP45s()->download(999)->status())->toBe(404);
+});
+
+it('marks a seeded P45 viewed when it is opened or downloaded', function () {
+    SupportManager::fake()->seed(P45Factory::new()->count(2));
+
+    expect(payrollP45s()->all()->items()[0]->viewed)->toBeFalse()
+        ->and(payrollP45s()->find(1)?->viewed)->toBeTrue();
+
+    payrollP45s()->download(2);
+
+    expect(payrollP45s()->all()->items()[1]->viewed)->toBeTrue();
 });

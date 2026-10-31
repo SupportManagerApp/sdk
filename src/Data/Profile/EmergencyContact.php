@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Data\Profile;
 
 /**
- * The user's emergency contact.
+ * One of the user's emergency contacts for the current team.
  *
- * Mirrors the platform's `EmergencyContactResource`. Name and phone number are
+ * Mirrors the platform's `EmergencyContactResource`. A user may have several;
+ * pass `id` back to {@see \SupportManager\Sdk\Resources\Profile\ProfileResource::saveEmergencyContacts()}
+ * to update a contact rather than add a new one. Name and phone number are
  * encrypted at rest on the server.
  */
 final readonly class EmergencyContact

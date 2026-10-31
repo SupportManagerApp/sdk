@@ -5,23 +5,47 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Resources\Leave;
 
 use SupportManager\Sdk\Data\Leave\ManualAdjustment;
+use SupportManager\Sdk\Data\Leave\ManualAdjustmentSummary;
+use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
- * Manual adjustments to a user's leave balance (privileged).
+ * Manual adjustments to a user's leave balance.
  *
- * Exposes the index collection plus `create()`, `update()` and `destroy()`; the
- * platform does not implement a per-adjustment show endpoint.
+ * Exposes the privileged index collection plus `create()`, `update()` and
+ * `destroy()`; the platform does not implement a per-adjustment show endpoint.
+ * `mine()` is open to every team member and lists their own adjustments.
  *
  * ```php
  * SupportManager::leaveAdjustments()->query()->filter('user_id', 3)->get();
+ * SupportManager::leaveAdjustments()->mine(['year' => 2026]);
  * ```
  *
  * @extends resource<ManualAdjustment>
  */
 final class ManualAdjustmentsResource extends Resource
 {
+    /**
+     * The current user's own adjustments for the current leave year or the
+     * given one, oldest first, with their totals. Not paginated.
+     *
+     * @param  array<string, mixed>  $query  Optional `year`.
+     */
+    public function mine(array $query = []): ManualAdjustmentSummary
+    {
+        $response = $this->get("{$this->path()}/mine", $query);
+
+        $this->throwForErrorResponse($response, "{$this->path()}/mine");
+
+        $document = Document::fromArray($response->json() ?? []);
+
+        return ManualAdjustmentSummary::fromArray(
+            array_map($this->hydrate(...), $document->resources()),
+            $document->meta(),
+        );
+    }
+
     /**
      * Record a new manual adjustment, returning the stored record.
      *
@@ -33,7 +57,10 @@ final class ManualAdjustmentsResource extends Resource
     }
 
     /**
-     * Update a manual adjustment, returning the updated record.
+     * Update a manual adjustment, returning the updated record. Every field
+     * (`user_id`, `leave_year`, `hours_adjustment`, `sleeps_adjustment`,
+     * `reason`) is required. The platform accepts PUT and PATCH alike here;
+     * this sends PATCH.
      *
      * @param  array<string, mixed>  $data
      */

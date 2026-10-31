@@ -11,12 +11,16 @@ use SupportManager\Sdk\Resources\Resource;
 /**
  * The team's document folders (read-only).
  *
- * The platform exposes folders as an index only, so this resource offers just
- * the collection surface (`query()`, `find()`, `all()`); there are no create or
- * write actions.
+ * The collection surface (`query()`, `find()`, `all()`); there are no create or
+ * write actions. `find()` hits the platform's single-folder route, which also
+ * returns the folder's `ancestors` for breadcrumbs (and 403s, rather than
+ * 404s, for a folder the user may not browse). Filter by `scope` (`personal` /
+ * `team`), `user_id` and `parent_id`; sort by `name` / `created_at`.
  *
  * ```php
  * SupportManager::documentFolders()->query()->filter('parent_id', 3)->get();
+ * SupportManager::documentFolders()->query()->filter('scope', 'personal')->get();
+ * SupportManager::documentFolders()->find(7)->ancestors; // [['id' => 1, 'name' => 'HR'], …]
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<DocumentFolder>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Compliance\RightToWork;
+use SupportManager\Sdk\Enums\Compliance\PrimaryDocumentType;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Resources\Compliance\RightToWorkResource;
 
@@ -107,4 +108,97 @@ it('maps a 422 on the collection path to a validation exception', function () {
     } catch (ApiValidationException $e) {
         expect($e->first('filter'))->toBe('The user_id filter is invalid.');
     }
+});
+
+it('hydrates the meta.can permission flags', function () {
+    Http::fake(['api.test/api/v1/compliance/right-to-work/7' => Http::response([
+        'data' => [
+            'type' => 'right-to-work',
+            'id' => '7',
+            'attributes' => ['primary_document' => 'primary.pdf', 'supporting_document' => null],
+            'meta' => ['can' => ['update' => true, 'download' => true]],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $record = complianceRightToWork()->find(7);
+
+    expect($record->primaryDocument)->toBe('primary.pdf')
+        ->and($record->supportingDocument)->toBeNull()
+        ->and($record->canUpdate)->toBeTrue()
+        ->and($record->canDownload)->toBeTrue();
+});
+
+it('submits a right to work record as multipart with both documents and the typed enum', function () {
+    Http::fake(['api.test/api/v1/compliance/right-to-work' => Http::response([
+        'data' => [
+            'type' => 'right-to-work',
+            'id' => '9',
+            'attributes' => ['primary_document_type' => 'UK Birth or Adoption Certificate', 'primary_document' => 'birth.pdf', 'supporting_document' => 'ni.pdf'],
+        ],
+    ], 201)]);
+    bootTenantSession();
+
+    $record = complianceRightToWork()->submit(
+        PrimaryDocumentType::UkBirthOrAdoptionCertificate,
+        primaryDocument: 'BIRTH-BYTES',
+        primaryDocumentFilename: 'birth.pdf',
+        supportingDocument: 'NI-BYTES',
+        supportingDocumentFilename: 'ni.pdf',
+    );
+
+    expect($record)->toBeInstanceOf(RightToWork::class)
+        ->and($record->supportingDocument)->toBe('ni.pdf');
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/compliance/right-to-work')
+        && $request->hasHeader('X-Team-ID', '42')
+        && str_starts_with($request->header('Content-Type')[0], 'multipart/form-data; boundary=')
+        && $request->hasFile('primary_document', 'BIRTH-BYTES', 'birth.pdf')
+        && $request->hasFile('supporting_document', 'NI-BYTES', 'ni.pdf')
+        && str_contains($request->body(), 'UK Birth or Adoption Certificate')
+        && ! str_contains($request->body(), 'name="share_code"'));
+});
+
+it('submits a share code without files', function () {
+    Http::fake(['api.test/api/v1/compliance/right-to-work' => Http::response([
+        'data' => ['type' => 'right-to-work', 'id' => '9', 'attributes' => ['share_code' => 'W4X 7YZ 9AB']],
+    ])]);
+    bootTenantSession();
+
+    complianceRightToWork()->submit('Immigration Share Code', shareCode: 'W4X 7YZ 9AB');
+
+    Http::assertSent(fn ($request) => str_contains($request->body(), 'name="share_code"')
+        && str_contains($request->body(), 'W4X 7YZ 9AB')
+        && ! str_contains($request->body(), 'filename='));
+});
+
+it('maps a 422 on submit to a validation exception', function () {
+    Http::fake(['api.test/api/v1/compliance/right-to-work' => Http::response([
+        'message' => 'Please upload a copy of your primary document.',
+        'errors' => ['primary_document' => ['Please upload a copy of your primary document.']],
+    ], 422)]);
+    bootTenantSession();
+
+    try {
+        complianceRightToWork()->submit(PrimaryDocumentType::BritishPassport);
+        test()->fail('Expected ApiValidationException');
+    } catch (ApiValidationException $e) {
+        expect($e->first('primary_document'))->toBe('Please upload a copy of your primary document.');
+    }
+});
+
+it('returns the raw primary and supporting document download payload responses', function () {
+    Http::fake([
+        'api.test/api/v1/compliance/right-to-work/7/primary-document' => Http::response([
+            'data' => ['download_url' => 'https://s3.test/signed/primary.pdf', 'filename' => 'primary.pdf', 'expires_at' => '2026-06-06T10:05:00Z'],
+        ]),
+        'api.test/api/v1/compliance/right-to-work/7/supporting-document' => Http::response([
+            'data' => ['download_url' => 'https://s3.test/signed/supporting.pdf', 'filename' => 'supporting.pdf', 'expires_at' => '2026-06-06T10:05:00Z'],
+        ]),
+    ]);
+    bootTenantSession();
+
+    expect(complianceRightToWork()->downloadPrimaryDocument(7)->json('data.download_url'))->toBe('https://s3.test/signed/primary.pdf')
+        ->and(complianceRightToWork()->downloadSupportingDocument(7)->json('data.filename'))->toBe('supporting.pdf');
 });

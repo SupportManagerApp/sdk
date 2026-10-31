@@ -8,13 +8,13 @@ use SupportManager\Sdk\Testing\Factory;
 
 /**
  * Fake employee task standings, the records behind the manager-only
- * `tasks/tasks/manager-inbox` and `tasks/tasks/team-progress` views.
+ * `tasks/manager-inbox` and `tasks/team-progress` views.
  *
  * These are flat (`type()` null) `{user, percentage, incomplete_tasks,
  * pending_tasks}` entries. They are stored under {@see TaskFactory::EMPLOYEE_PATH}
- * and served by {@see TaskFactory}'s routes (the endpoints live under the
- * `tasks/tasks` prefix), so seeding this factory alongside `TaskFactory`
- * populates both manager views.
+ * (a store key only; the platform has no such endpoint) and served by
+ * {@see TaskFactory}'s routes (the endpoints live under the `tasks` prefix), so
+ * seeding this factory alongside `TaskFactory` populates both manager views.
  *
  * ```php
  * SupportManager::fake()->seed(

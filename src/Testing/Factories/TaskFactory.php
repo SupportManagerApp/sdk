@@ -38,7 +38,7 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
 
     public function path(): string
     {
-        return 'tasks/tasks';
+        return 'tasks';
     }
 
     public function definition(int $index): array
@@ -79,8 +79,8 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('tasks/tasks/count', static function (RecordStore $store): mixed {
-                $tasks = $store->all('tasks/tasks');
+            FakeRoute::get('tasks/count', static function (RecordStore $store): mixed {
+                $tasks = $store->all('tasks');
                 $mine = self::pending($tasks, 'self');
                 $inbox = self::pending($tasks, 'manager');
 
@@ -91,8 +91,8 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                 ]);
             }),
 
-            FakeRoute::get('tasks/tasks/progress', static function (RecordStore $store): mixed {
-                $tasks = $store->all('tasks/tasks');
+            FakeRoute::get('tasks/progress', static function (RecordStore $store): mixed {
+                $tasks = $store->all('tasks');
                 $total = count($tasks);
                 $done = count(array_filter($tasks, static fn (array $t): bool => (bool) ($t['completed'] ?? false)));
                 $percentage = $total === 0 ? 100 : (int) round($done / $total * 100);
@@ -104,22 +104,22 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                 ]);
             }),
 
-            FakeRoute::get('tasks/tasks/manager-inbox', static fn (RecordStore $store): mixed => self::list(
+            FakeRoute::get('tasks/manager-inbox', static fn (RecordStore $store): mixed => self::list(
                 $store->all(self::EMPLOYEE_PATH),
             )),
 
-            FakeRoute::get('tasks/tasks/team-progress', static fn (RecordStore $store): mixed => self::list(
+            FakeRoute::get('tasks/team-progress', static fn (RecordStore $store): mixed => self::list(
                 $store->all(self::EMPLOYEE_PATH),
             )),
 
-            FakeRoute::post('tasks/tasks/{id}/complete', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::post('tasks/{id}/complete', static function (RecordStore $store, array $matches): mixed {
                 $key = $matches[1];
 
-                foreach ($store->all('tasks/tasks') as $index => $task) {
+                foreach ($store->all('tasks') as $index => $task) {
                     if (($task['key'] ?? null) === $key) {
-                        $records = $store->all('tasks/tasks');
+                        $records = $store->all('tasks');
                         $records[$index] = [...$task, 'completed' => true];
-                        $store->put('tasks/tasks', $records);
+                        $store->put('tasks', $records);
 
                         return Http::response(['message' => 'ok', 'data' => $records[$index]]);
                     }
@@ -129,9 +129,9 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
             }),
 
             // Index: plain {data, meta} with the completed/completion_role filters.
-            FakeRoute::get('tasks/tasks', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+            FakeRoute::get('tasks', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $query = $fake->query($request);
-                $tasks = $store->all('tasks/tasks');
+                $tasks = $store->all('tasks');
 
                 if (isset($query['completed'])) {
                     $completed = $query['completed'] === 'true';

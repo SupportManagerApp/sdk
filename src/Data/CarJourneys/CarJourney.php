@@ -9,6 +9,9 @@ namespace SupportManager\Sdk\Data\CarJourneys;
  *
  * Mirrors the platform's `CarJourneyResource` attributes. `isOngoing` is the
  * server's view of whether the trip is still open (no `trip_end`).
+ * `canUpdate`/`canDelete` are the server's `meta.can` flags for the
+ * authenticated user: admins and managers may change any journey, anyone else
+ * only their own while it is ongoing or for 12 hours after it ended.
  */
 final readonly class CarJourney
 {
@@ -24,6 +27,8 @@ final readonly class CarJourney
         public ?string $userName,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public bool $canUpdate = false,
+        public bool $canDelete = false,
     ) {}
 
     /**
@@ -33,6 +38,9 @@ final readonly class CarJourney
     {
         /** @var array{id?: mixed, name?: mixed} $user */
         $user = is_array($data['user'] ?? null) ? $data['user'] : [];
+
+        /** @var array{update?: mixed, delete?: mixed} $can */
+        $can = is_array($data['meta']['can'] ?? null) ? $data['meta']['can'] : [];
 
         return new self(
             id: (string) ($data['id'] ?? ''),
@@ -46,6 +54,8 @@ final readonly class CarJourney
             userName: isset($user['name']) ? (string) $user['name'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            canUpdate: (bool) ($can['update'] ?? false),
+            canDelete: (bool) ($can['delete'] ?? false),
         );
     }
 }

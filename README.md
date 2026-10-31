@@ -67,6 +67,67 @@ Publish the config to override API URL, timeouts, refresh skew, etc.:
 php artisan vendor:publish --tag=supportmanager-config
 ```
 
+## Modules
+
+### Accidents
+
+`SupportManager::accidents()` is the team's accident book (`/accidents`). The
+collection is newest first and sorts by `happened_at`/`report_number`.
+`create()` records an accident; `subject.type` takes an `AccidentSubjectType`
+(`me`, `team_member` with `subject.user_id`, or `other` with `subject.name` and
+an `AccidentSubjectCapacity`). `recordSubjectDeclaration()` is for the injured
+person to confirm the report later. Offer it only when
+`AccidentReport::$canRecordSubjectDeclaration` (the report's `meta.can`) is
+true, because otherwise the platform answers 422. `riddor` is null except for
+admins and managers.
+
+```php
+SupportManager::accidents()->query()->sort('-happened_at')->get();
+SupportManager::accidents()->create([
+    'subject' => ['type' => AccidentSubjectType::SomeoneElse, 'name' => 'Alex Visitor', 'capacity' => AccidentSubjectCapacity::Visitor],
+    'happened_at' => '2026-10-30T14:15:00+00:00',
+    'location' => 'Front steps',
+    'how_it_happened' => 'Missed the bottom step.',
+    'reporter_declared_name' => 'Sam Carer',
+]);
+SupportManager::accidents()->recordSubjectDeclaration(7, 'Alex Visitor');
+```
+
+### Dashboard
+
+`SupportManager::dashboard()` has two methods. `layout()` (`/dashboard`) returns
+the widget placements, quick links and alerts, but not the widget contents:
+fetch those from each widget's own module resource, and skip widget keys you
+don't recognise. `capabilities()` (`/capabilities`) returns the user's role,
+the team's subscription, plan features, optional modules and own-page
+navigation. It still answers when the team has no subscription, so check
+`subscribed` before calling anything else.
+
+```php
+SupportManager::dashboard()->layout()->widgets;
+SupportManager::dashboard()->capabilities()->usesModule(OptionalModule::Accidents);
+SupportManager::dashboard()->capabilities()->hasPlanFeature(PlanFeature::ESigning);
+```
+
+### E-signing
+
+`SupportManager::signatureRequests()` covers documents sent to the user to sign
+(`/signing/requests`). `all()` lists the awaiting inbox, or
+`all(SignatureRequestStatus::Signed)` for the documents already signed.
+`find()` returns one request with its fields and consent statement, and marks
+it viewed. To sign, draw `file()` (the original PDF), `saveValues()` as the user
+fills in fields, then `sign()` once they agree to the consent statement.
+`downloadSigned()` returns a short-lived link to the completed copy. Use
+`canSign` and `canDownloadSigned` (the request's `meta.can`) to decide what to
+offer.
+
+```php
+$request = SupportManager::signatureRequests()->find(12);
+SupportManager::signatureRequests()->saveValues(12, [$request->myFields()[0]->id => 'data:image/png;base64,…']);
+SupportManager::signatureRequests()->sign(12, agreesToSignElectronically: true);
+SupportManager::signatureRequests()->downloadSigned(12)->json('data.download_url');
+```
+
 ## Faking the API in host apps
 
 Host apps should never hand-roll HTTP mocks of the JSON:API wire format — that

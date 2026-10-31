@@ -7,15 +7,18 @@ namespace SupportManager\Sdk;
 use BadMethodCallException;
 use Illuminate\Contracts\Container\Container;
 use SupportManager\Sdk\Client\SupportManagerClient;
+use SupportManager\Sdk\Resources\Accidents\AccidentsResource;
 use SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource;
 use SupportManager\Sdk\Resources\Compliance\DBSChecksResource;
 use SupportManager\Sdk\Resources\Compliance\DriversLicenceChecksResource;
 use SupportManager\Sdk\Resources\Compliance\RightToWorkResource;
+use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
+use SupportManager\Sdk\Resources\Household\ConsumablesResource;
 use SupportManager\Sdk\Resources\Household\KeysafeResource;
 use SupportManager\Sdk\Resources\Household\MealPlanResource;
 use SupportManager\Sdk\Resources\Household\ShoppingListItemsResource;
@@ -24,6 +27,7 @@ use SupportManager\Sdk\Resources\Leave\LeaveBalanceResource;
 use SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource;
 use SupportManager\Sdk\Resources\Leave\LeaveRequestsResource;
 use SupportManager\Sdk\Resources\Leave\ManualAdjustmentsResource;
+use SupportManager\Sdk\Resources\Leave\NotWorkingNoticesResource;
 use SupportManager\Sdk\Resources\Notifications\NotificationsResource;
 use SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\EstimatedPayResource;
@@ -32,6 +36,7 @@ use SupportManager\Sdk\Resources\Payroll\P60sResource;
 use SupportManager\Sdk\Resources\Payroll\PayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\PayRunsResource;
 use SupportManager\Sdk\Resources\Payroll\PayslipsResource;
+use SupportManager\Sdk\Resources\Payroll\StarterDeclarationResource;
 use SupportManager\Sdk\Resources\Payroll\TimesheetsResource;
 use SupportManager\Sdk\Resources\Profile\ProfileResource;
 use SupportManager\Sdk\Resources\Profile\UsersResource;
@@ -40,8 +45,12 @@ use SupportManager\Sdk\Resources\Resource;
 use SupportManager\Sdk\Resources\Rota\AppointmentsResource;
 use SupportManager\Sdk\Resources\Rota\CalendarResource;
 use SupportManager\Sdk\Resources\Rota\QuickAddResource;
+use SupportManager\Sdk\Resources\Rota\ShiftAmendmentRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
+use SupportManager\Sdk\Resources\Rota\ShiftBlocksResource;
+use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
+use SupportManager\Sdk\Resources\Signing\SignatureRequestsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
 use SupportManager\Sdk\Session\AuthSession;
@@ -154,28 +163,40 @@ final class SupportManager
     // is just sugar over resource(); host apps can still register their own under
     // a fluent name via register()/__call.
 
+    /** Accidents — the team's accident book, with subject declarations. */
+    public function accidents(): AccidentsResource
+    {
+        return $this->resource(AccidentsResource::class);
+    }
+
     /** Car journeys — team vehicle trip tracking. */
     public function journeys(): CarJourneysResource
     {
         return $this->resource(CarJourneysResource::class);
     }
 
-    /** Compliance — DBS checks (read-only). */
+    /** Compliance — DBS checks, with self-submission and certificate download. */
     public function dbsChecks(): DBSChecksResource
     {
         return $this->resource(DBSChecksResource::class);
     }
 
-    /** Compliance — right to work records (read-only). */
+    /** Compliance — right to work records, with self-submission and document downloads. */
     public function rightToWork(): RightToWorkResource
     {
         return $this->resource(RightToWorkResource::class);
     }
 
-    /** Compliance — drivers licence checks (read-only). */
+    /** Compliance — drivers licence checks, with self-submission and result download. */
     public function driversLicenceChecks(): DriversLicenceChecksResource
     {
         return $this->resource(DriversLicenceChecksResource::class);
+    }
+
+    /** Dashboard — the dashboard layout and the user's capabilities in the team. */
+    public function dashboard(): DashboardResource
+    {
+        return $this->resource(DashboardResource::class);
     }
 
     /** Documents — stored documents, with download. */
@@ -184,7 +205,7 @@ final class SupportManager
         return $this->resource(DocumentsResource::class);
     }
 
-    /** Documents — document folders (read-only). */
+    /** Documents — document folders (read-only, with breadcrumb ancestors on find). */
     public function documentFolders(): DocumentFoldersResource
     {
         return $this->resource(DocumentFoldersResource::class);
@@ -224,6 +245,12 @@ final class SupportManager
     public function choreCategories(): ChoreCategoriesResource
     {
         return $this->resource(ChoreCategoriesResource::class);
+    }
+
+    /** Household — consumables and their variants' stock. */
+    public function consumables(): ConsumablesResource
+    {
+        return $this->resource(ConsumablesResource::class);
     }
 
     /** Household — the weekly meal plan (singleton). */
@@ -268,6 +295,12 @@ final class SupportManager
         return $this->resource(AdminLeaveResource::class);
     }
 
+    /** Leave — contractors' not-working notices, with withdraw. */
+    public function leaveNotWorkingNotices(): NotWorkingNoticesResource
+    {
+        return $this->resource(NotWorkingNoticesResource::class);
+    }
+
     /** Notifications — the current user's database notifications. */
     public function notifications(): NotificationsResource
     {
@@ -286,6 +319,12 @@ final class SupportManager
         return $this->resource(TeamsResource::class);
     }
 
+    /** Signing — documents sent to the user to fill in and sign. */
+    public function signatureRequests(): SignatureRequestsResource
+    {
+        return $this->resource(SignatureRequestsResource::class);
+    }
+
     /** Tasks — the dashboard onboarding/compliance task list. */
     public function tasks(): TasksResource
     {
@@ -298,10 +337,28 @@ final class SupportManager
         return $this->resource(ShiftsResource::class);
     }
 
+    /** Rota — the current user's requests to change one of their shifts. */
+    public function shiftAmendmentRequests(): ShiftAmendmentRequestsResource
+    {
+        return $this->resource(ShiftAmendmentRequestsResource::class);
+    }
+
     /** Rota — the current user's shift applications. */
     public function shiftApplications(): ShiftApplicationsResource
     {
         return $this->resource(ShiftApplicationsResource::class);
+    }
+
+    /** Rota — sleepovers (shift blocks), applied for and withdrawn as a whole. */
+    public function shiftBlocks(): ShiftBlocksResource
+    {
+        return $this->resource(ShiftBlocksResource::class);
+    }
+
+    /** Rota — the current user's requests for extra hours. */
+    public function shiftRequests(): ShiftRequestsResource
+    {
+        return $this->resource(ShiftRequestsResource::class);
     }
 
     /** Rota — appointments, including upcoming. */
@@ -368,6 +425,12 @@ final class SupportManager
     public function automaticPayEnhancements(): AutomaticPayEnhancementsResource
     {
         return $this->resource(AutomaticPayEnhancementsResource::class);
+    }
+
+    /** Payroll — the current employee's own starter declaration (singleton). */
+    public function starterDeclaration(): StarterDeclarationResource
+    {
+        return $this->resource(StarterDeclarationResource::class);
     }
 
     /**

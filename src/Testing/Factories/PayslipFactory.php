@@ -48,7 +48,13 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
             'user_id' => 7,
             'user' => ['id' => 7, 'name' => "Employee {$number}"],
             'process_date' => '2026-06-30T00:00:00Z',
+            'pay_period_start' => '2026-06-01',
+            'pay_period_end' => '2026-06-30',
+            'tax_code' => '1257L',
+            'ni_letter' => 'A',
             'total_gross' => 2500.0,
+            'taxable_gross' => 2500.0,
+            'niable_gross' => 2500.0,
             'net_pay_formatted' => '1,950.00',
             'deductions_total_formatted' => '550.00',
             'status' => 'published',
@@ -69,6 +75,14 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
     public function latest(): static
     {
         return $this->state(['is_latest' => true]);
+    }
+
+    /**
+     * Seed the employer details a single show() returns.
+     */
+    public function withEmployer(): static
+    {
+        return $this->state(['employer' => ['name' => 'Jane Smith', 'paye_reference' => '123/AB45678']]);
     }
 
     /**

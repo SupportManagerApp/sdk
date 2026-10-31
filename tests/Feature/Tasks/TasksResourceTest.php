@@ -8,6 +8,7 @@ use SupportManager\Sdk\Data\Tasks\Task;
 use SupportManager\Sdk\Data\Tasks\TaskCount;
 use SupportManager\Sdk\Data\Tasks\TaskProgress;
 use SupportManager\Sdk\Enums\Tasks\TaskCompletionRole;
+use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 
@@ -31,7 +32,7 @@ function taskEntry(string $key, bool $completed = false, string $role = 'self'):
 }
 
 it('lists the user tasks from a flat data payload', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks*' => Http::response([
+    Http::fake(['api.test/api/v1/tasks*' => Http::response([
         'data' => [taskEntry('verify_bank_details'), taskEntry('upload_id', completed: true)],
         'meta' => ['team_id' => 42],
     ])]);
@@ -47,11 +48,13 @@ it('lists the user tasks from a flat data payload', function () {
         ->and($page->items()[1]->completed)->toBeTrue()
         ->and($page->meta()['team_id'])->toBe(42);
 
-    Http::assertSent(fn ($r) => $r->method() === 'GET' && $r->hasHeader('X-Team-ID', '42'));
+    Http::assertSent(fn ($r) => $r->method() === 'GET'
+        && parse_url($r->url(), PHP_URL_PATH) === '/api/v1/tasks'
+        && $r->hasHeader('X-Team-ID', '42'));
 });
 
 it('filters tasks by completion status and role', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks*' => Http::response(['data' => [], 'meta' => []])]);
+    Http::fake(['api.test/api/v1/tasks*' => Http::response(['data' => [], 'meta' => []])]);
     bootTenantSession();
 
     tasks()->all(completed: false, role: TaskCompletionRole::ManagerOnly);
@@ -64,7 +67,7 @@ it('filters tasks by completion status and role', function () {
 });
 
 it('reads the task badge count', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/count' => Http::response([
+    Http::fake(['api.test/api/v1/tasks/count' => Http::response([
         'data' => ['count' => 5, 'my_tasks' => 3, 'manager_inbox' => 2],
         'meta' => ['team_id' => 42],
     ])]);
@@ -79,7 +82,7 @@ it('reads the task badge count', function () {
 });
 
 it('reads the user progress', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/progress' => Http::response([
+    Http::fake(['api.test/api/v1/tasks/progress' => Http::response([
         'data' => ['percentage' => 75, 'completed' => 3, 'total' => 4],
     ])]);
     bootTenantSession();
@@ -93,7 +96,7 @@ it('reads the user progress', function () {
 });
 
 it('reads the manager inbox with pending tasks per employee', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/manager-inbox' => Http::response([
+    Http::fake(['api.test/api/v1/tasks/manager-inbox' => Http::response([
         'data' => [
             ['user' => ['id' => 7, 'name' => 'Bob'], 'pending_tasks' => [taskEntry('approve_leave', role: 'manager')]],
         ],
@@ -112,7 +115,7 @@ it('reads the manager inbox with pending tasks per employee', function () {
 });
 
 it('reads team progress with percentage and incomplete tasks', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/team-progress' => Http::response([
+    Http::fake(['api.test/api/v1/tasks/team-progress' => Http::response([
         'data' => [
             ['user' => ['id' => 7, 'name' => 'Bob'], 'percentage' => 50, 'incomplete_tasks' => [taskEntry('upload_id')]],
         ],
@@ -128,7 +131,7 @@ it('reads team progress with percentage and incomplete tasks', function () {
 });
 
 it('completes a task by key', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/verify_bank_details/complete' => Http::response([
+    Http::fake(['api.test/api/v1/tasks/verify_bank_details/complete' => Http::response([
         'message' => 'Task cache cleared successfully.',
         'data' => taskEntry('verify_bank_details', completed: true),
         'meta' => ['team_id' => 42],
@@ -142,11 +145,11 @@ it('completes a task by key', function () {
         ->and($task->completed)->toBeTrue();
 
     Http::assertSent(fn ($r) => $r->method() === 'POST'
-        && str_ends_with($r->url(), 'tasks/verify_bank_details/complete'));
+        && str_ends_with($r->url(), '/api/v1/tasks/verify_bank_details/complete'));
 });
 
 it('completes a task on behalf of another user', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/approve_leave/complete' => Http::response([
+    Http::fake(['api.test/api/v1/tasks/approve_leave/complete' => Http::response([
         'message' => 'Task cache cleared successfully.',
         'data' => ['key' => 'approve_leave', 'completed' => true],
     ])]);
@@ -160,8 +163,23 @@ it('completes a task on behalf of another user', function () {
 });
 
 it('throws when completing an unknown task (404)', function () {
-    Http::fake(['api.test/api/v1/tasks/tasks/nope/complete' => Http::response(['message' => 'Task not found.'], 404)]);
+    Http::fake(['api.test/api/v1/tasks/nope/complete' => Http::response(['message' => 'Task not found.'], 404)]);
     bootTenantSession();
 
     tasks()->complete('nope');
 })->throws(SupportManagerApiException::class);
+
+it('maps a 422 for a user outside the team to a validation exception', function () {
+    Http::fake(['api.test/api/v1/tasks/approve_leave/complete' => Http::response([
+        'message' => 'The specified user is not a member of this team.',
+        'errors' => ['user_id' => ['The specified user is not a member of this team.']],
+    ], 422)]);
+    bootTenantSession();
+
+    try {
+        tasks()->complete('approve_leave', 999);
+        test()->fail('Expected ApiValidationException');
+    } catch (ApiValidationException $e) {
+        expect($e->first('user_id'))->toBe('The specified user is not a member of this team.');
+    }
+});

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Documents\DocumentFolder;
+use SupportManager\Sdk\Enums\Documents\DocumentScope;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 
 function documentFoldersResource(): DocumentFoldersResource
@@ -82,3 +84,64 @@ it('returns null when finding a missing folder (404)', function () {
 
     expect(documentFoldersResource()->find(999))->toBeNull();
 });
+
+it('finds a folder with its scope, owner and breadcrumb ancestors', function () {
+    Http::fake([
+        'api.test/api/v1/documents/document-folders/7' => Http::response([
+            'data' => [
+                'type' => 'document-folders',
+                'id' => '7',
+                'attributes' => [
+                    'team_id' => 42,
+                    'name' => '2026',
+                    'description' => null,
+                    'scope' => 'personal',
+                    'user_id' => 5,
+                    'parent_id' => 3,
+                    'ancestors' => [
+                        ['id' => 1, 'name' => 'HR'],
+                        ['id' => 3, 'name' => 'Contracts'],
+                    ],
+                    'documents_count' => 4,
+                    'children_count' => 0,
+                ],
+            ],
+            'meta' => ['team_id' => 42],
+        ]),
+    ]);
+    bootTenantSession();
+
+    $folder = documentFoldersResource()->find(7);
+
+    expect($folder->scope)->toBe(DocumentScope::Personal)
+        ->and($folder->userId)->toBe(5)
+        ->and($folder->parentId)->toBe(3)
+        ->and($folder->ancestors)->toBe([
+            ['id' => 1, 'name' => 'HR'],
+            ['id' => 3, 'name' => 'Contracts'],
+        ]);
+    Http::assertSent(fn ($request) => $request->method() === 'GET'
+        && str_ends_with($request->url(), '/api/v1/documents/document-folders/7')
+        && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('decodes listed folders without ancestors and tolerates an unknown scope', function () {
+    Http::fake(['api.test/api/v1/documents/document-folders*' => Http::response([
+        'data' => [['type' => 'document-folders', 'id' => '1', 'attributes' => ['name' => 'Shared', 'scope' => 'archive']]],
+        'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],
+    ])]);
+    bootTenantSession();
+
+    $folder = documentFoldersResource()->query()->filter('scope', 'team')->get()->items()[0];
+
+    expect($folder->scope)->toBeNull()
+        ->and($folder->ancestors)->toBe([]);
+    Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'filter[scope]=team'));
+});
+
+it('throws on a 403 for a folder the user may not browse', function () {
+    Http::fake(['api.test/api/v1/documents/document-folders/9' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+    bootTenantSession();
+
+    documentFoldersResource()->find(9);
+})->throws(SupportManagerApiException::class);

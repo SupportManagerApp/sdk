@@ -71,3 +71,24 @@ it('exposes side-loaded included resources', function () {
         ->and($document->included()[0]->type)->toBe('users')
         ->and($document->included()[0]->attribute('name'))->toBe('Ada');
 });
+
+it('folds a resource-level meta member into the flattened array only when present', function () {
+    $document = Document::fromArray([
+        'data' => [
+            ['type' => 'appointments', 'id' => '4', 'attributes' => ['title' => 'Dentist'], 'meta' => ['can' => ['update' => true]]],
+            ['type' => 'appointments', 'id' => '5', 'attributes' => ['title' => 'Gig']],
+        ],
+    ]);
+
+    [$withMeta, $without] = $document->resources();
+
+    expect($withMeta->meta)->toBe(['can' => ['update' => true]])
+        ->and($withMeta->flat())->toBe([
+            'id' => '4',
+            'type' => 'appointments',
+            'title' => 'Dentist',
+            'meta' => ['can' => ['update' => true]],
+        ])
+        ->and($without->meta)->toBe([])
+        ->and($without->flat())->toBe(['id' => '5', 'type' => 'appointments', 'title' => 'Gig']);
+});

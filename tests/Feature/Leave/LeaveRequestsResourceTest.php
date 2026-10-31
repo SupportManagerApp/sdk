@@ -90,6 +90,57 @@ it('finds a single request by id', function () {
         ->and($request->status)->toBe(LeaveStatus::Approved);
 });
 
+it('hydrates the leave type and the viewer permissions from the resource meta', function () {
+    Http::fake([
+        'api.test/api/v1/leave/requests/7' => Http::response([
+            'data' => [
+                'type' => 'leave-requests',
+                'id' => '7',
+                'attributes' => [
+                    'start_date' => '2024-03-15T08:00:00+00:00',
+                    'end_date' => '2024-03-22T08:00:00+00:00',
+                    'leave_type' => 'annual_leave',
+                    'leave_type_label' => 'Annual leave',
+                    'status' => 'Approved',
+                ],
+                'meta' => ['can' => ['edit_dates' => false, 'cancel' => true, 'request_reapproval' => true]],
+            ],
+            'meta' => ['team_id' => 42],
+        ]),
+    ]);
+    bootTenantSession();
+
+    $request = leaveRequests()->find(7);
+
+    expect($request->leaveType)->toBe('annual_leave')
+        ->and($request->leaveTypeLabel)->toBe('Annual leave')
+        ->and($request->endDate)->toBe('2024-03-22T08:00:00+00:00')
+        ->and($request->canEditDates)->toBeFalse()
+        ->and($request->canCancel)->toBeTrue()
+        ->and($request->canRequestReapproval)->toBeTrue();
+});
+
+it('leaves the permissions null when the resource carries no meta', function () {
+    Http::fake(['api.test/api/v1/leave/requests*' => Http::response(leaveRequestPage(1, 1))]);
+    bootTenantSession();
+
+    $request = leaveRequests()->all()->items()[0];
+
+    expect($request->canEditDates)->toBeNull()
+        ->and($request->canCancel)->toBeNull()
+        ->and($request->leaveType)->toBeNull();
+});
+
+it('exposes the status counts from the index meta', function () {
+    $body = leaveRequestPage(1, 1);
+    $body['meta']['status_counts'] = ['Pending' => 1, 'Approved' => 4, 'Rejected' => 0, 'Cancelled' => 2];
+    Http::fake(['api.test/api/v1/leave/requests*' => Http::response($body)]);
+    bootTenantSession();
+
+    expect(leaveRequests()->query()->filter('status', 'Pending')->get()->meta()['status_counts'])
+        ->toBe(['Pending' => 1, 'Approved' => 4, 'Rejected' => 0, 'Cancelled' => 2]);
+});
+
 it('returns null when finding a missing request (404)', function () {
     Http::fake(['api.test/api/v1/leave/requests/999' => Http::response(['message' => 'Not found'], 404)]);
     bootTenantSession();

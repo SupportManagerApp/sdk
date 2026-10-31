@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\Shift;
+use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Enums\Rota\EntryType;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
 
 function rotaShifts(): ShiftsResource
@@ -216,4 +218,109 @@ it('maps a 422 on create to a validation exception', function () {
 
     expect(fn () => rotaShifts()->create(['assignee_id' => 999, 'date' => '2026-08-17', 'start_time' => '09:00']))
         ->toThrow(ApiValidationException::class);
+});
+
+it('hydrates the wave 2 shift fields and its meta.can flags', function () {
+    Http::fake(['api.test/api/v1/rota/shifts/7' => Http::response([
+        'data' => [
+            'type' => 'rota_entries',
+            'id' => '7',
+            'attributes' => [
+                'user_id' => null,
+                'type' => 'Overtime Sleeping Night',
+                'duration' => 8,
+                'is_available' => true,
+                'is_for_toil' => true,
+                'is_private' => true,
+                'shift_block_id' => 9,
+                'tags' => ['Driving', 'Training'],
+                'own_application_status' => 'Pending',
+            ],
+            'meta' => [
+                'can' => ['apply' => false, 'request_amendment' => true],
+                'cannot_apply_reason' => 'You have already applied for this shift.',
+            ],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $shift = rotaShifts()->find(7);
+
+    expect($shift?->isForToil)->toBeTrue()
+        ->and($shift->isPrivate)->toBeTrue()
+        ->and($shift->shiftBlockId)->toBe(9)
+        ->and($shift->tags)->toBe(['Driving', 'Training'])
+        ->and($shift->ownApplicationStatus)->toBe('Pending')
+        ->and($shift->canApply)->toBeFalse()
+        ->and($shift->canRequestAmendment)->toBeTrue()
+        ->and($shift->cannotApplyReason)->toBe('You have already applied for this shift.');
+});
+
+it('defaults the wave 2 shift fields when the platform omits them', function () {
+    Http::fake(['api.test/api/v1/rota/shifts/5' => Http::response([
+        'data' => ['type' => 'rota_entries', 'id' => '5', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]],
+    ])]);
+    bootTenantSession();
+
+    $shift = rotaShifts()->find(5);
+
+    expect($shift?->isForToil)->toBeFalse()
+        ->and($shift->shiftBlockId)->toBeNull()
+        ->and($shift->tags)->toBe([])
+        ->and($shift->ownApplicationStatus)->toBeNull()
+        ->and($shift->canApply)->toBeFalse()
+        ->and($shift->canRequestAmendment)->toBeFalse()
+        ->and($shift->cannotApplyReason)->toBeNull();
+});
+
+it('requests an amendment to a shift and hydrates the pending request', function () {
+    Http::fake(['api.test/api/v1/rota/shifts/51/amendment-requests' => Http::response([
+        'data' => ['type' => 'shift_amendment_requests', 'id' => '4', 'attributes' => [
+            'rota_entry_id' => 51,
+            'proposed_start' => '2026-11-20T15:00:00+00:00',
+            'proposed_end' => '2026-11-20T23:00:00+00:00',
+            'requested_tags' => ['Driving'],
+            'reason' => 'Stayed on to cover the handover',
+            'status' => 'Pending',
+        ]],
+        'meta' => ['team_id' => 42],
+    ], 201)]);
+    bootTenantSession();
+
+    $amendment = rotaShifts()->requestAmendment(51, [
+        'proposed_start_time' => '15:00',
+        'proposed_end_time' => '23:00',
+        'requested_tags' => ['Driving'],
+        'reason' => 'Stayed on to cover the handover',
+    ]);
+
+    expect($amendment)->toBeInstanceOf(ShiftAmendmentRequest::class)
+        ->and($amendment->id)->toBe('4')
+        ->and($amendment->rotaEntryId)->toBe(51)
+        ->and($amendment->proposedEnd)->toBe('2026-11-20T23:00:00+00:00')
+        ->and($amendment->requestedTags)->toBe(['Driving'])
+        ->and($amendment->status)->toBe('Pending');
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && $request['proposed_start_time'] === '15:00'
+        && $request['requested_tags'] === ['Driving']
+        && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('maps a 422 on an amendment request to a validation exception', function () {
+    Http::fake(['api.test/api/v1/rota/shifts/51/amendment-requests' => Http::response([
+        'message' => 'The proposed end time field is required.',
+        'errors' => ['proposed_end_time' => ['The proposed end time field is required.']],
+    ], 422)]);
+    bootTenantSession();
+
+    expect(fn () => rotaShifts()->requestAmendment(51, ['proposed_start_time' => '15:00']))
+        ->toThrow(ApiValidationException::class);
+});
+
+it('throws when an amendment is not open to the caller (403)', function () {
+    Http::fake(['api.test/api/v1/rota/shifts/51/amendment-requests' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+    bootTenantSession();
+
+    expect(fn () => rotaShifts()->requestAmendment(51, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']))
+        ->toThrow(SupportManagerApiException::class);
 });

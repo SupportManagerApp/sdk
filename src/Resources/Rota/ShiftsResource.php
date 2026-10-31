@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\Shift;
+use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
@@ -16,7 +17,9 @@ use SupportManager\Sdk\Resources\Resource;
  * The collection (`query()`, `find()`, `all()`, `create()`) plus the module's
  * read feeds — `today()`'s shifts, the unpaginated `upcoming()` window for
  * glanceable clients, and the unassigned `available()` shifts open for
- * application — and the `apply()` action a user uses to apply for one.
+ * application — the `apply()` action a user uses to apply for one, and
+ * `requestAmendment()`, which asks the managers to change one of the caller's
+ * own shifts (listed afterwards through {@see ShiftAmendmentRequestsResource}).
  *
  * `create()` is where a confirmed quick-add parse of a shift lands (see
  * {@see QuickAddResource}); the platform restricts it to Admins/Managers.
@@ -27,6 +30,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shifts()->upcoming(['days' => 7, 'mode' => 'team']);
  * SupportManager::shifts()->create(['assignee_id' => 12, 'date' => '2026-08-17', 'start_time' => '09:00', 'end_time' => '17:00']);
  * SupportManager::shifts()->apply($shiftId);
+ * SupportManager::shifts()->requestAmendment($shiftId, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']);
  * ```
  *
  * @extends resource<Shift>
@@ -81,7 +85,9 @@ final class ShiftsResource extends Resource
 
     /**
      * Apply for an available shift. Returns the created application(s); the
-     * platform supports split applications, so a list is returned.
+     * platform supports split applications, so a list is returned. A segment
+     * of a sleepover (a shift with a `shiftBlockId`) is rejected with a 422:
+     * apply for the sleepover as a whole through {@see ShiftBlocksResource::apply()}.
      *
      * @param  array<string, mixed>  $payload  Optional split/partial application data.
      * @return list<ShiftApplication>
@@ -96,6 +102,27 @@ final class ShiftsResource extends Resource
             static fn (ResourceObject $object): ShiftApplication => ShiftApplication::fromArray($object->flat()),
             Document::fromArray($response->json() ?? [])->resources(),
         );
+    }
+
+    /**
+     * Ask the managers to change the times, pay enhancement or tags of one of
+     * the caller's own shifts, returning the pending request. The proposed
+     * times are placed on the day the shift starts; an end at or before the
+     * start runs into the next morning. Offer it when the shift's
+     * `canRequestAmendment` is true — anything else is a 403.
+     *
+     * @param  array<string, mixed>  $data  `proposed_start_time` and `proposed_end_time` (`H:i`) are required; `requested_pay_enhancement_id`, `reason` and `requested_tags` are optional.
+     */
+    public function requestAmendment(string|int $id, array $data): ?ShiftAmendmentRequest
+    {
+        $uri = "rota/shifts/{$id}/amendment-requests";
+        $response = $this->post($uri, $data);
+
+        $this->throwForErrorResponse($response, $uri);
+
+        $resource = Document::fromArray($response->json() ?? [])->resource();
+
+        return $resource === null ? null : ShiftAmendmentRequest::fromArray($resource->flat());
     }
 
     protected function path(): string

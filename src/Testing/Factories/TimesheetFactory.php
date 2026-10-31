@@ -46,6 +46,9 @@ final class TimesheetFactory extends Factory implements ProvidesFakeRoutes
             'comments' => null,
             'has_variations' => true,
             'gross_pay' => 1800.0,
+            'shift_hours_total' => '152.50',
+            'sleep_count' => 12,
+            'additional_payments_total' => '86.40',
             'created_at' => '2026-06-01T09:00:00Z',
             'updated_at' => '2026-06-25T09:00:00Z',
         ];
