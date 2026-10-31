@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::consumables()->adjustStock($variantId, -1);
  * ```
  *
- * @extends resource<Consumable>
+ * @extends Resource<Consumable>
  */
 final class ConsumablesResource extends Resource
 {

@@ -26,7 +26,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::dbsChecks()->downloadCertificate(42)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DBSCheck>
+ * @extends Resource<DBSCheck>
  */
 final class DBSChecksResource extends Resource
 {

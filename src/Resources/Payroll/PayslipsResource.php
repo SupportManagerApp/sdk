@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::payslips()->download(9)->saveTo(storage_path('payslips'));
  * ```
  *
- * @extends resource<Payslip>
+ * @extends Resource<Payslip>
  */
 final class PayslipsResource extends Resource
 {

@@ -26,7 +26,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shiftBlocks()->cancel($shift->shiftBlockId);
  * ```
  *
- * @extends resource<ShiftApplication>
+ * @extends Resource<ShiftApplication>
  */
 final class ShiftBlocksResource extends Resource
 {

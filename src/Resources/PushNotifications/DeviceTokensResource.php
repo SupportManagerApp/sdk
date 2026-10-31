@@ -26,7 +26,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::deviceTokens()->forget($fcmToken);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DeviceToken>
+ * @extends Resource<DeviceToken>
  */
 final class DeviceTokensResource extends Resource
 {

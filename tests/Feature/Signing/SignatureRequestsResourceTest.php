@@ -138,7 +138,7 @@ it('returns the original PDF as a raw response', function () {
     Http::fake(['api.test/api/v1/signing/requests/12/file' => Http::response('%PDF-1.4 bytes', 200, ['Content-Type' => 'application/pdf'])]);
     bootTenantSession();
 
-    $response = signatureRequests()->file(12);
+    $response = signatureRequests()->downloadOriginal(12);
 
     expect($response->body())->toBe('%PDF-1.4 bytes')
         ->and($response->mimeType())->toBe('application/pdf');

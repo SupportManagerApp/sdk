@@ -115,7 +115,7 @@ it('deletes a chore', function () {
     Http::fake(['api.test/api/v1/household/chores/5' => Http::response(['message' => 'Chore deleted successfully.'])]);
     bootTenantSession();
 
-    householdChores()->delete(5);
+    householdChores()->destroy(5);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'household/chores/5'));

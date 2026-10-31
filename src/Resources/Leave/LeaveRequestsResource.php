@@ -13,7 +13,7 @@ use SupportManager\Sdk\Resources\Resource;
  * workflow actions.
  *
  * `query()`, `find()`, `all()` read the collection; `create()`/`update()`/
- * `delete()` manage requests; and the lifecycle transitions
+ * `destroy()` manage requests; and the lifecycle transitions
  * `approve()`/`reject()`/`cancel()` move a request through its workflow.
  * Privileged users see every request in the team, everyone else only their
  * own; contractors' not-working notices are never included (see
@@ -26,7 +26,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveRequests()->approve(7);
  * ```
  *
- * @extends resource<LeaveRequest>
+ * @extends Resource<LeaveRequest>
  */
 final class LeaveRequestsResource extends Resource
 {

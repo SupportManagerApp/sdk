@@ -23,7 +23,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::driversLicenceChecks()->downloadCheckResultDocument(42)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DriversLicenceCheck>
+ * @extends Resource<DriversLicenceCheck>
  */
 final class DriversLicenceChecksResource extends Resource
 {

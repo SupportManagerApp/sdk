@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::p60s()->query()->filter('tax_year', '2025/26')->get();
  * ```
  *
- * @extends resource<P60>
+ * @extends Resource<P60>
  */
 final class P60sResource extends Resource
 {

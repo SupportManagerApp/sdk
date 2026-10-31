@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::keysafe()->update('1234');
  * ```
  *
- * @extends resource<Keysafe>
+ * @extends Resource<Keysafe>
  */
 final class KeysafeResource extends Resource
 {

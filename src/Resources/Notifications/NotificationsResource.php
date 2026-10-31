@@ -27,7 +27,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::notifications()->destroyAll();
  * ```
  *
- * @extends resource<Notification>
+ * @extends Resource<Notification>
  */
 final class NotificationsResource extends Resource
 {

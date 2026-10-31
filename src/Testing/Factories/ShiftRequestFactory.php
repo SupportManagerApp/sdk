@@ -32,7 +32,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  *     ShiftRequestFactory::new()->approved(),
  * );
  * SupportManager::shiftRequests()->create(['date' => '2026-11-20', 'start_time' => '09:00', 'end_time' => '17:00', 'type' => 'Overtime Hours']);
- * SupportManager::shiftRequests()->cancel(1);
+ * SupportManager::shiftRequests()->destroy(1);
  * ```
  */
 final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes

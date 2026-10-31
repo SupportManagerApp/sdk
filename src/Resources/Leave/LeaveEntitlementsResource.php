@@ -19,7 +19,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveEntitlements()->query()->filter('user_id', 3)->get();
  * ```
  *
- * @extends resource<LeaveEntitlement>
+ * @extends Resource<LeaveEntitlement>
  */
 final class LeaveEntitlementsResource extends Resource
 {

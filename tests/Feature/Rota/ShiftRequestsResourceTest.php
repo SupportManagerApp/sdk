@@ -124,24 +124,24 @@ it('maps a 422 on create to a validation exception', function () {
         ->toThrow(ApiValidationException::class);
 });
 
-it('cancels a shift request', function () {
+it('withdraws a shift request', function () {
     Http::fake(['api.test/api/v1/rota/shift-requests/12' => Http::response([
         'message' => 'Shift request deleted.',
         'meta' => ['team_id' => 42],
     ])]);
     bootTenantSession();
 
-    rotaShiftRequests()->cancel(12);
+    rotaShiftRequests()->destroy(12);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'rota/shift-requests/12')
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('throws when cancelling a request that is no longer open to the caller (403)', function () {
+it('throws when withdrawing a request that is no longer open to the caller (403)', function () {
     Http::fake(['api.test/api/v1/rota/shift-requests/12' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
     bootTenantSession();
 
-    expect(fn () => rotaShiftRequests()->cancel(12))
+    expect(fn () => rotaShiftRequests()->destroy(12))
         ->toThrow(SupportManagerApiException::class);
 });

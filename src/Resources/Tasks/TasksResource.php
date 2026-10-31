@@ -34,7 +34,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::tasks()->complete('payroll.bank_details');
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Task>
+ * @extends Resource<Task>
  */
 final class TasksResource extends Resource
 {
