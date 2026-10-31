@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A team membership on a {@see DevLoginUser}, with the role and status the
  * account holds in that team.
@@ -28,12 +30,6 @@ final readonly class DevLoginTeam
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (int) $data['id'],
-            slug: (string) ($data['slug'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            role: isset($data['role']) ? (string) $data['role'] : null,
-            status: isset($data['status']) ? (string) $data['status'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

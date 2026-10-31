@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The authenticated user returned alongside an issued token pair.
  */
@@ -20,10 +22,6 @@ final readonly class AuthenticatedUser
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (int) $data['id'],
-            name: (string) $data['name'],
-            email: (string) $data['email'],
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Dashboard\OptionalModule;
 use SupportManager\Sdk\Enums\Dashboard\PlanFeature;
 
@@ -35,6 +37,7 @@ final readonly class Capabilities
         public bool $subscribed,
         public array $planFeatures,
         public array $modules,
+        #[ListOf(NavigationArea::class)]
         public array $navigation,
     ) {}
 
@@ -43,21 +46,10 @@ final readonly class Capabilities
      */
     public static function fromArray(array $data): self
     {
-        $navigation = is_array($data['navigation'] ?? null) ? $data['navigation'] : [];
-
-        return new self(
-            role: isset($data['role']) ? (string) $data['role'] : null,
-            isPrivileged: (bool) ($data['is_privileged'] ?? false),
-            isEmployee: (bool) ($data['is_employee'] ?? false),
-            isFormerPa: (bool) ($data['is_former_pa'] ?? false),
-            subscribed: (bool) ($data['subscribed'] ?? false),
-            planFeatures: self::flags($data['plan_features'] ?? null),
-            modules: self::flags($data['modules'] ?? null),
-            navigation: array_values(array_map(
-                static fn (mixed $area): NavigationArea => NavigationArea::fromArray(is_array($area) ? $area : []),
-                $navigation,
-            )),
-        );
+        return Hydrator::hydrate(self::class, $data, [
+            'planFeatures' => self::flags($data['plan_features'] ?? null),
+            'modules' => self::flags($data['modules'] ?? null),
+        ]);
     }
 
     /**

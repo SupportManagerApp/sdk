@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * How the current user's dashboard is put together: which widgets they see and
  * in what order, the quick links beneath them, and the alerts waiting for
@@ -20,8 +23,11 @@ final readonly class DashboardLayout
      * @param  list<DashboardAlert>  $alerts
      */
     public function __construct(
+        #[ListOf(DashboardWidget::class)]
         public array $widgets,
+        #[ListOf(DashboardQuickLink::class)]
         public array $quickLinks,
+        #[ListOf(DashboardAlert::class)]
         public array $alerts,
     ) {}
 
@@ -30,28 +36,6 @@ final readonly class DashboardLayout
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            widgets: self::many($data['widgets'] ?? null, DashboardWidget::fromArray(...)),
-            quickLinks: self::many($data['quick_links'] ?? null, DashboardQuickLink::fromArray(...)),
-            alerts: self::many($data['alerts'] ?? null, DashboardAlert::fromArray(...)),
-        );
-    }
-
-    /**
-     * @template TItem
-     *
-     * @param  callable(array<array-key, mixed>): TItem  $factory
-     * @return list<TItem>
-     */
-    private static function many(mixed $rows, callable $factory): array
-    {
-        if (! is_array($rows)) {
-            return [];
-        }
-
-        return array_values(array_map(
-            static fn (mixed $row): mixed => $factory(is_array($row) ? $row : []),
-            $rows,
-        ));
+        return Hydrator::hydrate(self::class, $data);
     }
 }

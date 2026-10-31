@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * Something in the web app waiting for the user's attention, such as leave
  * requests to approve. `location` is where it sits in the web navigation and
@@ -24,12 +26,6 @@ final readonly class DashboardAlert
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            description: (string) ($data['description'] ?? ''),
-            count: (int) ($data['count'] ?? 0),
-            location: isset($data['location']) ? (string) $data['location'] : null,
-            icon: isset($data['icon']) ? (string) $data['icon'] : null,
-            url: (string) ($data['url'] ?? ''),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }
