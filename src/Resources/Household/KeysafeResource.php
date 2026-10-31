@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Household;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\Keysafe;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -15,8 +14,8 @@ use SupportManager\Sdk\Resources\Resource;
  * `show()` and `update()` report whether a code is set and whether the caller
  * may edit it; `reveal()` returns the actual code (and is the only method that
  * populates `Keysafe::$code`). The platform's `KeysafeController` returns a flat
- * `{data: {...}}` body — NOT a JSON:API document with `attributes` — so we parse
- * `data` directly rather than via `item()`.
+ * `{data: {...}}` body — NOT a JSON:API document with `attributes` — so it is
+ * read with {@see Resource::data()} rather than `item()`.
  *
  * ```php
  * SupportManager::keysafe()->reveal()->code;
@@ -32,7 +31,7 @@ final class KeysafeResource extends Resource
      */
     public function show(): ?Keysafe
     {
-        return $this->keysafe($this->get('household/keysafe'));
+        return $this->data($this->get($this->path()), Keysafe::class);
     }
 
     /**
@@ -40,7 +39,7 @@ final class KeysafeResource extends Resource
      */
     public function reveal(): ?Keysafe
     {
-        return $this->keysafe($this->post('household/keysafe/reveal'));
+        return $this->data($this->post("{$this->path()}/reveal"), Keysafe::class);
     }
 
     /**
@@ -49,7 +48,7 @@ final class KeysafeResource extends Resource
      */
     public function update(?string $code): ?Keysafe
     {
-        return $this->keysafe($this->patch('household/keysafe', ['code' => $code]));
+        return $this->data($this->patch($this->path(), ['code' => $code]), Keysafe::class);
     }
 
     protected function path(): string
@@ -60,22 +59,5 @@ final class KeysafeResource extends Resource
     protected function hydrate(ResourceObject $object): Keysafe
     {
         return Keysafe::fromArray($object->flat());
-    }
-
-    /**
-     * Parse the singleton's flat (non-JSON:API) `data` body into a DTO.
-     */
-    private function keysafe(Response $response): ?Keysafe
-    {
-        $this->throwForErrorResponse($response, 'household/keysafe');
-
-        /** @var array<string, mixed> $body */
-        $body = $response->json() ?? [];
-
-        if (! isset($body['data']) || ! is_array($body['data'])) {
-            return null;
-        }
-
-        return Keysafe::fromArray($body['data']);
     }
 }
