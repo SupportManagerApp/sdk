@@ -65,7 +65,7 @@ final class CarJourneysResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"), $this->path());
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     /**
