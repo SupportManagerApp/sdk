@@ -51,7 +51,9 @@ final class Json
     }
 
     /**
-     * The `{type, id, attributes}` object for one JSON:API record.
+     * The `{type, id, attributes}` object for one JSON:API record. A record's
+     * `meta` key (e.g. `meta.can` permission flags) is lifted out of the
+     * attributes to the resource-level `meta` member, as the platform emits it.
      *
      * @param  array<string, mixed>  $record
      * @return array<string, mixed>
@@ -59,12 +61,13 @@ final class Json
     private static function object(string $type, array $record): array
     {
         $attributes = $record;
-        unset($attributes['id']);
+        unset($attributes['id'], $attributes['meta']);
 
         return [
             'type' => $type,
             'id' => (string) ($record['id'] ?? ''),
             'attributes' => $attributes,
+            ...(is_array($record['meta'] ?? null) ? ['meta' => $record['meta']] : []),
         ];
     }
 }

@@ -158,3 +158,102 @@ it('maps a 422 on create to a validation exception', function () {
     expect(fn () => rotaAppointments()->create(['title' => 'Dentist', 'date' => '2026-08-18']))
         ->toThrow(ApiValidationException::class);
 });
+
+it('hydrates the appointment meta.can flags', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/4' => Http::response([
+        'data' => [
+            'type' => 'appointments',
+            'id' => '4',
+            'attributes' => ['title' => 'One-to-one', 'is_private' => true, 'viewer_ids' => []],
+            'meta' => ['can' => ['update' => true, 'delete' => false]],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $appointment = rotaAppointments()->find(4);
+
+    expect($appointment?->canUpdate)->toBeTrue()
+        ->and($appointment->canDelete)->toBeFalse()
+        ->and($appointment->viewerIds)->toBe([]);
+});
+
+it('defaults the appointment permissions to false without meta', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/4' => Http::response([
+        'data' => ['type' => 'appointments', 'id' => '4', 'attributes' => ['title' => 'One-to-one']],
+    ])]);
+    bootTenantSession();
+
+    $appointment = rotaAppointments()->find(4);
+
+    expect($appointment?->canUpdate)->toBeFalse()
+        ->and($appointment->canDelete)->toBeFalse();
+});
+
+it('updates an appointment and hydrates the stored record', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/4' => Http::response([
+        'data' => [
+            'type' => 'appointments',
+            'id' => '4',
+            'attributes' => [
+                'title' => 'Dentist',
+                'start' => '2026-08-25T10:00:00+01:00',
+                'end' => '2026-08-25T10:30:00+01:00',
+            ],
+            'meta' => ['can' => ['update' => true, 'delete' => true]],
+        ],
+        'meta' => ['team_id' => 42],
+    ])]);
+    bootTenantSession();
+
+    $appointment = rotaAppointments()->update(4, ['date' => '2026-08-25', 'start_time' => '10:00', 'end_time' => '10:30']);
+
+    expect($appointment)->toBeInstanceOf(Appointment::class)
+        ->and($appointment->start)->toBe('2026-08-25T10:00:00+01:00')
+        ->and($appointment->end)->toBe('2026-08-25T10:30:00+01:00')
+        ->and($appointment->canUpdate)->toBeTrue();
+    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+        && str_contains($request->url(), 'rota/appointments/4')
+        && $request['start_time'] === '10:00'
+        && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('maps a 422 on update to a validation exception', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/4' => Http::response([
+        'message' => 'A date is required when changing when the appointment happens.',
+        'errors' => ['date' => ['A date is required when changing when the appointment happens.']],
+    ], 422)]);
+    bootTenantSession();
+
+    expect(fn () => rotaAppointments()->update(4, ['start_time' => '10:00']))
+        ->toThrow(ApiValidationException::class);
+});
+
+it('throws when updating a private appointment the caller cannot change (403)', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/4' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+    bootTenantSession();
+
+    expect(fn () => rotaAppointments()->update(4, ['title' => 'Mine now']))
+        ->toThrow(SupportManagerApiException::class);
+});
+
+it('deletes an appointment', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/4' => Http::response([
+        'message' => 'Appointment deleted.',
+        'meta' => ['team_id' => 42],
+    ])]);
+    bootTenantSession();
+
+    rotaAppointments()->destroy(4);
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && str_contains($request->url(), 'rota/appointments/4')
+        && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('throws when deleting a missing appointment (404)', function () {
+    Http::fake(['api.test/api/v1/rota/appointments/999' => Http::response(['message' => 'Not found'], 404)]);
+    bootTenantSession();
+
+    expect(fn () => rotaAppointments()->destroy(999))
+        ->toThrow(SupportManagerApiException::class);
+});

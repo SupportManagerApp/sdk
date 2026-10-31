@@ -22,7 +22,10 @@ use SupportManager\Sdk\Testing\RecordStore;
  * path; this factory adds the module's read feeds — {@see today()}'s shifts,
  * the {@see upcoming()} window and the unassigned {@see available()} shifts —
  * plus the `apply()` action, which returns the created
- * {@see ShiftApplicationFactory} shape.
+ * {@see ShiftApplicationFactory} shape (and 422s a {@see sleepoverSegment()},
+ * as the platform does), and `requestAmendment()`, which records a pending
+ * {@see ShiftAmendmentRequestFactory} request (422 without both proposed
+ * times, 403 while one is already pending for the shift).
  *
  * `create()` is answered by a custom route rather than generic REST, because
  * the platform takes quick-add fields (`assignee_id`, `date`, `start_time`, …)
@@ -40,10 +43,17 @@ use SupportManager\Sdk\Testing\RecordStore;
  * SupportManager::shifts()->upcoming(['limit' => 5]);
  * SupportManager::shifts()->create(['assignee_id' => 7, 'date' => '2026-08-17', 'start_time' => '22:00', 'end_time' => '07:00']);
  * SupportManager::shifts()->apply($id);
+ * SupportManager::shifts()->requestAmendment($id, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']);
  * ```
  */
 final class ShiftFactory extends Factory implements ProvidesFakeRoutes
 {
+    /**
+     * The platform's answer to applying for, or withdrawing, one segment of a
+     * sleepover on its own.
+     */
+    public const string SLEEPOVER_SEGMENT_MESSAGE = 'This shift is part of a sleepover, which is applied for and retracted as a whole.';
+
     public function path(): string
     {
         return 'rota/shifts';
@@ -69,11 +79,20 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
             'is_available' => false,
             'is_sleeping_night' => false,
             'is_overtime' => false,
+            'is_for_toil' => false,
+            'is_private' => false,
+            'shift_block_id' => null,
+            'tags' => [],
+            'own_application_status' => null,
             'notes' => null,
             'shift_applications_count' => 0,
             'user' => ['id' => 7, 'name' => "User {$number}", 'avatar' => 'https://example.test/avatar.png'],
             'created_at' => '2026-06-06T09:00:00Z',
             'updated_at' => '2026-06-06T09:00:00Z',
+            'meta' => [
+                'can' => ['apply' => false, 'request_amendment' => true],
+                'cannot_apply_reason' => 'You cannot apply for this shift.',
+            ],
         ];
     }
 
@@ -102,7 +121,20 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
             'is_available' => true,
             'user' => null,
             'shift_applications_count' => 0,
+            'meta' => [
+                'can' => ['apply' => true, 'request_amendment' => false],
+                'cannot_apply_reason' => null,
+            ],
         ]);
+    }
+
+    /**
+     * Make the shift an open segment of the given sleepover (shift block),
+     * applied for as a whole through {@see ShiftBlockFactory}.
+     */
+    public function sleepoverSegment(int $shiftBlockId): static
+    {
+        return $this->available()->state(['shift_block_id' => $shiftBlockId]);
     }
 
     public function fakeRoutes(): array
@@ -201,6 +233,10 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                     return Http::response(['message' => 'Not found'], 404);
                 }
 
+                if (($shift['shift_block_id'] ?? null) !== null) {
+                    return Http::response(['message' => self::SLEEPOVER_SEGMENT_MESSAGE], 422);
+                }
+
                 $application = [
                     'id' => $store->nextId('rota/shift-applications'),
                     'team_id' => 42,
@@ -215,8 +251,64 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 ];
 
                 $store->append('rota/shift-applications', $application);
+                $store->update('rota/shifts', (string) $shift['id'], ['own_application_status' => 'Pending']);
 
                 return Http::response(Json::collection('shift-applications', [$application]), 201);
+            }),
+
+            FakeRoute::post('rota/shifts/{id}/amendment-requests', static function (RecordStore $store, array $matches, Request $request): mixed {
+                $shift = $store->find('rota/shifts', $matches[1]);
+
+                if ($shift === null) {
+                    return Http::response(['message' => 'Not found'], 404);
+                }
+
+                $input = $request->data();
+                $missing = array_values(array_filter(
+                    ['proposed_start_time', 'proposed_end_time'],
+                    static fn (string $field): bool => ! isset($input[$field]) || $input[$field] === '',
+                ));
+
+                if ($missing !== []) {
+                    return Http::response([
+                        'message' => 'The information provided was invalid.',
+                        'errors' => array_fill_keys($missing, ['This field is required.']),
+                    ], 422);
+                }
+
+                foreach ($store->all('rota/shift-amendment-requests') as $existing) {
+                    if ((string) ($existing['rota_entry_id'] ?? '') === (string) $shift['id'] && ($existing['status'] ?? null) === 'Pending') {
+                        return Http::response(['message' => 'This action is unauthorized.'], 403);
+                    }
+                }
+
+                // The proposed times land on the day the shift itself starts.
+                $date = mb_substr((string) ($shift['start'] ?? '2026-06-06'), 0, 10);
+                $start = self::wallClock($date, (string) $input['proposed_start_time']);
+                $end = self::wallClock($date, (string) $input['proposed_end_time']);
+
+                if ($end <= $start) {
+                    $end = $end->modify('+1 day');
+                }
+
+                $amendment = $store->append('rota/shift-amendment-requests', [
+                    'id' => $store->nextId('rota/shift-amendment-requests'),
+                    'team_id' => 42,
+                    'user_id' => 7,
+                    'rota_entry_id' => (int) $shift['id'],
+                    'proposed_start' => $start->format(DATE_ATOM),
+                    'proposed_end' => $end->format(DATE_ATOM),
+                    'requested_pay_enhancement_id' => $input['requested_pay_enhancement_id'] ?? null,
+                    'requested_tags' => $input['requested_tags'] ?? [],
+                    'reason' => $input['reason'] ?? null,
+                    'status' => 'Pending',
+                    'reviewed_by' => null,
+                    'reviewed_at' => null,
+                    'created_at' => '2026-06-06T09:00:00Z',
+                    'updated_at' => '2026-06-06T09:00:00Z',
+                ]);
+
+                return Http::response(Json::item('shift_amendment_requests', $amendment), 201);
             }),
         ];
     }

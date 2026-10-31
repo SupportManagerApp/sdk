@@ -96,3 +96,43 @@ it('throws an api exception on a server error', function () {
     expect(fn () => rotaApplications()->query()->get())
         ->toThrow(SupportManagerApiException::class);
 });
+
+it('reads the privileged-only provisional flag, null otherwise', function () {
+    Http::fake(['api.test/api/v1/rota/shift-applications*' => Http::response([
+        'data' => [
+            ['type' => 'shift_applications', 'id' => '1', 'attributes' => ['status' => 'Pencilled In', 'is_provisional' => true]],
+            ['type' => 'shift_applications', 'id' => '2', 'attributes' => ['status' => 'Pending']],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $items = rotaApplications()->all()->items();
+
+    expect($items[0]->isProvisional)->toBeTrue()
+        ->and($items[1]->isProvisional)->toBeNull();
+});
+
+it('keeps the nested shift meta.can flags', function () {
+    Http::fake(['api.test/api/v1/rota/shift-applications*' => Http::response([
+        'data' => [[
+            'type' => 'shift_applications',
+            'id' => '1',
+            'attributes' => [
+                'status' => 'Pending',
+                'rota_entry' => ['data' => [
+                    'id' => '5',
+                    'type' => 'rota_entries',
+                    'attributes' => ['type' => 'Contracted Hours', 'shift_block_id' => 9],
+                    'meta' => ['can' => ['apply' => false, 'request_amendment' => true]],
+                ]],
+            ],
+        ]],
+    ])]);
+    bootTenantSession();
+
+    $shift = rotaApplications()->all()->items()[0]->rotaEntry;
+
+    expect($shift?->id)->toBe('5')
+        ->and($shift->shiftBlockId)->toBe(9)
+        ->and($shift->canRequestAmendment)->toBeTrue();
+});

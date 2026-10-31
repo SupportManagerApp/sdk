@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
+use SupportManager\Sdk\Data\Rota\CalendarFeed;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Resources\Rota\CalendarResource;
 
 function rotaCalendar(): CalendarResource
@@ -78,4 +80,47 @@ it('maps a 422 (missing date range) to a validation exception', function () {
 
     expect(fn () => rotaCalendar()->bankHolidays())
         ->toThrow(ApiValidationException::class);
+});
+
+it('reads the calendar feed address', function () {
+    Http::fake(['api.test/api/v1/rota/calendar-feed' => Http::response([
+        'data' => ['url' => 'https://suptmgr.test/calendar/0b6f4f9e.ics'],
+        'meta' => ['team_id' => 42],
+    ])]);
+    bootTenantSession();
+
+    $feed = rotaCalendar()->feed();
+
+    expect($feed)->toBeInstanceOf(CalendarFeed::class)
+        ->and($feed->url)->toBe('https://suptmgr.test/calendar/0b6f4f9e.ics');
+    Http::assertSent(fn ($request) => $request->method() === 'GET' && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('reads a null feed address until one is issued', function () {
+    Http::fake(['api.test/api/v1/rota/calendar-feed' => Http::response(['data' => ['url' => null], 'meta' => ['team_id' => 42]])]);
+    bootTenantSession();
+
+    expect(rotaCalendar()->feed()->url)->toBeNull();
+});
+
+it('issues a new calendar feed address', function () {
+    Http::fake(['api.test/api/v1/rota/calendar-feed/token' => Http::response([
+        'data' => ['url' => 'https://suptmgr.test/calendar/new-token.ics'],
+        'meta' => ['team_id' => 42],
+    ])]);
+    bootTenantSession();
+
+    $feed = rotaCalendar()->regenerateFeed();
+
+    expect($feed->url)->toBe('https://suptmgr.test/calendar/new-token.ics');
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_contains($request->url(), 'rota/calendar-feed/token'));
+});
+
+it('throws when the token cannot issue a feed address (403)', function () {
+    Http::fake(['api.test/api/v1/rota/calendar-feed/token' => Http::response(['message' => 'Invalid ability provided.'], 403)]);
+    bootTenantSession();
+
+    expect(fn () => rotaCalendar()->regenerateFeed())
+        ->toThrow(SupportManagerApiException::class);
 });

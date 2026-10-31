@@ -40,7 +40,10 @@ use SupportManager\Sdk\Resources\Resource;
 use SupportManager\Sdk\Resources\Rota\AppointmentsResource;
 use SupportManager\Sdk\Resources\Rota\CalendarResource;
 use SupportManager\Sdk\Resources\Rota\QuickAddResource;
+use SupportManager\Sdk\Resources\Rota\ShiftAmendmentRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
+use SupportManager\Sdk\Resources\Rota\ShiftBlocksResource;
+use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
@@ -298,10 +301,28 @@ final class SupportManager
         return $this->resource(ShiftsResource::class);
     }
 
+    /** Rota — the current user's requests to change one of their shifts. */
+    public function shiftAmendmentRequests(): ShiftAmendmentRequestsResource
+    {
+        return $this->resource(ShiftAmendmentRequestsResource::class);
+    }
+
     /** Rota — the current user's shift applications. */
     public function shiftApplications(): ShiftApplicationsResource
     {
         return $this->resource(ShiftApplicationsResource::class);
+    }
+
+    /** Rota — sleepovers (shift blocks), applied for and withdrawn as a whole. */
+    public function shiftBlocks(): ShiftBlocksResource
+    {
+        return $this->resource(ShiftBlocksResource::class);
+    }
+
+    /** Rota — the current user's requests for extra hours. */
+    public function shiftRequests(): ShiftRequestsResource
+    {
+        return $this->resource(ShiftRequestsResource::class);
     }
 
     /** Rota — appointments, including upcoming. */
