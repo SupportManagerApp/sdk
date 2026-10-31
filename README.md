@@ -40,16 +40,73 @@ added here as `Resources\Resource` subclasses with their own DTOs, so they are
 shared by every client app instead of reimplemented per platform:
 
 ```php
+/** @extends \SupportManager\Sdk\Resources\Resource<Journey> */
 final class JourneysResource extends Resource
 {
+    protected function path(): string
+    {
+        return 'journeys';
+    }
+
+    protected function hydrate(ResourceObject $object): Journey
+    {
+        return Journey::fromArray($object->flat());
+    }
+
     /** @return list<Journey> */
     public function upcoming(): array
     {
-        $data = $this->tenant(fn ($request) => $request->get('journeys/upcoming'))->json('data', []);
+        return $this->collection($this->get('journeys/upcoming'));
+    }
 
-        return array_map(Journey::fromArray(...), $data);
+    public function summary(): ?JourneySummary
+    {
+        return $this->data($this->get('journeys/summary'), JourneySummary::class);
+    }
+
+    public function export(string|int $id): Download
+    {
+        return $this->downloadFile("journeys/{$id}/export");
     }
 }
+```
+
+`query()`, `find()` and `all()` come for free. For a custom endpoint, issue the
+request with `get()`, `post()`, `put()`, `patch()` or `delete()` (or `tenant()`
+for something like a multipart upload), then read the response with the helper
+that matches the body the platform sends. Every helper turns an error response
+into a typed exception first, so don't check the status yourself.
+
+| The platform returns | Read it with | You get |
+| --- | --- | --- |
+| A JSON:API resource object | `item($response)`, or `item($response, Other::class)` for a different DTO | `?T` |
+| A JSON:API collection | `collection($response)` (it takes a DTO class too) | `list<T>` |
+| A JSON:API collection whose `meta`/`links` you need | `paginated($response, $pageFetcher)` | `Paginated<T>` |
+| A plain `{data: {...}}` object | `data($response, Dto::class)` | `?Dto` |
+| A plain `{data: [...]}` list | `dataList($response, Dto::class)` | `list<Dto>` |
+| A plain list plus `meta` (and `links`) | `dataPaginated($response, Dto::class, $pageFetcher)` | `Paginated<Dto>` |
+| A plain `data` with no DTO, or a DTO that must never be null | `raw($response)`, e.g. `Dto::fromArray($this->raw($response))` | `array` |
+| The file itself (a PDF, an image) | `downloadFile($uri, $query)` | `Download` |
+| `{data: {download_url, filename, expires_at}}` | `downloadLink($uri, $query)` | `DownloadLink` |
+| Nothing worth reading (204, a message) | `throwForErrorResponse($this->delete($uri))` | — |
+
+A plain-body DTO only needs a static `fromArray(array $data)`, which the
+hydrator provides. Leave out the `$pageFetcher` for an endpoint that returns its
+whole list at once. `throwForErrorResponse()` labels its log entry with the
+request path, so there's no need to pass a label.
+
+### Downloads
+
+A `Download` wraps a file body: `body()`, `size()`, `mimeType()`, `filename()`
+(from `Content-Disposition`, preferring the RFC 5987 `filename*=UTF-8''…` form),
+`saveTo($path)` (a directory saves under `filename()`) and `response()` for
+anything else. A `DownloadLink` carries `url`, `filename` and `expiresAt`. Its
+URL is a signed link that stops working after a few minutes, so fetch it
+straight away rather than storing it.
+
+```php
+SupportManager::payslips()->download(9)->saveTo(storage_path('payslips'));
+SupportManager::documents()->download(7)->url;
 ```
 
 ## Installation
@@ -115,9 +172,10 @@ SupportManager::dashboard()->capabilities()->hasPlanFeature(PlanFeature::ESignin
 (`/signing/requests`). `all()` lists the awaiting inbox, or
 `all(SignatureRequestStatus::Signed)` for the documents already signed.
 `find()` returns one request with its fields and consent statement, and marks
-it viewed. To sign, draw `file()` (the original PDF), `saveValues()` as the user
-fills in fields, then `sign()` once they agree to the consent statement.
-`downloadSigned()` returns a short-lived link to the completed copy. Use
+it viewed. To sign, draw `file()` (the original PDF, as a `Download`),
+`saveValues()` as the user fills in fields, then `sign()` once they agree to the
+consent statement. `downloadSigned()` returns a `DownloadLink`, a short-lived
+link to the completed copy. Use
 `canSign` and `canDownloadSigned` (the request's `meta.can`) to decide what to
 offer.
 
@@ -125,7 +183,7 @@ offer.
 $request = SupportManager::signatureRequests()->find(12);
 SupportManager::signatureRequests()->saveValues(12, [$request->myFields()[0]->id => 'data:image/png;base64,…']);
 SupportManager::signatureRequests()->sign(12, agreesToSignElectronically: true);
-SupportManager::signatureRequests()->downloadSigned(12)->json('data.download_url');
+SupportManager::signatureRequests()->downloadSigned(12)->url;
 ```
 
 ## Faking the API in host apps
