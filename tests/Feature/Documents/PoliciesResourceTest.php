@@ -112,17 +112,17 @@ it('acknowledges a policy', function () {
         && $request->method() === 'POST');
 });
 
-it('maps a 422 on the policies path to a validation exception', function () {
+it('maps a 422 (invalid team context) on the policies path to a validation exception', function () {
     Http::fake(['api.test/api/v1/documents/policies*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The category filter is invalid.']],
+        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
     ], 422)]);
     bootTenantSession();
 
     try {
-        policiesResource()->query()->filter('category', 'bogus')->get();
+        policiesResource()->query()->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The category filter is invalid.');
+        expect($e->getMessage())->toBe('Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.')
+            ->and($e->errors)->toBe([]);
     }
 });

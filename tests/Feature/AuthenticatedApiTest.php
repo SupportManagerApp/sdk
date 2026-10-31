@@ -26,10 +26,10 @@ function authenticated_api(): array
     return [$api, $session];
 }
 
-$call = fn ($request) => $request->get('payroll/me');
+$call = fn ($request) => $request->get('user/teams/count');
 
 it('returns the response and never refreshes when the call succeeds', function () use ($call) {
-    Http::fake(['api.test/api/v1/payroll/me' => Http::response(['ok' => true], 200)]);
+    Http::fake(['api.test/api/v1/user/teams/count' => Http::response(['data' => ['count' => 1]], 200)]);
 
     [$api, $session] = authenticated_api();
     $session->start(new AuthTokens('access-1', 'refresh-1', 'Bearer', 3600));
@@ -37,16 +37,16 @@ it('returns the response and never refreshes when the call succeeds', function (
     $response = $api->send($call);
 
     expect($response->status())->toBe(200)
-        ->and($response->json('ok'))->toBeTrue();
+        ->and($response->json('data.count'))->toBe(1);
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'auth/refresh'));
 });
 
 it('refreshes once and retries with the new token on a 401', function () use ($call) {
     Http::fake([
-        'api.test/api/v1/payroll/me' => Http::sequence()
+        'api.test/api/v1/user/teams/count' => Http::sequence()
             ->push(['message' => 'Unauthenticated'], 401)
-            ->push(['ok' => true], 200),
+            ->push(['data' => ['count' => 1]], 200),
         'api.test/api/v1/auth/refresh' => Http::response(['data' => [
             'access_token' => 'access-2',
             'refresh_token' => 'refresh-2',
@@ -64,13 +64,13 @@ it('refreshes once and retries with the new token on a 401', function () use ($c
         ->and($session->accessToken())->toBe('access-2');
 
     // The retry must carry the refreshed bearer token.
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'payroll/me')
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'user/teams/count')
         && $request->hasHeader('Authorization', 'Bearer access-2'));
 });
 
 it('throws and clears the session when the refresh is rejected on a 401', function () use ($call) {
     Http::fake([
-        'api.test/api/v1/payroll/me' => Http::response(['message' => 'Unauthenticated'], 401),
+        'api.test/api/v1/user/teams/count' => Http::response(['message' => 'Unauthenticated'], 401),
         'api.test/api/v1/auth/refresh' => Http::response(['message' => 'expired'], 401),
     ]);
 
@@ -92,12 +92,12 @@ it('throws immediately when there is no session', function () use ($call) {
 });
 
 it('forwards the team id as a header', function () {
-    Http::fake(['api.test/api/v1/payroll/me' => Http::response(['ok' => true], 200)]);
+    Http::fake(['api.test/api/v1/user/teams/count' => Http::response(['data' => ['count' => 1]], 200)]);
 
     [$api, $session] = authenticated_api();
     $session->start(new AuthTokens('access-1', 'refresh-1', 'Bearer', 3600));
 
-    $api->send(fn ($request) => $request->get('payroll/me'), teamId: 42);
+    $api->send(fn ($request) => $request->get('user/teams/count'), teamId: 42);
 
     Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
 });
@@ -111,13 +111,13 @@ it('resolves the current team for tenant scoped requests', function () {
                 'attributes' => ['name' => 'Bletchley Park'],
             ],
         ]]),
-        'api.test/api/v1/payroll/me' => Http::response(['ok' => true], 200),
+        'api.test/api/v1/user/teams/count' => Http::response(['data' => ['count' => 1]], 200),
     ]);
 
     [$api, $session] = authenticated_api();
     $session->start(new AuthTokens('access-1', 'refresh-1', 'Bearer', 3600));
 
-    $response = $api->tenant(fn ($request) => $request->get('payroll/me'));
+    $response = $api->tenant(fn ($request) => $request->get('user/teams/count'));
 
     expect($response->status())->toBe(200)
         ->and($session->currentTeamId())->toBe(42);
@@ -126,7 +126,7 @@ it('resolves the current team for tenant scoped requests', function () {
         && $request->hasHeader('Authorization', 'Bearer access-1')
         && ! $request->hasHeader('X-Team-ID'));
 
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'payroll/me')
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'user/teams/count')
         && $request->hasHeader('Authorization', 'Bearer access-1')
         && $request->hasHeader('X-Team-ID', '42'));
 });

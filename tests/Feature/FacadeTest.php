@@ -25,7 +25,7 @@ it('resolves a registered resource fluently and runs a tenant-scoped query', fun
                 'id' => '1',
                 'attributes' => ['driver_name' => 'Ada', 'is_ongoing' => true],
             ]],
-            'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1, 'team_id' => '42'],
+            'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1, 'team_id' => 42],
         ]),
     ]);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
@@ -99,9 +100,11 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
         $driverName = $this->driverName;
 
         return [
-            // Logging a journey ends any ongoing one, then falls through to the
-            // generic create.
-            FakeRoute::post('car-journeys', static function (RecordStore $store): mixed {
+            // Logging a journey ends any ongoing one. Like the platform's
+            // StoreCarJourneyRequest, the body carries the trip as separate
+            // date and time fields, stored as the resource's `trip_start` /
+            // `trip_end` timestamps.
+            FakeRoute::post('car-journeys', static function (RecordStore $store, array $matches, Request $request): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
                         $store->update('car-journeys', (string) $record['id'], [
@@ -111,7 +114,26 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                return null;
+                $created = $store->append('car-journeys', [
+                    'id' => $store->nextId('car-journeys'),
+                    'comments' => null,
+                    'created_at' => '2026-01-01T09:00:00Z',
+                    'updated_at' => '2026-01-01T09:00:00Z',
+                    'meta' => ['can' => ['update' => true, 'delete' => true]],
+                    ...self::journeyAttributes($request->data()),
+                ]);
+
+                return Http::response(Json::item('car-journeys', $created), 201);
+            }),
+
+            // Like the platform's UpdateCarJourneyRequest, an edit resends the
+            // whole trip as date and time fields.
+            FakeRoute::patch('car-journeys/{id}', static function (RecordStore $store, array $matches, Request $request): mixed {
+                $updated = $store->update('car-journeys', $matches[1], self::journeyAttributes($request->data()));
+
+                return $updated === null
+                    ? Http::response(['message' => 'Not found'], 404)
+                    : Http::response(Json::item('car-journeys', $updated));
             }),
 
             FakeRoute::get('car-journeys/ongoing', static function (RecordStore $store): mixed {
@@ -157,5 +179,34 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     : Http::response(Json::item('car-journeys', $finished));
             }),
         ];
+    }
+
+    /**
+     * The stored attributes for a create/update body of separate trip date and
+     * time fields, as the platform's form requests take them.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function journeyAttributes(array $data): array
+    {
+        $attributes = array_intersect_key($data, array_flip(['driver_name', 'comments']));
+
+        if (isset($data['trip_start_date'], $data['trip_start_time'])) {
+            $attributes['trip_start'] = "{$data['trip_start_date']}T{$data['trip_start_time']}:00Z";
+        }
+
+        if (array_key_exists('trip_end_date', $data)) {
+            $tripEnd = isset($data['trip_end_date'], $data['trip_end_time'])
+                ? "{$data['trip_end_date']}T{$data['trip_end_time']}:00Z"
+                : null;
+            $attributes['trip_end'] = $tripEnd;
+            $attributes['is_ongoing'] = $tripEnd === null;
+            $attributes['duration_minutes'] = $tripEnd !== null && isset($attributes['trip_start'])
+                ? intdiv((int) strtotime($tripEnd) - (int) strtotime((string) $attributes['trip_start']), 60)
+                : null;
+        }
+
+        return $attributes;
     }
 }

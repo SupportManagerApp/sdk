@@ -98,18 +98,18 @@ it('returns null when finding a missing DBS check (404)', function () {
     expect(complianceDbsChecks()->find(999))->toBeNull();
 });
 
-it('maps a 422 on the collection path to a validation exception', function () {
+it('maps a 422 (invalid team context) on the collection path to a validation exception', function () {
     Http::fake(['api.test/api/v1/compliance/dbs-checks*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The user_id filter is invalid.']],
+        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
     ], 422)]);
     bootTenantSession();
 
     try {
-        complianceDbsChecks()->query()->filter('user_id', 'nope')->get();
+        complianceDbsChecks()->query()->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The user_id filter is invalid.');
+        expect($e->getMessage())->toBe('Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.')
+            ->and($e->errors)->toBe([]);
     }
 });
 

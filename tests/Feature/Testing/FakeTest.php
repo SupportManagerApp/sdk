@@ -60,11 +60,25 @@ it('paginates seeded records through the real pagination layer', function () {
 it('mutates the store through create, update and delete', function () {
     SupportManager::fake()->seed(CarJourneyFactory::new()->count(1));
 
-    $created = SupportManager::journeys()->create(['driver_name' => 'Grace']);
+    $created = SupportManager::journeys()->create([
+        'driver_name' => 'Grace',
+        'trip_start_date' => '2026-01-02',
+        'trip_start_time' => '09:00',
+        'trip_end_date' => '2026-01-02',
+        'trip_end_time' => '10:30',
+    ]);
     expect($created->driverName)->toBe('Grace')
+        ->and($created->durationMinutes)->toBe(90)
         ->and(SupportManager::journeys()->all()->total())->toBe(2);
 
-    $updated = SupportManager::journeys()->update($created->id, ['comments' => 'Edited']);
+    $updated = SupportManager::journeys()->update($created->id, [
+        'driver_name' => 'Grace',
+        'trip_start_date' => '2026-01-02',
+        'trip_start_time' => '09:00',
+        'trip_end_date' => '2026-01-02',
+        'trip_end_time' => '10:30',
+        'comments' => 'Edited',
+    ]);
     expect($updated->comments)->toBe('Edited');
 
     SupportManager::journeys()->destroy($created->id);
@@ -110,7 +124,8 @@ it('honours the flat notifications filter and unread_count meta', function () {
 it('toggles notification read state and clears all', function () {
     SupportManager::fake()->seed(NotificationFactory::new()->count(2));
 
-    SupportManager::notifications()->markAsRead('1');
+    // Notification ids are UUIDs; read one back from the index.
+    SupportManager::notifications()->markAsRead(SupportManager::notifications()->all()->items()[0]->id);
     expect(SupportManager::notifications()->unreadCount())->toBe(1);
 
     SupportManager::notifications()->markAllAsRead();
@@ -212,7 +227,13 @@ it('clears programmed failures', function () {
 it('ends the ongoing journey when one is logged directly', function () {
     SupportManager::fake()->seed(CarJourneyFactory::new()->ongoing()->state(['driver_name' => 'Ada']));
 
-    SupportManager::journeys()->create(['driver_name' => 'Grace', 'is_ongoing' => false]);
+    SupportManager::journeys()->create([
+        'driver_name' => 'Grace',
+        'trip_start_date' => '2026-01-02',
+        'trip_start_time' => '09:00',
+        'trip_end_date' => '2026-01-02',
+        'trip_end_time' => '10:30',
+    ]);
 
     expect(SupportManager::journeys()->ongoing())->toBeNull()
         ->and(SupportManager::journeys()->find(1)?->tripEnd)->not->toBeNull();

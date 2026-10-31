@@ -116,15 +116,15 @@ it('returns the raw download payload response', function () {
 
 it('maps a 422 on the documents path to a validation exception', function () {
     Http::fake(['api.test/api/v1/documents/documents*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The name filter is invalid.']],
+        'message' => 'The selected filter.scope is invalid.',
+        'errors' => ['filter.scope' => ['The selected filter.scope is invalid.']],
     ], 422)]);
     bootTenantSession();
 
     try {
-        documentsResource()->query()->filter('name', '')->get();
+        documentsResource()->query()->filter('scope', 'everyone')->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The name filter is invalid.');
+        expect($e->first('filter.scope'))->toBe('The selected filter.scope is invalid.');
     }
 });

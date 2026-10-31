@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Concerns\FakesComplianceRecords;
@@ -116,7 +118,11 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
                 }
 
                 return self::saveOwnRecord($store, 'compliance/dbs-checks', 'dbs-checks', $own, [
-                    'date_of_issue' => $fields['date_of_issue'] ?? null,
+                    // The platform stores the date and serialises it as midnight
+                    // wall-clock time in Europe/London (ApiResource::wallClock()).
+                    'date_of_issue' => isset($fields['date_of_issue'])
+                        ? (new DateTimeImmutable((string) $fields['date_of_issue'], new DateTimeZone('Europe/London')))->format(DATE_ATOM)
+                        : null,
                     'certificate_number' => $fields['certificate_number'] ?? null,
                     'certificate' => $certificate,
                 ]);
