@@ -85,7 +85,14 @@ or no show route (`apiResource(...)->except(['show'])`, for one). Use
 a JSON:API collection at `GET {path}`, and `Resources\Concerns\Findable` for
 `find($id)` when it shows one at `GET {path}/{id}`. Leave them out otherwise:
 `tests/Arch/CollectionReadsTest.php` fails for a resource that offers one of
-these without the route in the spec. For a custom endpoint, issue the
+these without the route in the spec.
+
+`query()` builds `filter[key]`, `sort`, `page` and `per_page`. Its `include()`
+is deprecated and does nothing: no platform endpoint allows Spatie includes,
+so the SDK no longer sends `include`, and the call only raises an
+`E_USER_DEPRECATED`. Remove it from your queries.
+
+For a custom endpoint, issue the
 request with `get()`, `post()`, `put()`, `patch()` or `delete()` (or `tenant()`
 for something like a multipart upload), then read the response with the helper
 that matches the body the platform sends. Every helper turns an error response

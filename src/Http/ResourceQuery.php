@@ -15,10 +15,11 @@ use SupportManager\Sdk\Concerns\MapsApiErrors;
 /**
  * A fluent, immutable query against a tenant-scoped collection endpoint.
  *
- * The builder mirrors the platform's Spatie QueryBuilder grammar one-to-one:
- * `filter()` → `filter[key]=value`, `sort()` → `sort=-a,b`, `include()` →
- * `include=user`, plus `page`/`per_page` pagination. Each builder method returns
- * a new instance, so a base query can be safely branched and reused.
+ * The builder mirrors the platform's Spatie QueryBuilder grammar:
+ * `filter()` → `filter[key]=value` and `sort()` → `sort=-a,b`, plus
+ * `page`/`per_page` pagination. Each builder method returns a new instance, so
+ * a base query can be safely branched and reused. (`include()` is deprecated:
+ * no platform endpoint allows includes, so it sends nothing.)
  *
  * Terminal methods run the request through {@see AuthenticatedApi::tenant()} —
  * inheriting current-team scoping and transparent token renewal — decode the
@@ -36,9 +37,6 @@ final class ResourceQuery
 
     /** @var list<string> */
     private array $sorts = [];
-
-    /** @var list<string> */
-    private array $includes = [];
 
     private ?int $page = null;
 
@@ -82,17 +80,26 @@ final class ResourceQuery
     }
 
     /**
-     * Request related resources be side-loaded into the document's `included`
-     * member, e.g. `->include('user')`.
+     * Does nothing, and raises an `E_USER_DEPRECATED`.
+     *
+     * No platform controller calls Spatie's `allowedIncludes()`, so no
+     * endpoint side-loads related resources: the platform ignored `include`,
+     * and the spec does not document it. The query is returned unchanged and
+     * nothing is sent, so a call keeps working until it is removed. Read
+     * related data from the attributes each DTO already carries.
+     *
+     * @deprecated No platform endpoint supports includes; remove the call. It will be removed in a future release.
      *
      * @return self<T>
      */
     public function include(string ...$relations): self
     {
-        $clone = clone $this;
-        $clone->includes = array_merge($clone->includes, array_values($relations));
+        trigger_error(
+            sprintf('%s::include() is deprecated and does nothing: no SupportManager endpoint supports includes.', self::class),
+            E_USER_DEPRECATED,
+        );
 
-        return $clone;
+        return clone $this;
     }
 
     /**
@@ -132,10 +139,6 @@ final class ResourceQuery
 
         if ($this->sorts !== []) {
             $params['sort'] = implode(',', $this->sorts);
-        }
-
-        if ($this->includes !== []) {
-            $params['include'] = implode(',', $this->includes);
         }
 
         if ($this->page !== null) {
