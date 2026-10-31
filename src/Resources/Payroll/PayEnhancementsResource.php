@@ -48,9 +48,7 @@ final class PayEnhancementsResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $uri = "payroll/pay-enhancements/{$id}";
-
-        $this->throwForErrorResponse($this->delete($uri), $uri);
+        $this->throwForErrorResponse($this->delete("payroll/pay-enhancements/{$id}"));
     }
 
     protected function path(): string

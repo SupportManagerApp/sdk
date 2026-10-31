@@ -10,7 +10,9 @@ use SupportManager\Sdk\Data\Payroll\PayEnhancement;
 use SupportManager\Sdk\Data\Payroll\PayRun;
 use SupportManager\Sdk\Data\Payroll\Payslip;
 use SupportManager\Sdk\Data\Payroll\Timesheet;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Testing\Factories\AutomaticPayEnhancementSettingsFactory;
 use SupportManager\Sdk\Testing\Factories\EstimatedPayFactory;
 use SupportManager\Sdk\Testing\Factories\P60Factory;
@@ -91,9 +93,9 @@ it('downloads a payslip PDF as a raw response', function () {
 
     $response = SupportManager::payslips()->download(1);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 payslip-bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf');
+        ->and($response->mimeType())->toBe('application/pdf');
 });
 
 // ── P60s (JSON:API: p60s) ───────────────────────────────────────────────────
@@ -128,7 +130,7 @@ it('marks a P60 viewed when it is opened or downloaded', function () {
     SupportManager::p60s()->download(2);
 
     expect(SupportManager::p60s()->all()->items()[1]->viewed)->toBeTrue()
-        ->and(SupportManager::p60s()->download(999)->status())->toBe(404);
+        ->and(fn () => SupportManager::p60s()->download(999))->toThrow(SupportManagerApiException::class);
 });
 
 // ── Timesheets (JSON:API: timesheets) ───────────────────────────────────────
