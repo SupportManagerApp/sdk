@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
-use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -45,9 +43,7 @@ final class AnniversaryFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('rota/anniversaries', static fn (RecordStore $store): mixed => Http::response(
-                Json::collection(null, $store->all('rota/anniversaries')),
-            )),
+            FakeRoute::collection('rota/anniversaries', static fn (RecordStore $store): array => $store->all('rota/anniversaries')),
         ];
     }
 }

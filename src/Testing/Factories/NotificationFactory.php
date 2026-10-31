@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -91,16 +92,16 @@ final class NotificationFactory extends Factory implements ProvidesFakeRoutes
             }),
 
             FakeRoute::patch('notifications/{id}/read', static fn (RecordStore $store, array $matches): mixed => $store->update('notifications', $matches[1], ['read_at' => '2026-01-01T10:00:00Z']) === null
-                ? self::notFound()
+                ? Json::notFound('Notification not found.')
                 : Http::response(['success' => true, 'message' => 'Notification marked as read.'])),
 
             FakeRoute::patch('notifications/{id}/unread', static fn (RecordStore $store, array $matches): mixed => $store->update('notifications', $matches[1], ['read_at' => null]) === null
-                ? self::notFound()
+                ? Json::notFound('Notification not found.')
                 : Http::response(['success' => true, 'message' => 'Notification marked as unread.'])),
 
             FakeRoute::delete('notifications/{id}', static fn (RecordStore $store, array $matches): mixed => $store->delete('notifications', $matches[1])
                 ? Http::response(['success' => true, 'message' => 'Notification deleted.'])
-                : self::notFound()),
+                : Json::notFound('Notification not found.')),
 
             FakeRoute::post('notifications/read-all', static function (RecordStore $store): mixed {
                 foreach ($store->all('notifications') as $record) {
@@ -116,10 +117,5 @@ final class NotificationFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(['success' => true, 'message' => 'All notifications deleted.']);
             }),
         ];
-    }
-
-    private static function notFound(): mixed
-    {
-        return Http::response(['message' => 'Notification not found.'], 404);
     }
 }

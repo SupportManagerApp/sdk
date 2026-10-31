@@ -89,14 +89,14 @@ final class DeviceTokenFactory extends Factory implements ProvidesFakeRoutes
             }),
 
             // Flat status payload, derived from the seeded tokens.
-            FakeRoute::get('push-notifications/tokens/status', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+            FakeRoute::flat('push-notifications/tokens/status', static function (RecordStore $store): array {
                 $count = count($store->all('push-notifications/tokens'));
 
-                return Http::response(Json::item(null, [
+                return [
                     'has_tokens' => $count > 0,
                     'token_count' => $count,
                     'prompt_dismissed' => $store->all(self::PROMPT_PATH) !== [],
-                ]));
+                ];
             }),
 
             // Delete every token for the current user — must precede the generic

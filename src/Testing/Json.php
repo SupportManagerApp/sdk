@@ -4,20 +4,34 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing;
 
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Support\Facades\Http;
+
 /**
  * Serialises stored records back into the exact response bodies the platform
  * emits, so the fake transport speaks the same wire dialect the SDK decodes.
  *
  * Two dialects, selected by `$type`:
- *  - JSON:API (`$type` is the resource type, e.g. `car-journeys`): records are
+ *  - JSON:API (`$type` is the resource type, e.g. `car_journeys`): records are
  *    wrapped as `{data: {type, id, attributes}}`, the shape {@see
  *    \SupportManager\Sdk\Http\Document} expects.
  *  - flat (`$type` is null): the record is returned verbatim under `data`, for
  *    the singleton/plain endpoints (keysafe, meal plan, estimated pay, …) that
  *    return a bare `{data: {...}}` rather than a JSON:API document.
+ *
+ * The body builders ({@see item()}, {@see collection()}, {@see flat()}) return
+ * arrays for `Http::response()`. The error helpers ({@see notFound()},
+ * {@see forbidden()}, {@see validation()}, {@see message()}) return the whole
+ * response, because the status is part of what they describe.
  */
 final class Json
 {
+    /**
+     * The fake's catch-all 422 message, for a refusal that names no single
+     * field. {@see Fake::failValidation()} uses it too.
+     */
+    public const string INVALID = 'The information provided was invalid.';
+
     /**
      * Wrap one record as a single-resource document.
      *
@@ -66,6 +80,75 @@ final class Json
             ...($meta === [] ? [] : ['meta' => $meta]),
             ...($links === [] ? [] : ['links' => $links]),
         ];
+    }
+
+    /**
+     * The plain `{data, meta}` envelope the platform's non-JSON:API endpoints
+     * answer. `$data` is emitted as given, an object or a list. `meta` is
+     * emitted only when given, typically `['team_id' => $fake->teamId()]`.
+     *
+     * @param  array<array-key, mixed>|null  $data
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    public static function flat(?array $data, array $meta = []): array
+    {
+        return [
+            'data' => $data,
+            ...($meta === [] ? [] : ['meta' => $meta]),
+        ];
+    }
+
+    /**
+     * A plain `{message, meta?}` response: an action's acknowledgement, or a
+     * refusal that names no field (the platform's bare 422s and 403s).
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public static function message(string $message, int $status = 200, array $meta = []): PromiseInterface
+    {
+        return Http::response([
+            'message' => $message,
+            ...($meta === [] ? [] : ['meta' => $meta]),
+        ], $status);
+    }
+
+    /**
+     * The 404 for a record that isn't in the store.
+     */
+    public static function notFound(string $message = 'Not found'): PromiseInterface
+    {
+        return self::message($message, 404);
+    }
+
+    /**
+     * The 403 the platform's policies answer, mapped by the SDK to an
+     * authorization exception.
+     */
+    public static function forbidden(string $message = 'This action is unauthorized.'): PromiseInterface
+    {
+        return self::message($message, 403);
+    }
+
+    /**
+     * The 422 `{message, errors}` body Laravel's validator emits, mapped by the
+     * SDK to an {@see \SupportManager\Sdk\Exceptions\ApiValidationException}.
+     * A scalar message becomes a one-item list, so both `['name' => 'Required']`
+     * and `['name' => ['Required']]` work. With no `$message`, the first error
+     * stands in for it, as Laravel does for a single failure.
+     *
+     * @param  array<string, string|list<string>>  $errors
+     */
+    public static function validation(array $errors, ?string $message = null): PromiseInterface
+    {
+        $normalised = array_map(
+            static fn (string|array $messages): array => array_values((array) $messages),
+            $errors,
+        );
+
+        $first = array_values($normalised)[0][0] ?? self::INVALID;
+
+        return Http::response(['message' => $message ?? $first, 'errors' => $normalised], 422);
     }
 
     /**

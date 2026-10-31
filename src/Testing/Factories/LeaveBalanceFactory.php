@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -109,7 +110,7 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
         return [
             // Selectable years — registered before `leave/balance/{id}` so
             // "years" is not mistaken for a user id.
-            FakeRoute::get('leave/balance/years', static function (RecordStore $store) use ($lockedYears): mixed {
+            FakeRoute::flat('leave/balance/years', static function (RecordStore $store) use ($lockedYears): array {
                 $current = (int) ($store->all('leave/balance')[0]['year'] ?? 2026);
                 $years = [$current, $current + 1];
 
@@ -118,18 +119,15 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
                     $labels[$year] = (string) $year;
                 }
 
-                return Http::response([
-                    'data' => [
-                        'years' => $years,
-                        'minimum' => $current,
-                        'maximum' => $current + 1,
-                        'current' => $current,
-                        'locked' => array_values(array_intersect($years, $lockedYears)),
-                        'labels' => $labels,
-                    ],
-                    'meta' => ['team_id' => 42],
-                ]);
-            }),
+                return [
+                    'years' => $years,
+                    'minimum' => $current,
+                    'maximum' => $current + 1,
+                    'current' => $current,
+                    'locked' => array_values(array_intersect($years, $lockedYears)),
+                    'labels' => $labels,
+                ];
+            }, teamMeta: true),
 
             // Another user's balance: serve the record matching ?year, else the
             // first seeded record.
@@ -145,11 +143,11 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
 
             // Prospective-request preview: the configured requirement taken off
             // the seeded balance.
-            FakeRoute::post('leave/balance/calculate', static function (RecordStore $store) use ($requirement): mixed {
+            FakeRoute::post('leave/balance/calculate', static function (RecordStore $store, array $matches, Request $request, Fake $fake) use ($requirement): mixed {
                 $record = $store->all('leave/balance')[0] ?? null;
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 $lines = [];
@@ -159,18 +157,15 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
                     $lines[$axis] = $line;
                 }
 
-                return Http::response([
-                    'data' => [
-                        'requirement' => $requirement,
-                        'current_balance' => $lines,
-                        'balance_after_request' => [
-                            'hours' => (float) ($lines['hours']['remaining'] ?? 0) - $requirement['hours'],
-                            'sleeps' => (float) ($lines['sleeps']['remaining'] ?? 0) - $requirement['sleeps'],
-                        ],
-                        'year' => (int) ($record['year'] ?? 2026),
+                return Http::response(Json::flat([
+                    'requirement' => $requirement,
+                    'current_balance' => $lines,
+                    'balance_after_request' => [
+                        'hours' => (float) ($lines['hours']['remaining'] ?? 0) - $requirement['hours'],
+                        'sleeps' => (float) ($lines['sleeps']['remaining'] ?? 0) - $requirement['sleeps'],
                     ],
-                    'meta' => ['team_id' => 42],
-                ]);
+                    'year' => (int) ($record['year'] ?? 2026),
+                ], ['team_id' => $fake->teamId()]));
             }),
         ];
     }
@@ -184,7 +179,7 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
         $records = $store->all('leave/balance');
 
         if ($records === []) {
-            return Http::response(['message' => 'Not found'], 404);
+            return Json::notFound();
         }
 
         parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);

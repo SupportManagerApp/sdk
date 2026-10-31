@@ -39,6 +39,11 @@ use SupportManager\Sdk\Session\AuthSession;
  */
 final class Fake
 {
+    /**
+     * The team a freshly installed fake acts as, until {@see actingAsTeam()}.
+     */
+    public const int DEFAULT_TEAM_ID = 42;
+
     private readonly RecordStore $store;
 
     private readonly string $apiPrefix;
@@ -72,7 +77,7 @@ final class Fake
 
         if ($this->session->accessToken() === null) {
             $this->session->start(new AuthTokens('fake-access-token', 'fake-refresh-token', 'Bearer', 3600));
-            $this->session->setCurrentTeamId(42);
+            $this->session->setCurrentTeamId(self::DEFAULT_TEAM_ID);
         }
 
         $this->installed = true;
@@ -81,7 +86,9 @@ final class Fake
     }
 
     /**
-     * Set the current team the faked session acts as.
+     * Set the current team the faked session acts as. Records seeded after
+     * this belong to it, and every `meta.team_id` the fake answers reports it.
+     * Records already seeded keep the team they were seeded with.
      */
     public function actingAsTeam(int $teamId): self
     {
@@ -91,12 +98,22 @@ final class Fake
     }
 
     /**
+     * The team the faked session is acting as, for route handlers that echo
+     * `meta.team_id` or stamp a created record's `team_id`.
+     */
+    public function teamId(): int
+    {
+        return $this->session->currentTeamId() ?? self::DEFAULT_TEAM_ID;
+    }
+
+    /**
      * Seed records from one or more factories, registering each resource's wire
      * dialect and custom routes.
      */
     public function seed(Factory ...$factories): self
     {
         foreach ($factories as $factory) {
+            $factory = $factory->withDefaultTeam($this->teamId());
             $this->register($factory);
             $this->store->put($factory->path(), [
                 ...$this->store->all($factory->path()),
@@ -149,7 +166,7 @@ final class Fake
      *
      * @param  array<string, string|list<string>>  $errors
      */
-    public function failValidation(string $pathPattern = '*', array $errors = [], ?string $method = null, string $message = 'The information provided was invalid.'): self
+    public function failValidation(string $pathPattern = '*', array $errors = [], ?string $method = null, string $message = Json::INVALID): self
     {
         $normalised = array_map(
             static fn (string|array $messages): array => array_values((array) $messages),
@@ -214,6 +231,33 @@ final class Fake
     }
 
     /**
+     * Narrow records by the request's `filter[key]=value` constraints: exact
+     * (string) equality, as generic REST applies them. Public so custom index
+     * routes can reuse it.
+     *
+     * @param  list<array<string, mixed>>  $records
+     * @return list<array<string, mixed>>
+     */
+    public function filter(array $records, Request $request): array
+    {
+        $filters = $this->query($request)['filter'] ?? null;
+
+        if (! is_array($filters)) {
+            return $records;
+        }
+
+        foreach ($filters as $key => $value) {
+            $records = array_values(array_filter(
+                $records,
+                static fn (array $record): bool => isset($record[$key])
+                    && (string) $record[$key] === (string) $value,
+            ));
+        }
+
+        return $records;
+    }
+
+    /**
      * The decoded query-string parameters of a request. Keys are whatever
      * `parse_str` yields (the platform only ever sends string keys, but a
      * numeric-looking key would decode to an int).
@@ -274,7 +318,7 @@ final class Fake
             $matches = $route->match($method, $path);
 
             if ($matches !== null) {
-                $result = ($route->handler)($this->store, $matches, $request, $this);
+                $result = ($route->handler)($this->store, $matches, $request, $this, $registration);
 
                 if ($result !== null) {
                     return $result;
@@ -295,7 +339,7 @@ final class Fake
             foreach ($registration->routes as $route) {
                 $matches = $route->match($method, $path);
 
-                if ($matches !== null && ($result = ($route->handler)($this->store, $matches, $request, $this)) !== null) {
+                if ($matches !== null && ($result = ($route->handler)($this->store, $matches, $request, $this, $registration)) !== null) {
                     return $result;
                 }
             }
@@ -320,7 +364,7 @@ final class Fake
             // A deeper, unrecognised sub-path (it would have matched a custom
             // route) is a miss.
             if (str_contains($rest, '/')) {
-                return Http::response(['message' => 'Not found'], 404);
+                return Json::notFound();
             }
 
             $id = $rest;
@@ -334,7 +378,7 @@ final class Fake
 
         if ($id === null) {
             return match ($method) {
-                'GET' => $this->paginate($base, $type, $this->filtered($base, $request), $request),
+                'GET' => $this->paginate($base, $type, $this->filter($this->store->all($base), $request), $request),
                 'POST' => $this->create($base, $type, $request),
                 default => Http::response(['message' => 'Method not allowed'], 405),
             };
@@ -344,8 +388,8 @@ final class Fake
             'GET' => $this->itemOr404($type, $this->store->find($base, $id)),
             'PATCH', 'PUT' => $this->itemOr404($type, $this->store->update($base, $id, $request->data())),
             'DELETE' => $this->store->delete($base, $id)
-                ? Http::response(['message' => 'Deleted'])
-                : Http::response(['message' => 'Not found'], 404),
+                ? Json::message('Deleted')
+                : Json::notFound(),
             default => Http::response(['message' => 'Method not allowed'], 405),
         };
     }
@@ -356,7 +400,7 @@ final class Fake
 
         return match ($method) {
             'GET' => $record === null
-                ? Http::response(['message' => 'Not found'], 404)
+                ? Json::notFound()
                 : Http::response(Json::item(null, $record)),
             'PATCH', 'PUT' => $this->updateSingleton($path, $record ?? [], $request->data()),
             default => Http::response(['message' => 'Method not allowed'], 405),
@@ -390,34 +434,8 @@ final class Fake
     private function itemOr404(string $type, ?array $record): mixed
     {
         return $record === null
-            ? Http::response(['message' => 'Not found'], 404)
+            ? Json::notFound()
             : Http::response(Json::item($type, $record));
-    }
-
-    /**
-     * The records at a path with any `filter[key]=value` equality constraints
-     * applied.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function filtered(string $path, Request $request): array
-    {
-        $filters = $this->query($request)['filter'] ?? null;
-        $records = $this->store->all($path);
-
-        if (! is_array($filters)) {
-            return $records;
-        }
-
-        foreach ($filters as $key => $value) {
-            $records = array_values(array_filter(
-                $records,
-                static fn (array $record): bool => isset($record[$key])
-                    && (string) $record[$key] === (string) $value,
-            ));
-        }
-
-        return $records;
     }
 
     /**

@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Testing\Factories;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Enums\Compliance\PrimaryDocumentType;
 use SupportManager\Sdk\Testing\Concerns\FakesComplianceRecords;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake right-to-work records.
  *
- * JSON:API collection (`right-to-work`), so generic GET list/find come for free
+ * JSON:API collection (`right_to_works`, Laravel's default type for the
+ * platform's `RightToWorkResource`), so generic GET list/find come for free
  * from the resource path. This factory adds the employee's multipart
  * {@see \SupportManager\Sdk\Resources\Compliance\RightToWorkResource::submit()}
  * and the flat primary/supporting document downloads. States cover a stored
@@ -46,7 +48,7 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'right-to-work';
+        return 'right_to_works';
     }
 
     public function definition(int $index): array
@@ -54,7 +56,7 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => $number,
             'user' => ['id' => $number, 'name' => "Employee {$number}"],
             'primary_document_type' => PrimaryDocumentType::BritishPassport->value,
@@ -96,7 +98,7 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::post('compliance/right-to-work', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('compliance/right-to-work', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $fields = self::submittedFields($request);
                 $own = self::ownRecord($store, 'compliance/right-to-work');
                 $type = PrimaryDocumentType::tryFrom((string) ($fields['primary_document_type'] ?? ''));
@@ -113,13 +115,10 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
                 ]);
 
                 if ($errors !== []) {
-                    return Http::response([
-                        'message' => (string) reset($errors),
-                        'errors' => array_map(static fn (string $message): array => [$message], $errors),
-                    ], 422);
+                    return Json::validation($errors);
                 }
 
-                return self::saveOwnRecord($store, 'compliance/right-to-work', 'right-to-work', $own, [
+                return self::saveOwnRecord($store, $fake, 'compliance/right-to-work', 'right_to_works', $own, [
                     'primary_document_type' => $fields['primary_document_type'],
                     'primary_document' => $primary,
                     'supporting_document' => $type?->requiresSupportingDocument() ? $supporting : null,
@@ -127,15 +126,8 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
                 ]);
             }),
 
-            FakeRoute::get('compliance/right-to-work/{id}/primary-document', static fn (RecordStore $store, array $matches): mixed => self::downloadPayload(
-                $store->find('compliance/right-to-work', $matches[1])['primary_document'] ?? null,
-                "right-to-work/{$matches[1]}",
-            )),
-
-            FakeRoute::get('compliance/right-to-work/{id}/supporting-document', static fn (RecordStore $store, array $matches): mixed => self::downloadPayload(
-                $store->find('compliance/right-to-work', $matches[1])['supporting_document'] ?? null,
-                "right-to-work/{$matches[1]}",
-            )),
+            FakeRoute::downloadLink('compliance/right-to-work/{id}/primary-document', 'primary_document'),
+            FakeRoute::downloadLink('compliance/right-to-work/{id}/supporting-document', 'supporting_document'),
         ];
     }
 }

@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -43,7 +44,7 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
     public function definition(int $index): array
     {
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'days' => [
                 'monday' => 'Pasta',
                 'tuesday' => null,
@@ -74,13 +75,13 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('household/meal-plan', static fn (RecordStore $store): mixed => Http::response(
-                Json::item('meal_plans', self::current($store)),
+            FakeRoute::get('household/meal-plan', static fn (RecordStore $store, array $matches, Request $request, Fake $fake): mixed => Http::response(
+                Json::item('meal_plans', self::current($store, $fake)),
             )),
 
             // Day updates arrive as flat top-level keys; merge them into `days`.
-            FakeRoute::patch('household/meal-plan', static function (RecordStore $store, array $matches, Request $request): mixed {
-                $plan = self::current($store);
+            FakeRoute::patch('household/meal-plan', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $plan = self::current($store, $fake);
                 /** @var array<string, mixed> $days */
                 $days = is_array($plan['days'] ?? null) ? $plan['days'] : [];
 
@@ -96,14 +97,14 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(Json::item('meal_plans', $plan));
             }),
 
-            FakeRoute::delete('household/meal-plan/days/{day}', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::delete('household/meal-plan/days/{day}', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $day = $matches[1];
 
                 if (! in_array($day, self::DAYS, true)) {
-                    return Http::response(['message' => 'Invalid day.'], 422);
+                    return Json::message('Invalid day.', 422);
                 }
 
-                $plan = self::current($store);
+                $plan = self::current($store, $fake);
                 /** @var array<string, mixed> $days */
                 $days = is_array($plan['days'] ?? null) ? $plan['days'] : [];
                 $days[$day] = null;
@@ -121,11 +122,11 @@ final class MealPlanFactory extends Factory implements ProvidesFakeRoutes
      *
      * @return array<string, mixed>
      */
-    private static function current(RecordStore $store): array
+    private static function current(RecordStore $store, Fake $fake): array
     {
         return $store->all('household/meal-plan')[0] ?? [
             'id' => '',
-            'team_id' => 42,
+            'team_id' => $fake->teamId(),
             'days' => array_fill_keys(self::DAYS, null),
             'updated_at' => '2026-01-01T10:00:00Z',
         ];

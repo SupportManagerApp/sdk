@@ -61,16 +61,12 @@ final class KeysafeFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('household/keysafe', static fn (RecordStore $store): mixed => Http::response(
-                Json::item(null, self::masked($store)),
-            )),
+            FakeRoute::flat('household/keysafe', static fn (RecordStore $store): array => self::masked($store)),
 
-            FakeRoute::post('household/keysafe/reveal', static function (RecordStore $store): mixed {
-                // The platform's reveal answers only the code (KeysafeController::reveal).
-                $code = $store->all('household/keysafe')[0]['code'] ?? null;
-
-                return Http::response([...Json::item(null, ['code' => $code]), 'meta' => ['team_id' => 42]]);
-            }),
+            // The platform's reveal answers only the code (KeysafeController::reveal).
+            FakeRoute::flat('household/keysafe/reveal', static fn (RecordStore $store): array => [
+                'code' => $store->all('household/keysafe')[0]['code'] ?? null,
+            ], teamMeta: true, method: 'POST'),
 
             FakeRoute::patch('household/keysafe', static function (RecordStore $store, array $matches, Request $request): mixed {
                 $code = $request->data()['code'] ?? null;
@@ -82,7 +78,7 @@ final class KeysafeFactory extends Factory implements ProvidesFakeRoutes
                     'code' => $code,
                 ]]);
 
-                return Http::response(Json::item(null, self::masked($store)));
+                return Http::response(Json::flat(self::masked($store)));
             }),
         ];
     }

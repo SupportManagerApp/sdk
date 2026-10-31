@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Testing\Factories;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
@@ -45,7 +44,7 @@ final class P60Factory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'employee_id' => 7,
             'employee' => ['id' => 7, 'name' => "Employee {$number}"],
             'tax_year' => '2025/26',
@@ -87,45 +86,17 @@ final class P60Factory extends Factory implements ProvidesFakeRoutes
             // The platform's index does not eager-load the detail rows, so
             // P60Resource's whenLoaded() omits them (P60Controller::index).
             FakeRoute::get('payroll/p60s', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
-                $filters = $fake->query($request)['filter'] ?? [];
-
-                $records = array_values(array_filter(
-                    $store->all('payroll/p60s'),
-                    static function (array $record) use ($filters): bool {
-                        foreach (is_array($filters) ? $filters : [] as $key => $value) {
-                            if ((string) ($record[$key] ?? '') !== (string) $value) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    },
-                ));
-
                 $rows = array_map(
                     static fn (array $record): array => array_diff_key($record, array_flip(self::DETAIL_KEYS)),
-                    $records,
+                    $fake->filter($store->all('payroll/p60s'), $request),
                 );
 
-                return $fake->paginate('payroll/p60s', 'p60s', $rows, $request, ['team_id' => 42]);
+                return $fake->paginate('payroll/p60s', 'p60s', $rows, $request, ['team_id' => $fake->teamId()]);
             }),
 
             // Opening or downloading marks the P60 viewed, as the platform does.
-            FakeRoute::get('payroll/p60s/{id}', static function (RecordStore $store, array $matches): mixed {
-                $record = $store->update('payroll/p60s', $matches[1], ['viewed' => true]);
-
-                return $record === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('p60s', $record));
-            }),
-
-            FakeRoute::get('payroll/p60s/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->update('payroll/p60s', $matches[1], ['viewed' => true]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                return Http::response('%PDF-1.4 p60-bytes', 200, ['Content-Type' => 'application/pdf']);
-            }),
+            FakeRoute::action('GET', 'payroll/p60s/{id}', static fn (): array => ['viewed' => true]),
+            FakeRoute::download('payroll/p60s/{id}/download', '%PDF-1.4 p60-bytes', changes: ['viewed' => true]),
         ];
     }
 }

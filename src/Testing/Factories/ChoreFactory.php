@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -62,7 +63,7 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'name' => "Chore {$number}",
             'normalized_name' => "chore {$number}",
             'description' => 'Do the thing',
@@ -135,38 +136,30 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::patch('household/chores/{id}/complete', static function (RecordStore $store, array $matches): mixed {
-                $completed = $store->update('household/chores', $matches[1], self::COMPLETED);
+            FakeRoute::action('PATCH', 'household/chores/{id}/complete', static fn (): array => self::COMPLETED),
 
-                return $completed === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('chores', $completed));
-            }),
-
-            FakeRoute::patch('household/chores/{id}/snooze', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::action('PATCH', 'household/chores/{id}/snooze', static function (array $chore, Request $request): array {
                 $until = $request->data()['snoozed_until'] ?? null;
 
-                $snoozed = $store->update('household/chores', $matches[1], [
+                return [
                     'snoozed_until' => $until,
                     'is_snoozed' => $until !== null,
                     'snoozed_at' => '2026-01-01',
                     'planned_for' => null,
-                ]);
-
-                return $snoozed === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('chores', $snoozed));
+                ];
             }),
 
-            FakeRoute::post('household/chores/complete', static fn (RecordStore $store, array $matches, Request $request): mixed => self::bulk(
+            FakeRoute::post('household/chores/complete', static fn (RecordStore $store, array $matches, Request $request, Fake $fake): mixed => self::bulk(
                 $store,
                 $request,
+                $fake,
                 self::COMPLETED,
             )),
 
-            FakeRoute::post('household/chores/not-needed', static fn (RecordStore $store, array $matches, Request $request): mixed => self::bulk(
+            FakeRoute::post('household/chores/not-needed', static fn (RecordStore $store, array $matches, Request $request, Fake $fake): mixed => self::bulk(
                 $store,
                 $request,
+                $fake,
                 ['snoozed_until' => '2026-01-02', 'is_snoozed' => true, 'snoozed_at' => '2026-01-01', 'planned_for' => null],
             )),
         ];
@@ -179,14 +172,14 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
      *
      * @param  array<string, mixed>  $attributes
      */
-    private static function bulk(RecordStore $store, Request $request, array $attributes): mixed
+    private static function bulk(RecordStore $store, Request $request, Fake $fake, array $attributes): mixed
     {
         $body = $request->data();
         $ids = $body['chore_ids'] ?? null;
         $group = $body['group'] ?? null;
 
         if (($ids === null) === ($group === null)) {
-            return self::invalid('chore_ids', 'Send either chore_ids or group.');
+            return Json::validation(['chore_ids' => 'Send either chore_ids or group.']);
         }
 
         $selected = [];
@@ -202,11 +195,11 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
         }
 
         if ($group !== null && $selected === []) {
-            return self::invalid('group', 'There are no chores in that group.');
+            return Json::validation(['group' => 'There are no chores in that group.']);
         }
 
         if (is_array($ids) && ($ids === [] || count($selected) !== count(array_unique($ids)))) {
-            return self::invalid('chore_ids', 'The selected chore ids are invalid.');
+            return Json::validation(['chore_ids' => 'The selected chore ids are invalid.']);
         }
 
         $updated = array_map(
@@ -214,12 +207,7 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
             $selected,
         );
 
-        return Http::response(Json::collection('chores', $updated, ['team_id' => 42]));
-    }
-
-    private static function invalid(string $field, string $message): mixed
-    {
-        return Http::response(['message' => $message, 'errors' => [$field => [$message]]], 422);
+        return Http::response(Json::collection('chores', $updated, ['team_id' => $fake->teamId()]));
     }
 
     /**

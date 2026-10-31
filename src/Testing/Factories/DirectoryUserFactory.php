@@ -110,7 +110,7 @@ final class DirectoryUserFactory extends Factory implements ProvidesFakeRoutes
             }),
 
             // GET users/options — every seeded user as a picker option, by name.
-            FakeRoute::get('users/options', static function (RecordStore $store): mixed {
+            FakeRoute::collection('users/options', static function (RecordStore $store): array {
                 $options = array_map(static fn (array $user): array => [
                     'id' => $user['id'] ?? '',
                     'name' => $user['name'] ?? '',
@@ -119,7 +119,7 @@ final class DirectoryUserFactory extends Factory implements ProvidesFakeRoutes
 
                 usort($options, static fn (array $a, array $b): int => strcmp((string) $a['name'], (string) $b['name']));
 
-                return Http::response(Json::collection('users', $options));
+                return $options;
             }),
         ];
     }

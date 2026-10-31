@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -47,17 +46,16 @@ final class CalendarFeedFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('rota/calendar-feed', static fn (RecordStore $store): mixed => Http::response([
-                'data' => ['url' => $store->all('rota/calendar-feed')[0]['url'] ?? null],
-                'meta' => ['team_id' => 42],
-            ])),
+            FakeRoute::flat('rota/calendar-feed', static fn (RecordStore $store): array => [
+                'url' => $store->all('rota/calendar-feed')[0]['url'] ?? null,
+            ], teamMeta: true),
 
-            FakeRoute::post('rota/calendar-feed/token', static function (RecordStore $store): mixed {
+            FakeRoute::flat('rota/calendar-feed/token', static function (RecordStore $store): array {
                 $url = self::url((int) $store->nextId('rota/calendar-feed'));
                 $store->put('rota/calendar-feed', [['url' => $url]]);
 
-                return Http::response(['data' => ['url' => $url], 'meta' => ['team_id' => 42]]);
-            }),
+                return ['url' => $url];
+            }, teamMeta: true, method: 'POST'),
         ];
     }
 

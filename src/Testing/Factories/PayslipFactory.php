@@ -48,7 +48,7 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 7,
             'user' => ['id' => 7, 'name' => "Employee {$number}"],
             'process_date' => '2026-06-30T00:00:00Z',
@@ -78,7 +78,7 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
      */
     public function latest(): static
     {
-        return $this->state(['is_latest' => true]);
+        return $this->state(['_latest' => true]);
     }
 
     /**
@@ -109,68 +109,26 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
             // relations and the show-only employer block are absent
             // (PayslipController::index, PayslipResource::whenLoaded()).
             FakeRoute::get('payroll/payslips', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
-                $filters = $fake->query($request)['filter'] ?? [];
-
-                $records = array_values(array_filter(
-                    $store->all('payroll/payslips'),
-                    static function (array $record) use ($filters): bool {
-                        foreach (is_array($filters) ? $filters : [] as $key => $value) {
-                            if ((string) ($record[$key] ?? '') !== (string) $value) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    },
-                ));
-
                 $rows = array_map(
-                    static fn (array $record): array => array_diff_key(self::attributes($record), array_flip(self::SHOW_ONLY_KEYS)),
-                    $records,
+                    static fn (array $record): array => array_diff_key($record, array_flip(self::SHOW_ONLY_KEYS)),
+                    $fake->filter($store->all('payroll/payslips'), $request),
                 );
 
-                return $fake->paginate('payroll/payslips', 'payslips', $rows, $request, ['team_id' => 42]);
+                return $fake->paginate('payroll/payslips', 'payslips', $rows, $request, ['team_id' => $fake->teamId()]);
             }),
 
+            // The `_latest` marker is fake bookkeeping, which Json strips.
             FakeRoute::get('payroll/payslips/latest', static function (RecordStore $store): mixed {
                 foreach ($store->all('payroll/payslips') as $record) {
-                    if ($record['is_latest'] ?? false) {
-                        return Http::response(Json::item('payslips', self::attributes($record)));
+                    if ($record['_latest'] ?? false) {
+                        return Http::response(Json::item('payslips', $record));
                     }
                 }
 
-                return Http::response(['data' => null]);
+                return Http::response(Json::flat(null));
             }),
 
-            FakeRoute::get('payroll/payslips/{id}', static function (RecordStore $store, array $matches): mixed {
-                $record = $store->find('payroll/payslips', $matches[1]);
-
-                return $record === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('payslips', self::attributes($record)));
-            }),
-
-            FakeRoute::get('payroll/payslips/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->find('payroll/payslips', $matches[1]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                return Http::response('%PDF-1.4 payslip-bytes', 200, ['Content-Type' => 'application/pdf']);
-            }),
+            FakeRoute::download('payroll/payslips/{id}/download', '%PDF-1.4 payslip-bytes'),
         ];
-    }
-
-    /**
-     * The record as the platform serialises it: without the fake-only
-     * `is_latest` marker.
-     *
-     * @param  array<string, mixed>  $record
-     * @return array<string, mixed>
-     */
-    private static function attributes(array $record): array
-    {
-        unset($record['is_latest']);
-
-        return $record;
     }
 }

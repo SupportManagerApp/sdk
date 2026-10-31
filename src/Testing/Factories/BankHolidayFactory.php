@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
@@ -47,9 +46,7 @@ final class BankHolidayFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('rota/bank-holidays', static fn (RecordStore $store): mixed => Http::response(
-                Json::collection(null, $store->all('rota/bank-holidays')),
-            )),
+            FakeRoute::collection('rota/bank-holidays', static fn (RecordStore $store): array => $store->all('rota/bank-holidays')),
         ];
     }
 }
