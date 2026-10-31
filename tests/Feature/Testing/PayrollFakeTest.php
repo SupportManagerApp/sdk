@@ -70,6 +70,22 @@ it('returns null when no payslip is flagged latest', function () {
     expect(SupportManager::payslips()->latest())->toBeNull();
 });
 
+it('carries the payslip pay period, tax details and employer', function () {
+    SupportManager::fake()->seed(PayslipFactory::new()->withEmployer());
+
+    $payslip = SupportManager::payslips()->find(1);
+    assert($payslip instanceof Payslip);
+
+    expect($payslip->payPeriodStart)->toBe('2026-06-01')
+        ->and($payslip->payPeriodEnd)->toBe('2026-06-30')
+        ->and($payslip->taxCode)->toBe('1257L')
+        ->and($payslip->niLetter)->toBe('A')
+        ->and($payslip->taxableGross)->toBe(2500.0)
+        ->and($payslip->niableGross)->toBe(2500.0)
+        ->and($payslip->employerName)->toBe('Jane Smith')
+        ->and($payslip->employerPayeReference)->toBe('123/AB45678');
+});
+
 it('downloads a payslip PDF as a raw response', function () {
     SupportManager::fake()->seed(PayslipFactory::new()->count(1));
 
@@ -104,6 +120,17 @@ it('downloads a P60 PDF as a raw response', function () {
     expect(SupportManager::p60s()->download(1)->body())->toBe('%PDF-1.4 p60-bytes');
 });
 
+it('marks a P60 viewed when it is opened or downloaded', function () {
+    SupportManager::fake()->seed(P60Factory::new()->count(2));
+
+    expect(SupportManager::p60s()->find(1)?->viewed)->toBeTrue();
+
+    SupportManager::p60s()->download(2);
+
+    expect(SupportManager::p60s()->all()->items()[1]->viewed)->toBeTrue()
+        ->and(SupportManager::p60s()->download(999)->status())->toBe(404);
+});
+
 // ── Timesheets (JSON:API: timesheets) ───────────────────────────────────────
 
 it('lists timesheets and applies the approved state', function () {
@@ -121,6 +148,9 @@ it('lists timesheets and applies the approved state', function () {
         ->and($page->items()[0])->toBeInstanceOf(Timesheet::class)
         ->and($page->items()[0]->status)->toBe('submitted')
         ->and($page->items()[0]->grossPay)->toBe(1800.0)
+        ->and($page->items()[0]->shiftHoursTotal)->toBe('152.50')
+        ->and($page->items()[0]->sleepCount)->toBe(12)
+        ->and($page->items()[0]->additionalPaymentsTotal)->toBe('86.40')
         ->and($approved->status)->toBe('approved');
 });
 

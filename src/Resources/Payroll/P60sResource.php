@@ -14,7 +14,8 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * The collection (`query()`, `find()`, `all()`) — filterable by `employee_id`
  * and `tax_year`, sortable by `tax_year`/`published_at` — plus a raw PDF
- * `download()`.
+ * `download()`. Opening a P60 with `find()` or downloading it marks it
+ * `viewed`, as the web app does.
  *
  * ```php
  * SupportManager::p60s()->query()->filter('tax_year', '2025/26')->get();

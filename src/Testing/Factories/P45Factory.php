@@ -7,14 +7,16 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake leaver P45 documents.
  *
- * A JSON:API collection (type `p45s`): generic list/find come for free; this
- * factory adds the raw PDF `{id}/download`.
+ * A JSON:API collection (type `p45s`): the generic list comes for free; this
+ * factory adds `find()` and the raw PDF `{id}/download`, both of which mark the
+ * P45 `viewed` as the platform does.
  *
  * ```php
  * SupportManager::fake()->seed(P45Factory::new()->count(2));
@@ -41,7 +43,7 @@ final class P45Factory extends Factory implements ProvidesFakeRoutes
             'team_id' => 42,
             'employee_id' => 7,
             'employee' => ['id' => 7, 'name' => "Employee {$number}"],
-            'tax_year' => '2025/26',
+            'tax_year' => '2025-26',
             'leaving_date' => '2026-01-31',
             'tax_code' => '1257L',
             'week1_month1' => false,
@@ -80,8 +82,17 @@ final class P45Factory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // Opening or downloading marks the P45 viewed, as the platform does.
+            FakeRoute::get('payroll/p45s/{id}', static function (RecordStore $store, array $matches): mixed {
+                $record = $store->update('payroll/p45s', $matches[1], ['viewed' => true]);
+
+                return $record === null
+                    ? Http::response(['message' => 'Not found'], 404)
+                    : Http::response(Json::item('p45s', $record));
+            }),
+
             FakeRoute::get('payroll/p45s/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->find('payroll/p45s', $matches[1]) === null) {
+                if ($store->update('payroll/p45s', $matches[1], ['viewed' => true]) === null) {
                     return Http::response(['message' => 'Not found'], 404);
                 }
 

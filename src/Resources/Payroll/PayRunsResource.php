@@ -10,7 +10,9 @@ use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
- * Pay runs — months rolled up into summary rows. Index only.
+ * Pay runs — months rolled up into summary rows. Index only, for privileged
+ * users (Admin/Manager); everyone else gets a 403. Totals include draft
+ * (unpublished) payslips.
  *
  * The platform returns a flat (non-JSON:API) paginated `data` payload, so this
  * resource hand-rolls {@see self::all()} (and exposes no `query()`/`find()`,

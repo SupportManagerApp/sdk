@@ -59,6 +59,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static \SupportManager\Sdk\Resources\Payroll\EstimatedPayResource estimatedPay()
  * @method static \SupportManager\Sdk\Resources\Payroll\PayRunsResource payRuns()
  * @method static \SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource automaticPayEnhancements()
+ * @method static \SupportManager\Sdk\Resources\Payroll\StarterDeclarationResource starterDeclaration()
  *
  * @see \SupportManager\Sdk\SupportManager
  */

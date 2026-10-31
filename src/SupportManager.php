@@ -33,6 +33,7 @@ use SupportManager\Sdk\Resources\Payroll\P60sResource;
 use SupportManager\Sdk\Resources\Payroll\PayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\PayRunsResource;
 use SupportManager\Sdk\Resources\Payroll\PayslipsResource;
+use SupportManager\Sdk\Resources\Payroll\StarterDeclarationResource;
 use SupportManager\Sdk\Resources\Payroll\TimesheetsResource;
 use SupportManager\Sdk\Resources\Profile\ProfileResource;
 use SupportManager\Sdk\Resources\Profile\UsersResource;
@@ -375,6 +376,12 @@ final class SupportManager
     public function automaticPayEnhancements(): AutomaticPayEnhancementsResource
     {
         return $this->resource(AutomaticPayEnhancementsResource::class);
+    }
+
+    /** Payroll — the current employee's own starter declaration (singleton). */
+    public function starterDeclaration(): StarterDeclarationResource
+    {
+        return $this->resource(StarterDeclarationResource::class);
     }
 
     /**

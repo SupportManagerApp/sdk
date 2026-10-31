@@ -96,6 +96,58 @@ it('finds a payslip by id with nested payment and deduction lines', function () 
         ->and($payslip->ytdTotals[0]->total)->toBe(7200.0);
 });
 
+it('finds a payslip with its pay period, tax details and employer', function () {
+    Http::fake([
+        'api.test/api/v1/payroll/payslips/9' => Http::response([
+            'data' => [
+                'type' => 'payslips',
+                'id' => '9',
+                'attributes' => [
+                    'status' => 'published',
+                    'pay_period_start' => '2026-06-01',
+                    'pay_period_end' => '2026-06-30',
+                    'tax_code' => '1257L',
+                    'ni_letter' => 'A',
+                    'total_gross' => 2500.0,
+                    'taxable_gross' => 2400.0,
+                    'niable_gross' => 2450.0,
+                    'first_opened_at' => '2026-07-01T09:00:00.000000Z',
+                    'employer' => ['name' => 'Jane Smith', 'paye_reference' => '123/AB45678'],
+                ],
+            ],
+        ]),
+    ]);
+    bootTenantSession();
+
+    $payslip = payslips()->find(9);
+
+    expect($payslip->payPeriodStart)->toBe('2026-06-01')
+        ->and($payslip->payPeriodEnd)->toBe('2026-06-30')
+        ->and($payslip->taxCode)->toBe('1257L')
+        ->and($payslip->niLetter)->toBe('A')
+        ->and($payslip->taxableGross)->toBe(2400.0)
+        ->and($payslip->niableGross)->toBe(2450.0)
+        ->and($payslip->firstOpenedAt)->toBe('2026-07-01T09:00:00.000000Z')
+        ->and($payslip->employerName)->toBe('Jane Smith')
+        ->and($payslip->employerPayeReference)->toBe('123/AB45678');
+});
+
+it('falls back to the total gross and leaves the employer null when absent', function () {
+    Http::fake([
+        'api.test/api/v1/payroll/payslips/9' => Http::response([
+            'data' => ['type' => 'payslips', 'id' => '9', 'attributes' => ['status' => 'published', 'total_gross' => 2500.0]],
+        ]),
+    ]);
+    bootTenantSession();
+
+    $payslip = payslips()->find(9);
+
+    expect($payslip->taxableGross)->toBe(2500.0)
+        ->and($payslip->niableGross)->toBe(2500.0)
+        ->and($payslip->employerName)->toBeNull()
+        ->and($payslip->payPeriodStart)->toBeNull();
+});
+
 it('returns null when finding a missing payslip (404)', function () {
     Http::fake(['api.test/api/v1/payroll/payslips/999' => Http::response(['message' => 'Not found'], 404)]);
     bootTenantSession();

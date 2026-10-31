@@ -6,6 +6,9 @@ namespace SupportManager\Sdk\Data\Payroll;
 
 /**
  * A monthly timesheet record. Mirrors the platform's `TimesheetResource`.
+ *
+ * {@see $shiftHoursTotal} and {@see $additionalPaymentsTotal} (in pounds) are
+ * two-decimal strings, as the platform sends them.
  */
 final readonly class Timesheet
 {
@@ -19,6 +22,9 @@ final readonly class Timesheet
         public ?string $comments,
         public bool $hasVariations,
         public float $grossPay,
+        public ?string $shiftHoursTotal,
+        public ?int $sleepCount,
+        public ?string $additionalPaymentsTotal,
         public ?string $createdAt,
         public ?string $updatedAt,
     ) {}
@@ -41,6 +47,9 @@ final readonly class Timesheet
             comments: isset($data['comments']) ? (string) $data['comments'] : null,
             hasVariations: (bool) ($data['has_variations'] ?? false),
             grossPay: (float) ($data['gross_pay'] ?? 0),
+            shiftHoursTotal: isset($data['shift_hours_total']) ? (string) $data['shift_hours_total'] : null,
+            sleepCount: isset($data['sleep_count']) ? (int) $data['sleep_count'] : null,
+            additionalPaymentsTotal: isset($data['additional_payments_total']) ? (string) $data['additional_payments_total'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
         );
