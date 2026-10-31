@@ -56,7 +56,7 @@ final class ShoppingListItemsResource extends Resource
 
     /**
      * Overrides the base `delete()` request helper, and returns its response,
-     * only so that v0.2.0 callers of `->delete($id)` keep working.
+     * only so that existing callers of `->delete($id)` keep working.
      *
      * @deprecated Use {@see self::destroy()}, the name every resource gives a DELETE of one record.
      *

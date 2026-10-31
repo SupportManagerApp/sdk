@@ -5,6 +5,8 @@ API (v1). It is consumed by every first-party Laravel app (the NativePHP mobile
 app today, a desktop app later) so the networking layer is written once, not
 duplicated per platform.
 
+To add an endpoint, or to learn the SDK's conventions, read [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## What lives here
 
 The SDK owns everything that is **the same on every platform**: talking to the
@@ -64,7 +66,7 @@ final class JourneysResource extends Resource
         return $this->data($this->get('journeys/summary'), JourneySummary::class);
     }
 
-    public function export(string|int $id): Download
+    public function downloadExport(string|int $id): Download
     {
         return $this->downloadFile("journeys/{$id}/export");
     }

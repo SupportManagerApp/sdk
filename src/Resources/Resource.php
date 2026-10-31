@@ -69,7 +69,7 @@ use SupportManager\Sdk\Http\ResourceQuery;
  *     }
  *
  *     // A body that is the PDF itself.
- *     public function export(): Download
+ *     public function downloadExport(): Download
  *     {
  *         return $this->downloadFile('car-journeys/export');
  *     }
@@ -395,8 +395,9 @@ abstract class Resource
 
     /**
      * Raise an `E_USER_DEPRECATED` from a renamed method's old name before it
-     * forwards to the new one. Laravel sends it to the `deprecations` log
-     * channel, so callers get a warning instead of a fatal error.
+     * forwards to the new one. Laravel sends it to the deprecations log
+     * channel (`LOG_DEPRECATIONS_CHANNEL`), so callers get a warning instead of
+     * a fatal error.
      */
     protected function deprecated(string $method, string $replacement): void
     {
