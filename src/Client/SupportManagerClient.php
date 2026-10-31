@@ -13,6 +13,7 @@ use Psr\Http\Message\RequestInterface;
 use SupportManager\Sdk\Concerns\MapsApiErrors;
 use SupportManager\Sdk\Data\AuthTokens;
 use SupportManager\Sdk\Data\DevLoginUser;
+use SupportManager\Sdk\Enums\Security\SocialProvider;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\DeviceVerificationRequiredException;
 use SupportManager\Sdk\Exceptions\DevLoginUnavailableException;
@@ -79,8 +80,10 @@ final class SupportManagerClient
      * @throws ApiValidationException when the provider/token is invalid (422)
      * @throws SupportManagerApiException on any other failure
      */
-    public function loginWithProvider(string $provider, string $providerToken, ?string $deviceName = null, ?string $deviceToken = null): AuthTokens
+    public function loginWithProvider(SocialProvider|string $provider, string $providerToken, ?string $deviceName = null, ?string $deviceToken = null): AuthTokens
     {
+        $provider = $provider instanceof SocialProvider ? $provider->value : $provider;
+
         $data = $this->postJson("auth/social/{$provider}", [
             'token' => $providerToken,
             'device_name' => $deviceName ?? $this->defaultDeviceName,

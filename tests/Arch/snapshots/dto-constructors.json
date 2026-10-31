@@ -907,6 +907,47 @@
         "bool $compliant",
         "?string $reason"
     ],
+    "SupportManager\\Sdk\\Data\\Security\\BackupCodes": [
+        "array $codes"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\SocialAccount": [
+        "string $id",
+        "?SupportManager\\Sdk\\Enums\\Security\\SocialProvider $provider",
+        "string $providerLabel",
+        "?string $providerEmail",
+        "?string $providerName",
+        "?string $linkedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\SocialProviderOption": [
+        "?SupportManager\\Sdk\\Enums\\Security\\SocialProvider $provider",
+        "string $label",
+        "bool $linked"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\TotpSetup": [
+        "string $secret",
+        "string $formattedSecret",
+        "string $otpauthUri",
+        "string $qrCodeDataUri",
+        "int $expiresIn"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\TrustedDevice": [
+        "string $id",
+        "string $deviceName",
+        "?SupportManager\\Sdk\\Enums\\Security\\TrustedDeviceType $deviceType",
+        "string $maskedIpAddress",
+        "bool $isCurrentDevice",
+        "?string $verifiedAt",
+        "?string $lastUsedAt",
+        "?string $expiresAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\TwoFactorStatus": [
+        "bool $hasSecondFactor",
+        "bool $totpEnabled",
+        "?string $totpEnabledAt",
+        "int $backupCodesRemaining",
+        "?string $backupCodesGeneratedAt",
+        "?string $secondFactorRequiredBy"
+    ],
     "SupportManager\\Sdk\\Data\\Signing\\SignatureRequest": [
         "string $id",
         "string $documentName",

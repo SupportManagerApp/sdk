@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Client\SupportManagerClient;
+use SupportManager\Sdk\Enums\Security\SocialProvider;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\DeviceVerificationRequiredException;
 
@@ -90,6 +91,14 @@ it('logs in with a social provider token', function () {
 
     Http::assertSent(fn ($request) => $request['token'] === 'ya29.token'
         && $request['device_name'] === 'Test Device');
+});
+
+it('takes the social provider as an enum too', function () {
+    Http::fake([apiUrl('auth/social/microsoft') => Http::response(['data' => issued_tokens()])]);
+
+    verification_client()->loginWithProvider(SocialProvider::Microsoft, 'msal.token');
+
+    assertSentTo('POST', 'auth/social/microsoft', fn ($request) => $request['token'] === 'msal.token');
 });
 
 it('sends the trusted-device token on a social login', function () {

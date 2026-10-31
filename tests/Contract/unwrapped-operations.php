@@ -23,18 +23,4 @@ return [
     'PUT /payroll/pay-enhancements/{id}' => 'Duplicate of PATCH: apiResource in src/Payroll/Routes/api.php routes both to PayEnhancementController@update.',
 
     'PATCH /payroll/automatic-pay-enhancements' => 'Duplicate of PUT: src/Payroll/Routes/api.php routes both to AutomaticPayEnhancementController@update; the SDK sends PUT.',
-
-    // PENDING v0.0.4: platform API wave 3 (platform PR #1066). Each entry is
-    // removed by the change that wraps it; none may ship in v0.0.4.
-    'GET /user/social-accounts' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'POST /user/social-accounts/{provider}' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'DELETE /user/social-accounts/{provider}' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'GET /user/trusted-devices' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'DELETE /user/trusted-devices' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'DELETE /user/trusted-devices/{device}' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'GET /user/two-factor' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'POST /user/two-factor/backup-codes' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'POST /user/two-factor/totp' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'POST /user/two-factor/totp/confirm' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
-    'POST /user/two-factor/totp/disable' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
 ];
