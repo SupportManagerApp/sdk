@@ -71,3 +71,22 @@ it('exposes side-loaded included resources', function () {
         ->and($document->included()[0]->type)->toBe('users')
         ->and($document->included()[0]->attribute('name'))->toBe('Ada');
 });
+
+it('folds a resource-level meta member into the flattened array', function () {
+    $resource = Document::fromArray([
+        'data' => [
+            'type' => 'chores',
+            'id' => '7',
+            'attributes' => ['name' => 'Vacuum'],
+            'meta' => ['can' => ['update' => true, 'delete' => false]],
+        ],
+    ])->resource();
+
+    expect($resource->meta)->toBe(['can' => ['update' => true, 'delete' => false]])
+        ->and($resource->flat())->toBe([
+            'id' => '7',
+            'type' => 'chores',
+            'name' => 'Vacuum',
+            'meta' => ['can' => ['update' => true, 'delete' => false]],
+        ]);
+});
