@@ -24,6 +24,7 @@ use SupportManager\Sdk\Resources\Leave\LeaveBalanceResource;
 use SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource;
 use SupportManager\Sdk\Resources\Leave\LeaveRequestsResource;
 use SupportManager\Sdk\Resources\Leave\ManualAdjustmentsResource;
+use SupportManager\Sdk\Resources\Leave\NotWorkingNoticesResource;
 use SupportManager\Sdk\Resources\Notifications\NotificationsResource;
 use SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource;
 use SupportManager\Sdk\Resources\Payroll\EstimatedPayResource;
@@ -266,6 +267,12 @@ final class SupportManager
     public function leaveAdmin(): AdminLeaveResource
     {
         return $this->resource(AdminLeaveResource::class);
+    }
+
+    /** Leave — contractors' not-working notices, with withdraw. */
+    public function leaveNotWorkingNotices(): NotWorkingNoticesResource
+    {
+        return $this->resource(NotWorkingNoticesResource::class);
     }
 
     /** Notifications — the current user's database notifications. */

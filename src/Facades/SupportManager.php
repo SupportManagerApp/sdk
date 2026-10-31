@@ -45,6 +45,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static \SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource leaveEntitlements()
  * @method static \SupportManager\Sdk\Resources\Leave\LeaveBalanceResource leaveBalance()
  * @method static \SupportManager\Sdk\Resources\Leave\AdminLeaveResource leaveAdmin()
+ * @method static \SupportManager\Sdk\Resources\Leave\NotWorkingNoticesResource leaveNotWorkingNotices()
  * @method static \SupportManager\Sdk\Resources\Rota\ShiftsResource shifts()
  * @method static \SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource shiftApplications()
  * @method static \SupportManager\Sdk\Resources\Rota\AppointmentsResource appointments()

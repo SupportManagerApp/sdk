@@ -22,9 +22,11 @@ use SupportManager\Sdk\Testing\RecordStore;
  * falling back to the first seeded record when nothing matches (so a single-seed
  * test works regardless of the query it passes).
  *
- * The selectable-years endpoint (`leave/balance/years`) is derived from the
+ * The browsable-years endpoint (`leave/balance/years`) is derived from the
  * seeded balance's year — the current year plus the next — with any year passed
- * to {@see lockingYear()} excluded, mirroring the platform's locked-year logic.
+ * to {@see lockingYear()} kept in `years` and also listed in `locked`, as the
+ * platform reports year-end locks. Asking for `include=breakdown` adds an
+ * entitlement breakdown that puts the whole entitlement down to the contract.
  *
  * ```php
  * SupportManager::fake()->seed(LeaveBalanceFactory::new());
@@ -73,7 +75,7 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
     }
 
     /**
-     * Exclude a year from the selectable-years list, as a year-end lock would.
+     * Lock a year at year end: it stays browsable and is listed in `locked`.
      */
     public function lockingYear(int $year): static
     {
@@ -92,11 +94,7 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
             // "years" is not mistaken for a user id.
             FakeRoute::get('leave/balance/years', static function (RecordStore $store) use ($lockedYears): mixed {
                 $current = (int) ($store->all('leave/balance')[0]['year'] ?? 2026);
-
-                $years = array_values(array_filter(
-                    [$current, $current + 1],
-                    static fn (int $year): bool => ! in_array($year, $lockedYears, true),
-                ));
+                $years = [$current, $current + 1];
 
                 $labels = [];
                 foreach ($years as $year) {
@@ -104,7 +102,14 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
                 }
 
                 return Http::response([
-                    'data' => ['years' => $years, 'current' => $current, 'labels' => $labels],
+                    'data' => [
+                        'years' => $years,
+                        'minimum' => $current,
+                        'maximum' => $current + 1,
+                        'current' => $current,
+                        'locked' => array_values(array_intersect($years, $lockedYears)),
+                        'labels' => $labels,
+                    ],
                     'meta' => ['team_id' => 42],
                 ]);
             }),
@@ -158,6 +163,34 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
             }
         }
 
-        return Http::response(Json::item(null, $match ?? $records[0]));
+        $balance = $match ?? $records[0];
+
+        if (($query['include'] ?? null) === 'breakdown') {
+            $balance['breakdown'] = self::breakdown($balance);
+        }
+
+        return Http::response(Json::item(null, $balance));
+    }
+
+    /**
+     * An entitlement breakdown for a balance, crediting the whole entitlement
+     * to the contract and nothing to the other sources.
+     *
+     * @param  array<string, mixed>  $balance
+     * @return array<string, array<string, mixed>>
+     */
+    private static function breakdown(array $balance): array
+    {
+        $hours = is_array($balance['hours'] ?? null) ? (float) ($balance['hours']['entitlement'] ?? 0) : 0.0;
+        $sleeps = is_array($balance['sleeps'] ?? null) ? (float) ($balance['sleeps']['entitlement'] ?? 0) : 0.0;
+        $none = ['hours' => 0.0, 'sleeps' => 0.0, 'has_data' => false];
+
+        return [
+            'contract' => ['hours' => $hours, 'sleeps' => $sleeps],
+            'overtime' => $none,
+            'toil' => $none,
+            'adjustments' => $none,
+            'total' => ['hours' => $hours, 'sleeps' => $sleeps],
+        ];
     }
 }
