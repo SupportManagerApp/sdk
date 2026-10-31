@@ -125,16 +125,28 @@ it('returns null from a 404 ongoing lookup before mapping it as an error', funct
     expect(journeys()->ongoing())->toBeNull();
 });
 
-it('starts a new journey', function () {
+it('starts a new journey with no request body', function () {
     Http::fake(['api.test/api/v1/car-journeys/start' => Http::response([
         'data' => ['type' => 'car-journeys', 'id' => '8', 'attributes' => ['driver_name' => 'Hopper', 'is_ongoing' => true]],
-    ])]);
+    ], 201)]);
     bootTenantSession();
 
-    $journey = journeys()->start('Hopper', 'Client visit');
+    $journey = journeys()->start();
 
-    expect($journey->driverName)->toBe('Hopper');
-    Http::assertSent(fn ($request) => $request['driver_name'] === 'Hopper' && $request['comments'] === 'Client visit');
+    expect($journey->driverName)->toBe('Hopper')
+        ->and($journey->isOngoing)->toBeTrue();
+    Http::assertSent(fn ($request) => $request->method() === 'POST' && $request->data() === []);
+});
+
+it('throws when starting while another journey is in progress', function () {
+    Http::fake(['api.test/api/v1/car-journeys/start' => Http::response([
+        'message' => 'A journey is already in progress.',
+        'meta' => ['team_id' => 42],
+    ], 422)]);
+    bootTenantSession();
+
+    expect(fn () => journeys()->start())
+        ->toThrow(ApiValidationException::class, 'A journey is already in progress.');
 });
 
 it('finishes an open journey', function () {

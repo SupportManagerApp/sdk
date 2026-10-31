@@ -148,7 +148,7 @@ SupportManager::fake()->seed(
 // Your code under test runs unchanged:
 SupportManager::journeys()->all();        // paginated DTOs from the store
 SupportManager::journeys()->find(2);      // a single DTO, or null
-SupportManager::journeys()->start('Ada'); // mutates the store
+SupportManager::journeys()->start();      // mutates the store
 ```
 
 `fake()` also primes a fake authenticated session and current team, so

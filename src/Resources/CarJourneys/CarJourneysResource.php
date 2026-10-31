@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Resources\CarJourneys;
 
 use SupportManager\Sdk\Data\CarJourneys\CarJourney;
+use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -13,8 +14,8 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * The full CRUD collection (`query()`, `find()`, `all()`, `create()`,
  * `update()`, `destroy()`) plus the module's non-RESTful actions: the single
- * `ongoing()` journey, `start()`ing a new trip (which the server uses to
- * auto-close any open one), and `finish()`ing a trip.
+ * `ongoing()` journey, `start()`ing a new trip (refused while one is already
+ * open), and `finish()`ing a trip.
  *
  * `start()`/`finish()` drive the live "open a trip now, close it later" flow;
  * `create()`/`update()`/`destroy()` are the direct record management for
@@ -82,14 +83,17 @@ final class CarJourneysResource extends Resource
     }
 
     /**
-     * Start a new journey. The server auto-closes any previously open trip.
+     * Start a new journey now, driven by the authenticated user. The platform
+     * takes no input here: the driver is the user's own name and comments start
+     * empty (add them later with {@see update()}).
+     *
+     * Only one journey per team may be open at a time. Starting one while
+     * another is {@see ongoing()} throws an {@see ApiValidationException}
+     * ("A journey is already in progress.") — {@see finish()} it first.
      */
-    public function start(string $driverName, ?string $comments = null): ?CarJourney
+    public function start(): ?CarJourney
     {
-        return $this->item($this->post('car-journeys/start', array_filter([
-            'driver_name' => $driverName,
-            'comments' => $comments,
-        ], static fn (mixed $value): bool => $value !== null)));
+        return $this->item($this->post('car-journeys/start'));
     }
 
     /**
