@@ -83,7 +83,7 @@ When testing code that uses the SDK, **do not** `Http::fake()` JSON:API envelope
 
   SupportManager::journeys()->all();        // paginated DTOs from the store
   SupportManager::journeys()->find(2);      // a single DTO, or null
-  SupportManager::journeys()->start('Ada'); // mutates the store
+  SupportManager::journeys()->start();      // mutates the store
   ```
 - Drive the **unhappy path** to assert your error handling — failures are matched before seeded data and flow through the SDK's real typed exceptions:
   ```php

@@ -24,7 +24,7 @@ use SupportManager\Sdk\Session\AuthSession;
  *
  * SupportManager::journeys()->all();       // paginated DTOs from the store
  * SupportManager::journeys()->find(2);     // a single DTO, or null
- * SupportManager::journeys()->start('Ada'); // mutates the store
+ * SupportManager::journeys()->start();      // mutates the store
  * ```
  *
  * Installing also primes a fake authenticated session and current team, so

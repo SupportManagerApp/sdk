@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use SupportManager\Sdk\Data\Leave\LeaveBalance;
+use SupportManager\Sdk\Data\Leave\LeaveCalculation;
 use SupportManager\Sdk\Data\Leave\LeaveEntitlement;
 use SupportManager\Sdk\Data\Leave\LeaveRequest;
 use SupportManager\Sdk\Data\Leave\LeaveYears;
@@ -326,10 +327,24 @@ it('withdraws a notice once', function () {
 it('calculates the impact of a prospective request', function () {
     SupportManager::fake()->seed(LeaveBalanceFactory::new());
 
-    $balance = SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
+    $calculation = SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
 
-    expect($balance)->toBeInstanceOf(LeaveBalance::class)
-        ->and($balance?->hours->remaining)->toBe(200.0);
+    expect($calculation)->toBeInstanceOf(LeaveCalculation::class)
+        ->and($calculation?->year)->toBe(2026)
+        ->and($calculation?->requirement->hours)->toBe(8.0)
+        ->and($calculation?->currentBalance->hours->remaining)->toBe(200.0)
+        ->and($calculation?->balanceAfterRequest->hours)->toBe(192.0)
+        ->and($calculation?->balanceAfterRequest->sleeps)->toBe(7.0);
+});
+
+it('takes a configured requirement off the seeded balance', function () {
+    SupportManager::fake()->seed(LeaveBalanceFactory::new()->calculating(hours: 210.0, sleeps: 2.0));
+
+    $calculation = SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'end_date' => '2026-08-15', 'type' => 'Whole Days']);
+
+    expect($calculation?->requirement->hours)->toBe(210.0)
+        ->and($calculation?->balanceAfterRequest->hours)->toBe(-10.0)
+        ->and($calculation?->balanceAfterRequest->sleeps)->toBe(5.0);
 });
 
 // ── Admin leave ─────────────────────────────────────────────────────────────

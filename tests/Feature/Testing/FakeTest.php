@@ -71,18 +71,27 @@ it('mutates the store through create, update and delete', function () {
     expect(SupportManager::journeys()->all()->total())->toBe(1);
 });
 
-it('drives the start/finish lifecycle, auto-closing the open trip', function () {
-    SupportManager::fake()->seed(CarJourneyFactory::new()->ongoing());
+it('drives the start/finish lifecycle', function () {
+    SupportManager::fake()->seed(CarJourneyFactory::new()->startedBy('Hopper'));
 
-    $started = SupportManager::journeys()->start('Hopper', 'Client visit');
-    expect($started->isOngoing)->toBeTrue();
-
-    // The previously open trip was auto-closed, so only the new one is ongoing.
-    expect(SupportManager::journeys()->ongoing()->driverName)->toBe('Hopper');
+    $started = SupportManager::journeys()->start();
+    expect($started->isOngoing)->toBeTrue()
+        ->and($started->driverName)->toBe('Hopper')
+        ->and($started->comments)->toBeNull()
+        ->and(SupportManager::journeys()->ongoing()->id)->toBe($started->id);
 
     $finished = SupportManager::journeys()->finish($started->id);
     expect($finished->isOngoing)->toBeFalse()
         ->and(SupportManager::journeys()->ongoing())->toBeNull();
+});
+
+it('refuses to start a journey while another is open', function () {
+    SupportManager::fake()->seed(CarJourneyFactory::new()->ongoing());
+
+    expect(fn () => SupportManager::journeys()->start())
+        ->toThrow(ApiValidationException::class, 'A journey is already in progress.');
+
+    expect(SupportManager::journeys()->all()->total())->toBe(1);
 });
 
 it('honours the flat notifications filter and unread_count meta', function () {

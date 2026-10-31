@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
@@ -17,9 +16,11 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * Generic CRUD (list, find, create, update, delete) comes for free from the
  * resource path; this factory adds the module's non-RESTful actions — the single
- * {@see ongoing()} trip, {@see start()}ing one (which auto-closes any open trip),
- * and {@see finish()}ing one by id — and, like the platform, logging a journey
- * directly (`create()`) ends any journey still ongoing. Seeded journeys are
+ * {@see ongoing()} trip, {@see start()}ing one (refused with a 422 while another
+ * is open; the driver is {@see startedBy()}'s name, standing in for the
+ * platform's signed-in user), and {@see finish()}ing one by id — and, like the
+ * platform, logging a journey directly (`create()`) ends any journey still
+ * ongoing. Seeded journeys are
  * editable by default; {@see locked()} clears their `meta.can` flags.
  *
  * ```php
@@ -31,6 +32,8 @@ use SupportManager\Sdk\Testing\RecordStore;
  */
 final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
 {
+    private string $driverName = 'Fake User';
+
     public function path(): string
     {
         return 'car-journeys';
@@ -79,8 +82,22 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
         ]);
     }
 
+    /**
+     * The driver a started journey records. The platform uses the signed-in
+     * user's name; the fake session has no user, so it is set here.
+     */
+    public function startedBy(string $name): static
+    {
+        $clone = clone $this;
+        $clone->driverName = $name;
+
+        return $clone;
+    }
+
     public function fakeRoutes(): array
     {
+        $driverName = $this->driverName;
+
         return [
             // Logging a journey ends any ongoing one, then falls through to the
             // generic create.
@@ -107,21 +124,18 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(['message' => 'No ongoing journey found.'], 404);
             }),
 
-            FakeRoute::post('car-journeys/start', static function (RecordStore $store, array $matches, Request $request): mixed {
+            // Like the platform, starting refuses while another journey is open.
+            FakeRoute::post('car-journeys/start', static function (RecordStore $store) use ($driverName): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
-                        $store->update('car-journeys', (string) $record['id'], [
-                            'is_ongoing' => false,
-                            'trip_end' => '2026-01-01T10:00:00Z',
-                        ]);
+                        return Http::response(['message' => 'A journey is already in progress.', 'meta' => ['team_id' => 42]], 422);
                     }
                 }
 
-                $body = $request->data();
                 $started = $store->append('car-journeys', [
                     'id' => $store->nextId('car-journeys'),
-                    'driver_name' => $body['driver_name'] ?? '',
-                    'comments' => $body['comments'] ?? null,
+                    'driver_name' => $driverName,
+                    'comments' => null,
                     'trip_start' => '2026-01-01T09:00:00Z',
                     'trip_end' => null,
                     'is_ongoing' => true,

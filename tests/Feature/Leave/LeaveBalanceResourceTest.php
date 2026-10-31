@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Leave\LeaveBalance;
+use SupportManager\Sdk\Data\Leave\LeaveCalculation;
 use SupportManager\Sdk\Data\Leave\LeaveYears;
 use SupportManager\Sdk\Data\Leave\OvertimeLog;
 use SupportManager\Sdk\Data\Leave\OvertimeMonth;
@@ -153,16 +154,29 @@ it('shows another user balance', function () {
 it('calculates the impact of a prospective request', function () {
     Http::fake(['api.test/api/v1/leave/balance/calculate' => Http::response([
         'data' => [
+            'requirement' => ['hours' => 15.0, 'sleeps' => 1],
+            'current_balance' => [
+                'hours' => ['entitlement' => 224.0, 'pending' => 8.0, 'approved' => 0.0, 'remaining' => 216.0],
+                'sleeps' => ['entitlement' => 10.0, 'pending' => 0.0, 'approved' => 0.0, 'remaining' => 10.0],
+            ],
+            'balance_after_request' => ['hours' => 201.0, 'sleeps' => 9.0],
             'year' => 2026,
-            'hours' => ['entitlement' => 224.0, 'pending' => 0.0, 'approved' => 0.0, 'remaining' => 216.0],
-            'sleeps' => ['entitlement' => 0.0, 'pending' => 0.0, 'approved' => 0.0, 'remaining' => 0.0],
         ],
+        'meta' => ['team_id' => 42],
     ])]);
     bootTenantSession();
 
-    $balance = leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
+    $calculation = leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
 
-    expect($balance->hours->remaining)->toBe(216.0);
+    expect($calculation)->toBeInstanceOf(LeaveCalculation::class)
+        ->and($calculation->year)->toBe(2026)
+        ->and($calculation->requirement->hours)->toBe(15.0)
+        ->and($calculation->requirement->sleeps)->toBe(1.0)
+        ->and($calculation->currentBalance->year)->toBe(2026)
+        ->and($calculation->currentBalance->hours->remaining)->toBe(216.0)
+        ->and($calculation->currentBalance->sleeps->entitlement)->toBe(10.0)
+        ->and($calculation->balanceAfterRequest->hours)->toBe(201.0)
+        ->and($calculation->balanceAfterRequest->sleeps)->toBe(9.0);
     Http::assertSent(fn ($r) => $r->method() === 'POST' && $r['type'] === 'Whole Days');
 });
 
