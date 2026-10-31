@@ -87,7 +87,11 @@ a JSON:API collection at `GET {path}`, and `Resources\Concerns\Findable` for
 `tests/Arch/CollectionReadsTest.php` fails for a resource that offers one of
 these without the route in the spec.
 
-`query()` builds `filter[key]`, `sort`, `page` and `per_page`. Its `include()`
+`query()` builds `filter[key]`, `sort`, `page` and `per_page`, and every one
+of its terminals (`get()`, `collect()`, `lazy()`, `first()`, and `next()` on the
+page it returns) reads `GET {path}` and nothing else. A query has no `find()`:
+fetch one record with the resource's own `find($id)`, which exists only where
+the platform has the show route. Its `include()`
 is deprecated and does nothing: no platform endpoint allows Spatie includes,
 so the SDK no longer sends `include`, and the call only raises an
 `E_USER_DEPRECATED`. Remove it from your queries.
@@ -485,3 +489,27 @@ reason in `tests/Contract/unwrapped-operations.php`. After a re-sync, it lists
 exactly the platform's new endpoints. Run `composer coverage:api` for the full
 report. Coverage needs the whole suite in one process, so it skips on filtered
 or `--parallel` runs.
+
+### Method coverage
+
+Contract validation only judges the requests tests send, so the same file also
+checks the other direction: every public method of every resource, its own or
+from `Listable`/`Findable`, must send a request in some test, and that request
+must pass contract validation against an operation the spec has. Together the
+two checks mean every public resource method reaches a documented route at
+least once in CI.
+
+A test-only HTTP client middleware (`tests/Contract/Support/MethodCoverage.php`,
+registered in `tests/TestCase.php`) notes the outermost public resource method
+on the call stack for each request, keyed by the concrete resource class. A
+trait method counts for the resource that uses it, and a deprecated alias for
+the alias. At the end of a passing test, a noted method is credited only if its
+request was recorded and matched the spec, so a request a stub threw on, a
+non-API URL, or an endpoint allowed in by a `'missing' => true` entry credits
+nothing.
+
+The check fails on any public resource method never credited, unless
+`tests/Contract/request-free-methods.php` lists it, with a reason, as sending
+no request itself. That list holds builders only (today just `query()`). Test
+anything else in its module's resource test. If the platform has no route for
+it, fix or remove the method. Like API coverage, it skips on partial runs.
