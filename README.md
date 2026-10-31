@@ -349,6 +349,45 @@ composer install
 vendor/bin/pest
 ```
 
+### Writing tests
+
+A resource test lives in `tests/Feature/<Module>/`, where every test already
+runs inside a booted tenant session (team 42). The helpers in `tests/Pest.php`
+keep it short:
+
+```php
+it('reads the task badge count', function () {
+    fakeApi(['tasks/count' => [
+        'data' => ['count' => 5, 'my_tasks' => 3, 'manager_inbox' => 2],
+        'meta' => ['team_id' => 42],
+    ]]);
+
+    expect(sdk()->tasks()->count()->myTasks)->toBe(3);
+
+    assertSentTo('GET', 'tasks/count');
+});
+```
+
+- `fakeApi([...])` fakes routes by path relative to `/api/v1` (a trailing `*`
+  matches a query string). An array value is a 200 JSON body; anything else
+  is passed to `Http::fake()` as is, e.g. `Http::response($body, 422)` or
+  `Http::sequence()`. It starts a session when none is active.
+- `sdk()` is the SDK entry point, so `sdk()->tasks()` goes through the same
+  accessor and container wiring as `SupportManager::tasks()`.
+- `assertSentTo('POST', 'tasks/x/complete', fn ($request) => …)` checks a
+  request's method and path, plus anything else in the callback.
+- `bootTenantSession($teamId)` and `apiUrl($path)` are there for tests that
+  need another team or build their own sessions.
+
+Don't test the shared behaviour again in a resource's own file: the bearer
+token and `X-Team-ID`, 422s becoming `ApiValidationException`, 403/404/500
+becoming `SupportManagerApiException`, and the 401 refresh.
+`tests/Feature/SharedResourceBehaviourTest.php` covers those for one call per
+resource. A new resource needs one row in its `sharedResourceCalls()`, and the
+suite fails until it has one. Per-resource tests keep what is specific to the
+resource, such as a 404 that reads as null or a 422 whose message the platform
+documents.
+
 ## Contract tests
 
 Every request the SDK sends in a test, and every response it gets back, is

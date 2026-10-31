@@ -7,14 +7,6 @@ use SupportManager\Sdk\Data\Rota\Shift;
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Enums\Rota\EntryType;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Rota\ShiftsResource;
-
-function rotaShifts(): ShiftsResource
-{
-    return app(ShiftsResource::class);
-}
 
 function rotaShiftPage(int $page, int $lastPage): array
 {
@@ -39,10 +31,9 @@ function rotaShiftPage(int $page, int $lastPage): array
 }
 
 it('encodes Spatie-style query params and tenant header', function () {
-    Http::fake(['api.test/api/v1/rota/shifts*' => Http::response(rotaShiftPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['rota/shifts*' => Http::response(rotaShiftPage(1, 1))]);
 
-    rotaShifts()->query()
+    sdk()->shifts()->query()
         ->filter('mode', 'available')
         ->sort('start')
         ->perPage(25)
@@ -59,10 +50,9 @@ it('encodes Spatie-style query params and tenant header', function () {
 });
 
 it('hydrates shifts with pagination metadata', function () {
-    Http::fake(['api.test/api/v1/rota/shifts*' => Http::response(rotaShiftPage(1, 3))]);
-    bootTenantSession();
+    fakeApi(['rota/shifts*' => Http::response(rotaShiftPage(1, 3))]);
 
-    $page = rotaShifts()->query()->get();
+    $page = sdk()->shifts()->query()->get();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(Shift::class)
@@ -74,14 +64,13 @@ it('hydrates shifts with pagination metadata', function () {
 });
 
 it('finds a single shift by id', function () {
-    Http::fake([
-        'api.test/api/v1/rota/shifts/5' => Http::response([
+    fakeApi([
+        'rota/shifts/5' => [
             'data' => ['type' => 'rota-entries', 'id' => '5', 'attributes' => ['type' => 'Sickness', 'duration' => 0]],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $shift = rotaShifts()->find(5);
+    $shift = sdk()->shifts()->find(5);
 
     expect($shift)->toBeInstanceOf(Shift::class)
         ->and($shift->id)->toBe('5')
@@ -89,22 +78,20 @@ it('finds a single shift by id', function () {
 });
 
 it('returns null when finding a missing shift (404)', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['rota/shifts/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(rotaShifts()->find(999))->toBeNull();
+    expect(sdk()->shifts()->find(999))->toBeNull();
 });
 
 it('lists todays shifts via the collection helper', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/today' => Http::response([
+    fakeApi(['rota/shifts/today' => [
         'data' => [
             ['type' => 'rota-entries', 'id' => '1', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]],
             ['type' => 'rota-entries', 'id' => '2', 'attributes' => ['type' => 'Overtime Hours', 'duration' => 4]],
         ],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $shifts = rotaShifts()->today();
+    $shifts = sdk()->shifts()->today();
 
     expect($shifts)->toHaveCount(2)
         ->and($shifts[0])->toBeInstanceOf(Shift::class)
@@ -112,19 +99,18 @@ it('lists todays shifts via the collection helper', function () {
 });
 
 it('lists available shifts', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/available' => Http::response([
+    fakeApi(['rota/shifts/available' => [
         'data' => [['type' => 'rota-entries', 'id' => '3', 'attributes' => ['is_available' => true, 'duration' => 8]]],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $shifts = rotaShifts()->available();
+    $shifts = sdk()->shifts()->available();
 
     expect($shifts)->toHaveCount(1)
         ->and($shifts[0]->isAvailable)->toBeTrue();
 });
 
 it('applies for a shift and hydrates the created applications', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/3/apply' => Http::response([
+    fakeApi(['rota/shifts/3/apply' => Http::response([
         'data' => [[
             'type' => 'shift-applications',
             'id' => '88',
@@ -132,9 +118,8 @@ it('applies for a shift and hydrates the created applications', function () {
         ]],
         'message' => 'Applied',
     ], 201)]);
-    bootTenantSession();
 
-    $applications = rotaShifts()->apply(3, ['is_split_application' => false]);
+    $applications = sdk()->shifts()->apply(3, ['is_split_application' => false]);
 
     expect($applications)->toHaveCount(1)
         ->and($applications[0])->toBeInstanceOf(ShiftApplication::class)
@@ -142,24 +127,13 @@ it('applies for a shift and hydrates the created applications', function () {
     Http::assertSent(fn ($request) => $request['is_split_application'] === false);
 });
 
-it('maps a 422 on apply to a validation exception', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/3/apply' => Http::response([
-        'message' => 'You are not eligible to apply for this shift.',
-    ], 422)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShifts()->apply(3))
-        ->toThrow(ApiValidationException::class);
-});
-
 it('lists upcoming shifts and forwards query overrides', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/upcoming*' => Http::response([
+    fakeApi(['rota/shifts/upcoming*' => [
         'data' => [['type' => 'rota-entries', 'id' => '9', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]]],
         'meta' => ['team_id' => 42, 'mode' => 'team', 'days' => 7, 'limit' => 10],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $shifts = rotaShifts()->upcoming(['days' => 7, 'mode' => 'team']);
+    $shifts = sdk()->shifts()->upcoming(['days' => 7, 'mode' => 'team']);
 
     expect($shifts)->toHaveCount(1)
         ->and($shifts[0])->toBeInstanceOf(Shift::class)
@@ -174,7 +148,7 @@ it('lists upcoming shifts and forwards query overrides', function () {
 });
 
 it('creates a shift and hydrates the stored rota entry', function () {
-    Http::fake(['api.test/api/v1/rota/shifts' => Http::response([
+    fakeApi(['rota/shifts' => Http::response([
         'data' => ['type' => 'rota-entries', 'id' => '51', 'attributes' => [
             'user_id' => 12,
             'type' => 'Overtime Sleeping Night',
@@ -186,9 +160,8 @@ it('creates a shift and hydrates the stored rota entry', function () {
         ]],
         'meta' => ['team_id' => 42],
     ], 201)]);
-    bootTenantSession();
 
-    $shift = rotaShifts()->create([
+    $shift = sdk()->shifts()->create([
         'assignee_id' => 12,
         'date' => '2026-08-17',
         'start_time' => '22:00',
@@ -206,19 +179,8 @@ it('creates a shift and hydrates the stored rota entry', function () {
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('maps a 422 on create to a validation exception', function () {
-    Http::fake(['api.test/api/v1/rota/shifts' => Http::response([
-        'message' => 'The selected assignee is not a member of this team.',
-        'errors' => ['assignee_id' => ['The selected assignee is not a member of this team.']],
-    ], 422)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShifts()->create(['assignee_id' => 999, 'date' => '2026-08-17', 'start_time' => '09:00']))
-        ->toThrow(ApiValidationException::class);
-});
-
 it('hydrates the wave 2 shift fields and its meta.can flags', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/7' => Http::response([
+    fakeApi(['rota/shifts/7' => [
         'data' => [
             'type' => 'rota_entries',
             'id' => '7',
@@ -238,10 +200,9 @@ it('hydrates the wave 2 shift fields and its meta.can flags', function () {
                 'cannot_apply_reason' => 'You have already applied for this shift.',
             ],
         ],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $shift = rotaShifts()->find(7);
+    $shift = sdk()->shifts()->find(7);
 
     expect($shift?->isForToil)->toBeTrue()
         ->and($shift->isPrivate)->toBeTrue()
@@ -254,12 +215,11 @@ it('hydrates the wave 2 shift fields and its meta.can flags', function () {
 });
 
 it('defaults the wave 2 shift fields when the platform omits them', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/5' => Http::response([
+    fakeApi(['rota/shifts/5' => [
         'data' => ['type' => 'rota_entries', 'id' => '5', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $shift = rotaShifts()->find(5);
+    $shift = sdk()->shifts()->find(5);
 
     expect($shift?->isForToil)->toBeFalse()
         ->and($shift->shiftBlockId)->toBeNull()
@@ -271,7 +231,7 @@ it('defaults the wave 2 shift fields when the platform omits them', function () 
 });
 
 it('requests an amendment to a shift and hydrates the pending request', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/51/amendment-requests' => Http::response([
+    fakeApi(['rota/shifts/51/amendment-requests' => Http::response([
         'data' => ['type' => 'shift_amendment_requests', 'id' => '4', 'attributes' => [
             'rota_entry_id' => 51,
             'proposed_start' => '2026-11-20T15:00:00+00:00',
@@ -282,9 +242,8 @@ it('requests an amendment to a shift and hydrates the pending request', function
         ]],
         'meta' => ['team_id' => 42],
     ], 201)]);
-    bootTenantSession();
 
-    $amendment = rotaShifts()->requestAmendment(51, [
+    $amendment = sdk()->shifts()->requestAmendment(51, [
         'proposed_start_time' => '15:00',
         'proposed_end_time' => '23:00',
         'requested_tags' => ['Driving'],
@@ -301,23 +260,4 @@ it('requests an amendment to a shift and hydrates the pending request', function
         && $request['proposed_start_time'] === '15:00'
         && $request['requested_tags'] === ['Driving']
         && $request->hasHeader('X-Team-ID', '42'));
-});
-
-it('maps a 422 on an amendment request to a validation exception', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/51/amendment-requests' => Http::response([
-        'message' => 'The proposed end time field is required.',
-        'errors' => ['proposed_end_time' => ['The proposed end time field is required.']],
-    ], 422)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShifts()->requestAmendment(51, ['proposed_start_time' => '15:00']))
-        ->toThrow(ApiValidationException::class);
-});
-
-it('throws when an amendment is not open to the caller (403)', function () {
-    Http::fake(['api.test/api/v1/rota/shifts/51/amendment-requests' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShifts()->requestAmendment(51, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']))
-        ->toThrow(SupportManagerApiException::class);
 });

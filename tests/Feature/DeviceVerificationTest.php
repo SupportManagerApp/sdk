@@ -32,7 +32,7 @@ function issued_tokens(): array
 }
 
 it('lists the verification methods for a challenge', function () {
-    Http::fake(['api.test/api/v1/auth/device/methods' => Http::response(['data' => ['available_methods' => [
+    Http::fake([apiUrl('auth/device/methods') => Http::response(['data' => ['available_methods' => [
         ['method' => 'email', 'label' => 'Email', 'description' => 'Receive a verification code via email', 'masked_destination' => 'a***@test.com'],
         ['method' => 'totp', 'label' => 'Authenticator App', 'description' => 'Use your authenticator app'],
     ]]])]);
@@ -46,7 +46,7 @@ it('lists the verification methods for a challenge', function () {
 });
 
 it('sends a verification code', function () {
-    Http::fake(['api.test/api/v1/auth/device/send-code' => Http::response(['data' => [
+    Http::fake([apiUrl('auth/device/send-code') => Http::response(['data' => [
         'message' => 'Verification code sent', 'method' => 'sms', 'expires_in' => 300,
     ]])]);
 
@@ -57,7 +57,7 @@ it('sends a verification code', function () {
 });
 
 it('verifies the device and keeps the trusted-device token', function () {
-    Http::fake(['api.test/api/v1/auth/device/verify' => Http::response([
+    Http::fake([apiUrl('auth/device/verify') => Http::response([
         'data' => issued_tokens(),
         'device_token' => 'dvc_trusted',
     ])]);
@@ -73,7 +73,7 @@ it('verifies the device and keeps the trusted-device token', function () {
 });
 
 it('maps a wrong verification code to a validation exception', function () {
-    Http::fake(['api.test/api/v1/auth/device/verify' => Http::response([
+    Http::fake([apiUrl('auth/device/verify') => Http::response([
         'message' => 'Invalid verification code',
         'errors' => ['code' => ['Invalid verification code']],
     ], 422)]);
@@ -82,7 +82,7 @@ it('maps a wrong verification code to a validation exception', function () {
 })->throws(ApiValidationException::class);
 
 it('logs in with a social provider token', function () {
-    Http::fake(['api.test/api/v1/auth/social/google' => Http::response(['data' => issued_tokens()])]);
+    Http::fake([apiUrl('auth/social/google') => Http::response(['data' => issued_tokens()])]);
 
     $tokens = verification_client()->loginWithProvider('google', 'ya29.token');
 
@@ -93,7 +93,7 @@ it('logs in with a social provider token', function () {
 });
 
 it('raises the device challenge from a social login', function () {
-    Http::fake(['api.test/api/v1/auth/social/apple' => Http::response([
+    Http::fake([apiUrl('auth/social/apple') => Http::response([
         'message' => 'Device verification required',
         'error_code' => 'DEVICE_VERIFICATION_REQUIRED',
         'data' => [
@@ -110,7 +110,7 @@ it('raises the device challenge from a social login', function () {
 })->throws(DeviceVerificationRequiredException::class);
 
 it('logs out with the access token', function () {
-    Http::fake(['api.test/api/v1/auth/logout' => Http::response(['data' => ['message' => 'Successfully logged out']])]);
+    Http::fake([apiUrl('auth/logout') => Http::response(['data' => ['message' => 'Successfully logged out']])]);
 
     verification_client()->logout('access-123');
 

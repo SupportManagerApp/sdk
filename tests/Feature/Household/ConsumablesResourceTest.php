@@ -5,14 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Household\Consumable;
 use SupportManager\Sdk\Data\Household\ConsumableVariant;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Household\ConsumablesResource;
-
-function householdConsumables(): ConsumablesResource
-{
-    return app(ConsumablesResource::class);
-}
 
 function householdConsumable(string $id, array $attributes = []): array
 {
@@ -41,10 +33,9 @@ function householdConsumablePage(int $page, int $lastPage): array
 }
 
 it('encodes Spatie-style query params on consumables', function () {
-    Http::fake(['api.test/api/v1/household/consumables*' => Http::response(householdConsumablePage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['household/consumables*' => Http::response(householdConsumablePage(1, 1))]);
 
-    householdConsumables()->query()->filter('name', 'wipes')->sort('-created_at')->perPage(10)->get();
+    sdk()->consumables()->query()->filter('name', 'wipes')->sort('-created_at')->perPage(10)->get();
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
@@ -58,10 +49,9 @@ it('encodes Spatie-style query params on consumables', function () {
 });
 
 it('hydrates consumables with typed variants and pagination', function () {
-    Http::fake(['api.test/api/v1/household/consumables*' => Http::response(householdConsumablePage(1, 2))]);
-    bootTenantSession();
+    fakeApi(['household/consumables*' => Http::response(householdConsumablePage(1, 2))]);
 
-    $page = householdConsumables()->query()->get();
+    $page = sdk()->consumables()->query()->get();
     $consumable = $page->items()[0];
 
     expect($consumable)->toBeInstanceOf(Consumable::class)
@@ -79,15 +69,14 @@ it('hydrates consumables with typed variants and pagination', function () {
 });
 
 it('adjusts a variant\'s stock and returns the whole consumable', function () {
-    Http::fake(['api.test/api/v1/household/consumable-variants/1/stock' => Http::response([
+    fakeApi(['household/consumable-variants/1/stock' => [
         'data' => householdConsumable('1', ['variants' => [
             ['id' => 1, 'size' => 'Large', 'quantity' => 0, 'minimum_stock' => 2, 'is_low_stock' => true],
         ]]),
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $consumable = householdConsumables()->adjustStock(1, -1);
+    $consumable = sdk()->consumables()->adjustStock(1, -1);
 
     expect($consumable)->toBeInstanceOf(Consumable::class)
         ->and($consumable->variants[0]->quantity)->toBe(0);
@@ -96,25 +85,3 @@ it('adjusts a variant\'s stock and returns the whole consumable', function () {
         && $request->hasHeader('X-Team-ID', '42')
         && $request['adjustment'] === -1);
 });
-
-it('maps a 422 on an invalid adjustment to a validation exception', function () {
-    Http::fake(['api.test/api/v1/household/consumable-variants/1/stock' => Http::response([
-        'message' => 'The selected adjustment is invalid.',
-        'errors' => ['adjustment' => ['The selected adjustment is invalid.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        householdConsumables()->adjustStock(1, 5);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('adjustment'))->toBe('The selected adjustment is invalid.');
-    }
-});
-
-it('throws when the household module is switched off (404)', function () {
-    Http::fake(['api.test/api/v1/household/consumable-variants/1/stock' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
-
-    householdConsumables()->adjustStock(1, 1);
-})->throws(SupportManagerApiException::class);

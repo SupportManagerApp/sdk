@@ -17,7 +17,7 @@ function client(): SupportManagerClient
 
 it('logs in and returns tokens', function () {
     Http::fake([
-        'api.test/api/v1/auth/login' => Http::response([
+        apiUrl('auth/login') => Http::response([
             'data' => [
                 'access_token' => 'access-123',
                 'refresh_token' => 'refresh-456',
@@ -42,7 +42,7 @@ it('logs in and returns tokens', function () {
 
 it('sends the device token as a header when provided', function () {
     Http::fake([
-        'api.test/api/v1/auth/login' => Http::response([
+        apiUrl('auth/login') => Http::response([
             'data' => [
                 'access_token' => 'access-123',
                 'refresh_token' => 'refresh-456',
@@ -102,7 +102,7 @@ it('throws a device verification challenge on 403', function () {
 
 it('requests a password reset code', function () {
     Http::fake([
-        'api.test/api/v1/auth/password-reset-request' => Http::response([
+        apiUrl('auth/password-reset-request') => Http::response([
             'data' => ['message' => 'Sent', 'expires_in' => 900, 'delivery_method' => 'email'],
         ]),
     ]);
@@ -115,7 +115,7 @@ it('requests a password reset code', function () {
 
 it('verifies an OTP and returns the reset token', function () {
     Http::fake([
-        'api.test/api/v1/auth/verify-otp' => Http::response([
+        apiUrl('auth/verify-otp') => Http::response([
             'data' => ['message' => 'OTP verified successfully', 'reset_token' => 42, 'expires_in' => 600],
         ]),
     ]);
@@ -141,7 +141,7 @@ it('maps a 422 to a validation exception', function () {
 
 it('resets the password with the reset token', function () {
     Http::fake([
-        'api.test/api/v1/auth/reset-password' => Http::response([
+        apiUrl('auth/reset-password') => Http::response([
             'data' => ['message' => 'Your password has been reset successfully'],
         ]),
     ]);

@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Household\ShoppingListItem;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Resources\Household\ShoppingListItemsResource;
-
-function householdShoppingList(): ShoppingListItemsResource
-{
-    return app(ShoppingListItemsResource::class);
-}
 
 function householdShoppingItem(string $id, array $attributes = []): array
 {
@@ -38,10 +31,9 @@ function householdShoppingPage(int $page, int $lastPage): array
 }
 
 it('encodes Spatie-style query params on the shopping list', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list*' => Http::response(householdShoppingPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list*' => Http::response(householdShoppingPage(1, 1))]);
 
-    householdShoppingList()->query()
+    sdk()->shoppingList()->query()
         ->filter('needs_purchasing', true)
         ->sort('-created_at')
         ->perPage(20)
@@ -58,10 +50,9 @@ it('encodes Spatie-style query params on the shopping list', function () {
 });
 
 it('hydrates shopping list items with pagination metadata', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list*' => Http::response(householdShoppingPage(1, 3))]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list*' => Http::response(householdShoppingPage(1, 3))]);
 
-    $page = householdShoppingList()->query()->get();
+    $page = sdk()->shoppingList()->query()->get();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(ShoppingListItem::class)
@@ -72,79 +63,57 @@ it('hydrates shopping list items with pagination metadata', function () {
 });
 
 it('finds nothing via the collection since there is no show route', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list/9*' => Http::response(['data' => householdShoppingItem('9')])]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list/9*' => ['data' => householdShoppingItem('9')]]);
 
-    expect(householdShoppingList()->find(9)->id)->toBe('9');
+    expect(sdk()->shoppingList()->find(9)->id)->toBe('9');
 });
 
 it('returns null when finding a missing item (404)', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list/999*' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list/999*' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(householdShoppingList()->find(999))->toBeNull();
+    expect(sdk()->shoppingList()->find(999))->toBeNull();
 });
 
 it('creates a shopping list item', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list' => Http::response(['data' => householdShoppingItem('5', ['name' => 'Milk'])], 201)]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list' => Http::response(['data' => householdShoppingItem('5', ['name' => 'Milk'])], 201)]);
 
-    $item = householdShoppingList()->create(['name' => 'Milk', 'quantity' => 1]);
+    $item = sdk()->shoppingList()->create(['name' => 'Milk', 'quantity' => 1]);
 
     expect($item->name)->toBe('Milk');
     Http::assertSent(fn ($request) => $request->method() === 'POST' && $request['name'] === 'Milk');
 });
 
 it('updates a shopping list item', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list/5' => Http::response(['data' => householdShoppingItem('5', ['name' => 'Bread'])])]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list/5' => ['data' => householdShoppingItem('5', ['name' => 'Bread'])]]);
 
-    expect(householdShoppingList()->update(5, ['name' => 'Bread'])->name)->toBe('Bread');
+    expect(sdk()->shoppingList()->update(5, ['name' => 'Bread'])->name)->toBe('Bread');
     Http::assertSent(fn ($request) => $request->method() === 'PATCH');
 });
 
 it('deletes a shopping list item', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list/5' => Http::response(['message' => 'Shopping list item deleted successfully.'])]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list/5' => ['message' => 'Shopping list item deleted successfully.']]);
 
-    householdShoppingList()->destroy(5);
+    sdk()->shoppingList()->destroy(5);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'household/shopping-list/5'));
 });
 
 it('toggles the purchased flag', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list/5/toggle-purchased' => Http::response(['data' => householdShoppingItem('5', ['needs_purchasing' => false])])]);
-    bootTenantSession();
+    fakeApi(['household/shopping-list/5/toggle-purchased' => ['data' => householdShoppingItem('5', ['needs_purchasing' => false])]]);
 
-    expect(householdShoppingList()->togglePurchased(5)->needsPurchasing)->toBeFalse();
+    expect(sdk()->shoppingList()->togglePurchased(5)->needsPurchasing)->toBeFalse();
     Http::assertSent(fn ($request) => $request->method() === 'PATCH'
         && str_contains($request->url(), 'toggle-purchased'));
 });
 
-it('maps a 422 to a validation exception', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['name' => ['The name field is required.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        householdShoppingList()->create([]);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('name'))->toBe('The name field is required.');
-    }
-});
-
 it('hydrates the section and notes and filters by purchased today', function () {
-    Http::fake(['api.test/api/v1/household/shopping-list*' => Http::response([
+    fakeApi(['household/shopping-list*' => [
         'data' => [householdShoppingItem('1', ['section' => 'dairy_eggs_and_chilled', 'notes' => 'The blue Lurpak, 500g'])],
         'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $item = householdShoppingList()->query()->filter('purchased_today', true)->get()->items()[0];
+    $item = sdk()->shoppingList()->query()->filter('purchased_today', true)->get()->items()[0];
 
     expect($item->section)->toBe('dairy_eggs_and_chilled')
         ->and($item->notes)->toBe('The blue Lurpak, 500g');

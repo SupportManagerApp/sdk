@@ -4,14 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\Timesheet;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Http\Download;
-use SupportManager\Sdk\Resources\Payroll\TimesheetsResource;
-
-function payrollTimesheets(): TimesheetsResource
-{
-    return app(TimesheetsResource::class);
-}
 
 function payrollTimesheetPage(int $page, int $lastPage): array
 {
@@ -34,10 +27,9 @@ function payrollTimesheetPage(int $page, int $lastPage): array
 }
 
 it('encodes filter, sort and pagination as Spatie-style query params', function () {
-    Http::fake(['api.test/api/v1/payroll/timesheets*' => Http::response(payrollTimesheetPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['payroll/timesheets*' => Http::response(payrollTimesheetPage(1, 1))]);
 
-    payrollTimesheets()->query()->filter('status', 'submitted')->sort('-process_date')->perPage(25)->get();
+    sdk()->timesheets()->query()->filter('status', 'submitted')->sort('-process_date')->perPage(25)->get();
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
@@ -50,10 +42,9 @@ it('encodes filter, sort and pagination as Spatie-style query params', function 
 });
 
 it('hydrates timesheet DTOs and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/payroll/timesheets*' => Http::response(payrollTimesheetPage(1, 2))]);
-    bootTenantSession();
+    fakeApi(['payroll/timesheets*' => Http::response(payrollTimesheetPage(1, 2))]);
 
-    $page = payrollTimesheets()->query()->get();
+    $page = sdk()->timesheets()->query()->get();
 
     expect($page->items()[0])->toBeInstanceOf(Timesheet::class)
         ->and($page->items()[0]->status)->toBe('submitted')
@@ -63,8 +54,8 @@ it('hydrates timesheet DTOs and exposes pagination metadata', function () {
 });
 
 it('finds a timesheet by id', function () {
-    Http::fake([
-        'api.test/api/v1/payroll/timesheets/3' => Http::response([
+    fakeApi([
+        'payroll/timesheets/3' => [
             'data' => ['type' => 'timesheets', 'id' => '3', 'attributes' => [
                 'status' => 'approved',
                 'comments' => 'OK',
@@ -73,11 +64,10 @@ it('finds a timesheet by id', function () {
                 'sleep_count' => 12,
                 'additional_payments_total' => '86.40',
             ]],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $timesheet = payrollTimesheets()->find(3);
+    $timesheet = sdk()->timesheets()->find(3);
 
     expect($timesheet)->toBeInstanceOf(Timesheet::class)
         ->and($timesheet->id)->toBe('3')
@@ -89,34 +79,15 @@ it('finds a timesheet by id', function () {
 });
 
 it('returns null when finding a missing timesheet (404)', function () {
-    Http::fake(['api.test/api/v1/payroll/timesheets/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['payroll/timesheets/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(payrollTimesheets()->find(999))->toBeNull();
-});
-
-it('maps a 422 on the timesheets path to a validation exception', function () {
-    // The only 422 this index returns is SetApiTenant's missing/invalid team
-    // response, which carries a message and no field errors.
-    Http::fake(['api.test/api/v1/payroll/timesheets*' => Http::response([
-        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        payrollTimesheets()->query()->filter('status', 'nope')->get();
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->getMessage())->toContain('Invalid or missing team')
-            ->and($e->errors)->toBe([]);
-    }
+    expect(sdk()->timesheets()->find(999))->toBeNull();
 });
 
 it('downloads a timesheet PDF as a raw response', function () {
-    Http::fake(['api.test/api/v1/payroll/timesheets/3/download' => Http::response('%PDF-1.4 timesheet-bytes', 200, ['Content-Type' => 'application/pdf'])]);
-    bootTenantSession();
+    fakeApi(['payroll/timesheets/3/download' => Http::response('%PDF-1.4 timesheet-bytes', 200, ['Content-Type' => 'application/pdf'])]);
 
-    $response = payrollTimesheets()->download(3);
+    $response = sdk()->timesheets()->download(3);
 
     expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 timesheet-bytes');

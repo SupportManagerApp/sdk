@@ -16,7 +16,7 @@ beforeEach(function () {
 
 it('issues companion tokens with the caller\'s bearer token', function () {
     Http::fake([
-        'api.test/api/v1/auth/companion-token' => Http::response([
+        apiUrl('auth/companion-token') => Http::response([
             'data' => [
                 'access_token' => 'companion-access',
                 'refresh_token' => 'companion-refresh',
@@ -74,7 +74,7 @@ it('throws invalid credentials when the caller\'s token is rejected', function (
 
 it('revokes companion tokens with a DELETE carrying the device name', function () {
     Http::fake([
-        'api.test/api/v1/auth/companion-token' => Http::response([
+        apiUrl('auth/companion-token') => Http::response([
             'data' => ['message' => 'Companion device tokens revoked'],
         ]),
     ]);

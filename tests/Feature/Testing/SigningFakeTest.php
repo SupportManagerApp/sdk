@@ -49,7 +49,7 @@ it('finds a request with its fields, marking it viewed, and returns null for a m
 it('serves the original PDF', function () {
     SupportManager::fake()->seed(SignatureRequestFactory::new());
 
-    expect(SupportManager::signatureRequests()->file(1)->body())->toStartWith('%PDF');
+    expect(SupportManager::signatureRequests()->downloadOriginal(1)->body())->toStartWith('%PDF');
 });
 
 it('saves values, signs, and then serves the signed copy', function () {

@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\EstimatedPay;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Resources\Payroll\EstimatedPayResource;
-
-function payrollEstimatedPay(): EstimatedPayResource
-{
-    return app(EstimatedPayResource::class);
-}
 
 function payrollEstimatedPayBody(): array
 {
@@ -55,10 +49,9 @@ function payrollEstimatedPayBody(): array
 }
 
 it('fetches the estimated-pay projection and passes year/month/user_id', function () {
-    Http::fake(['api.test/api/v1/payroll/estimated-pay*' => Http::response(payrollEstimatedPayBody())]);
-    bootTenantSession();
+    fakeApi(['payroll/estimated-pay*' => Http::response(payrollEstimatedPayBody())]);
 
-    $estimate = payrollEstimatedPay()->show(['year' => 2026, 'month' => 6, 'user_id' => 7]);
+    $estimate = sdk()->estimatedPay()->show(['year' => 2026, 'month' => 6, 'user_id' => 7]);
 
     expect($estimate)->toBeInstanceOf(EstimatedPay::class)
         ->and($estimate->year)->toBe(2026)
@@ -92,22 +85,13 @@ it('leaves the net-pay fields null when the estimate has no net-pay breakdown da
     $body['data']['deductions_total'] = null;
     $body['data']['deductions'] = null;
 
-    Http::fake(['api.test/api/v1/payroll/estimated-pay*' => Http::response($body)]);
-    bootTenantSession();
+    fakeApi(['payroll/estimated-pay*' => Http::response($body)]);
 
-    $estimate = payrollEstimatedPay()->show();
+    $estimate = sdk()->estimatedPay()->show();
 
     expect($estimate)->toBeInstanceOf(EstimatedPay::class)
         ->and($estimate?->grossPay)->toBeNull()
         ->and($estimate?->netPay)->toBeNull()
         ->and($estimate?->deductionsTotal)->toBeNull()
         ->and($estimate?->deductions)->toBeNull();
-});
-
-it('maps a server error on the estimated-pay path to an api exception', function () {
-    Http::fake(['api.test/api/v1/payroll/estimated-pay*' => Http::response('<html>boom</html>', 500)]);
-    bootTenantSession();
-
-    expect(fn () => payrollEstimatedPay()->show())
-        ->toThrow(SupportManagerApiException::class);
 });
