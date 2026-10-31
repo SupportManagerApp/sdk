@@ -141,7 +141,7 @@ it('returns the original PDF as a raw response', function () {
     $response = signatureRequests()->file(12);
 
     expect($response->body())->toBe('%PDF-1.4 bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf');
+        ->and($response->mimeType())->toBe('application/pdf');
 });
 
 it('saves field values with a PUT keyed by field id', function () {
@@ -218,8 +218,8 @@ it('returns the raw signed-copy download payload', function () {
 
     $response = signatureRequests()->downloadSigned(12);
 
-    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/12.pdf')
-        ->and($response->json('data.filename'))->toBe('Working pattern change (signed).pdf');
+    expect($response->url)->toBe('https://s3.test/signed/12.pdf')
+        ->and($response->filename)->toBe('Working pattern change (signed).pdf');
 });
 
 it('throws when saving values is forbidden (403)', function () {
