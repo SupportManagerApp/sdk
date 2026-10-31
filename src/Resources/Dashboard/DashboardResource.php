@@ -20,8 +20,8 @@ use SupportManager\Sdk\Resources\Resource;
  * `subscribed: false`), so a client can explain why everything else 403s.
  *
  * Both endpoints return plain `{data, meta}` payloads (not JSON:API resource
- * objects), so they are parsed straight from `data` rather than through the
- * fluent {@see query()} builder.
+ * objects), so they are read with {@see Resource::raw()} rather than through
+ * the fluent {@see query()} builder.
  *
  * ```php
  * SupportManager::dashboard()->layout()->widgets;
@@ -37,7 +37,7 @@ final class DashboardResource extends Resource
      */
     public function layout(): DashboardLayout
     {
-        return DashboardLayout::fromArray($this->data($this->path()));
+        return DashboardLayout::fromArray($this->raw($this->get($this->path())));
     }
 
     /**
@@ -45,7 +45,7 @@ final class DashboardResource extends Resource
      */
     public function capabilities(): Capabilities
     {
-        return Capabilities::fromArray($this->data('capabilities'));
+        return Capabilities::fromArray($this->raw($this->get('capabilities')));
     }
 
     protected function path(): string
@@ -56,21 +56,5 @@ final class DashboardResource extends Resource
     protected function hydrate(ResourceObject $object): DashboardLayout
     {
         return DashboardLayout::fromArray($object->flat());
-    }
-
-    /**
-     * GET a flat `{data, meta}` endpoint and return its `data` object.
-     *
-     * @return array<string, mixed>
-     */
-    private function data(string $uri): array
-    {
-        $response = $this->get($uri);
-        $this->throwForErrorResponse($response, $uri);
-
-        /** @var array<string, mixed> $data */
-        $data = $response->json('data', []);
-
-        return $data;
     }
 }
