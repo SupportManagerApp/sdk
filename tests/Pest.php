@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Assert;
 use SupportManager\Sdk\Data\AuthTokens;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\SupportManager;
@@ -120,6 +121,6 @@ function assertSentTo(string $method, string $path, ?Closure $also = null): void
         && parse_url($request->url(), PHP_URL_PATH) === $path
         && ($also === null || $also($request)));
 
-    expect($matched)->not->toBeEmpty("No {$method} {$path} request".($also === null ? '' : ' matching the callback')." was sent. Sent:\n  "
+    Assert::assertTrue($matched->isNotEmpty(), "No {$method} {$path} request".($also === null ? '' : ' matching the callback')." was sent. Sent:\n  "
         .($sent->isEmpty() ? '(nothing)' : $sent->implode("\n  ")));
 }
