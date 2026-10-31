@@ -66,9 +66,10 @@ final class KeysafeFactory extends Factory implements ProvidesFakeRoutes
             )),
 
             FakeRoute::post('household/keysafe/reveal', static function (RecordStore $store): mixed {
-                $record = $store->all('household/keysafe')[0] ?? ['has_code' => false, 'can_edit' => true, 'code' => null];
+                // The platform's reveal answers only the code (KeysafeController::reveal).
+                $code = $store->all('household/keysafe')[0]['code'] ?? null;
 
-                return Http::response(Json::item(null, $record));
+                return Http::response([...Json::item(null, ['code' => $code]), 'meta' => ['team_id' => 42]]);
             }),
 
             FakeRoute::patch('household/keysafe', static function (RecordStore $store, array $matches, Request $request): mixed {

@@ -59,7 +59,7 @@ it('creates, updates and deletes a shopping list item', function () {
 it('toggles the purchased flag on a shopping list item', function () {
     SupportManager::fake()->seed(ShoppingListItemFactory::new()->count(1));
 
-    expect(SupportManager::shoppingList()->find(1)->needsPurchasing)->toBeTrue();
+    expect(SupportManager::shoppingList()->all()->items()[0]->needsPurchasing)->toBeTrue();
 
     $toggled = SupportManager::shoppingList()->togglePurchased(1);
     expect($toggled->needsPurchasing)->toBeFalse();
@@ -82,7 +82,7 @@ it('lists seeded chores with the typed frequency enum', function () {
 it('applies the overdue state to a seeded chore', function () {
     SupportManager::fake()->seed(ChoreFactory::new()->overdue());
 
-    $chore = SupportManager::chores()->find(1);
+    $chore = SupportManager::chores()->all()->items()[0];
 
     expect($chore->isOverdue)->toBeTrue()
         ->and($chore->shouldHighlight)->toBeTrue();
@@ -183,7 +183,7 @@ it('completes several chores by id', function () {
     expect($completed)->toHaveCount(2)
         ->and($completed[0]->isOverdue)->toBeFalse()
         ->and($completed[1]->id)->toBe('3')
-        ->and(SupportManager::chores()->find(2)?->isOverdue)->toBeTrue();
+        ->and(SupportManager::chores()->all()->items()[1]->isOverdue)->toBeTrue();
 });
 
 it('completes every chore in a name group', function () {
@@ -197,7 +197,7 @@ it('completes every chore in a name group', function () {
 
     expect($completed)->toHaveCount(2)
         ->and($completed[0]->normalizedName)->toBe('water plants')
-        ->and(SupportManager::chores()->find(3)?->isOverdue)->toBeTrue();
+        ->and(SupportManager::chores()->all()->items()[2]->isOverdue)->toBeTrue();
 });
 
 it('marks chores not needed today, snoozing them until tomorrow', function () {
@@ -229,7 +229,7 @@ it('reports the due chores count on seeded categories', function () {
 it('seeds shopping list sections and notes', function () {
     SupportManager::fake()->seed(ShoppingListItemFactory::new()->state(['notes' => 'Semi-skimmed']));
 
-    $item = SupportManager::shoppingList()->find(1);
+    $item = SupportManager::shoppingList()->all()->items()[0];
 
     expect($item?->section)->toBe('dairy_eggs_and_chilled')
         ->and($item?->notes)->toBe('Semi-skimmed');
