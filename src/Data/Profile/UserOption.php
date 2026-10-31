@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A colleague as shown in a picker, from `GET users/options`.
  *
@@ -24,10 +26,6 @@ final readonly class UserOption
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            avatar: isset($data['avatar']) ? (string) $data['avatar'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

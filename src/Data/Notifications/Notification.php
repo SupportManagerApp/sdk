@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Notifications;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A single database notification for the authenticated user.
  *
@@ -30,13 +32,7 @@ final readonly class Notification
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            type: (string) ($data['type'] ?? ''),
-            data: is_array($data['data'] ?? null) ? $data['data'] : [],
-            readAt: isset($data['read_at']) ? (string) $data['read_at'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 
     /**

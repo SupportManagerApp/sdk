@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Tasks;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The dashboard task badge counts: the user's own outstanding tasks, the
  * manager inbox (0 for non-privileged users), and their sum.
@@ -23,10 +25,6 @@ final readonly class TaskCount
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            count: (int) ($data['count'] ?? 0),
-            myTasks: (int) ($data['my_tasks'] ?? 0),
-            managerInbox: (int) ($data['manager_inbox'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Documents;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Documents\DocumentScope;
 
 /**
@@ -42,20 +43,7 @@ final readonly class DocumentFolder
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            description: isset($data['description']) ? (string) $data['description'] : null,
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            parentId: isset($data['parent_id']) ? (int) $data['parent_id'] : null,
-            documentsCount: isset($data['documents_count']) ? (int) $data['documents_count'] : null,
-            childrenCount: isset($data['children_count']) ? (int) $data['children_count'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            scope: isset($data['scope']) ? DocumentScope::tryFrom((string) $data['scope']) : null,
-            userId: isset($data['user_id']) ? (int) $data['user_id'] : null,
-            ancestors: self::ancestors($data['ancestors'] ?? null),
-        );
+        return Hydrator::hydrate(self::class, $data, ['ancestors' => self::ancestors($data['ancestors'] ?? null)]);
     }
 
     /**

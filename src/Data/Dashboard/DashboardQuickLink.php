@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A shortcut shown beneath the dashboard widgets. `url` is absolute and already
  * resolved for the current team.
@@ -23,12 +25,6 @@ final readonly class DashboardQuickLink
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            label: (string) ($data['label'] ?? ''),
-            description: isset($data['description']) ? (string) $data['description'] : null,
-            icon: isset($data['icon']) ? (string) $data['icon'] : null,
-            color: isset($data['color']) ? (string) $data['color'] : null,
-            url: (string) ($data['url'] ?? ''),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

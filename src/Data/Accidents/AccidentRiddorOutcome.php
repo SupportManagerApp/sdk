@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Accidents;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * How an accident was reported to the HSE under RIDDOR, from an accident
  * report's `riddor` attribute. Only admins and managers receive it, and
@@ -22,10 +24,6 @@ final readonly class AccidentRiddorOutcome
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            howReported: isset($data['how_reported']) ? (string) $data['how_reported'] : null,
-            declaredName: isset($data['declared_name']) ? (string) $data['declared_name'] : null,
-            declaredAt: isset($data['declared_at']) ? (string) $data['declared_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The authenticated user's overtime (TOIL) log for a leave year: one row per
  * logged month, in date order, with totals across the year.
@@ -19,6 +22,7 @@ final readonly class OvertimeLog
      */
     public function __construct(
         public ?int $year,
+        #[ListOf(OvertimeMonth::class)]
         public array $months,
         public OvertimeMonth $totals,
     ) {}
@@ -28,17 +32,6 @@ final readonly class OvertimeLog
      */
     public static function fromArray(array $data): self
     {
-        $months = is_array($data['months'] ?? null) ? $data['months'] : [];
-        /** @var array<string, mixed> $totals */
-        $totals = is_array($data['totals'] ?? null) ? $data['totals'] : [];
-
-        return new self(
-            year: isset($data['year']) ? (int) $data['year'] : null,
-            months: array_values(array_map(
-                static fn (mixed $month): OvertimeMonth => OvertimeMonth::fromArray(is_array($month) ? $month : []),
-                $months,
-            )),
-            totals: OvertimeMonth::fromArray($totals),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

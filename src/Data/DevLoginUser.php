@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * An account offered on the developer login picker, mirroring the platform's
  * `DevLoginUserResource`. Pass {@see self::$id} to
@@ -18,6 +21,7 @@ final readonly class DevLoginUser
         public int $id,
         public string $name,
         public string $email,
+        #[ListOf(DevLoginTeam::class)]
         public array $teams = [],
     ) {}
 
@@ -26,17 +30,6 @@ final readonly class DevLoginUser
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (int) $data['id'],
-            name: (string) $data['name'],
-            email: (string) $data['email'],
-            teams: array_values(array_map(
-                static fn (array $team): DevLoginTeam => DevLoginTeam::fromArray($team),
-                array_filter(
-                    is_array($data['teams'] ?? null) ? $data['teams'] : [],
-                    is_array(...),
-                ),
-            )),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

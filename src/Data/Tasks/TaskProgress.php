@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Tasks;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The authenticated user's task completion progress, mirroring the platform's
  * `GET tasks/progress` payload. `percentage` is 100 when there are no
@@ -22,10 +24,6 @@ final readonly class TaskProgress
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            percentage: (int) ($data['percentage'] ?? 0),
-            completed: (int) ($data['completed'] ?? 0),
-            total: (int) ($data['total'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

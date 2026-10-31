@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The user's UK postal address.
  *
@@ -29,16 +31,6 @@ final readonly class Address
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            addressLineOne: (string) ($data['address_line_one'] ?? ''),
-            addressLineTwo: isset($data['address_line_two']) ? (string) $data['address_line_two'] : null,
-            addressLineThree: isset($data['address_line_three']) ? (string) $data['address_line_three'] : null,
-            town: (string) ($data['town'] ?? ''),
-            county: isset($data['county']) ? (string) $data['county'] : null,
-            postcode: (string) ($data['postcode'] ?? ''),
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

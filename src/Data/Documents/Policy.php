@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Documents;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Documents\PolicyCategory;
 
 /**
@@ -30,7 +32,9 @@ final readonly class Policy
         public ?string $reviewDate,
         public bool $isActive,
         public ?int $teamId,
+        #[From('created_by.id')]
         public ?int $createdById,
+        #[From('created_by.name')]
         public ?string $createdByName,
         public ?string $createdAt,
         public ?string $updatedAt,
@@ -42,28 +46,6 @@ final readonly class Policy
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed} $createdBy */
-        $createdBy = is_array($data['created_by'] ?? null) ? $data['created_by'] : [];
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            title: (string) ($data['title'] ?? ''),
-            slug: isset($data['slug']) ? (string) $data['slug'] : null,
-            contentHtml: isset($data['content_html']) ? (string) $data['content_html'] : null,
-            category: isset($data['category'])
-                ? PolicyCategory::tryFrom((string) $data['category'])
-                : null,
-            categoryLabel: isset($data['category_label']) ? (string) $data['category_label'] : null,
-            version: isset($data['version']) ? (string) $data['version'] : null,
-            effectiveDate: isset($data['effective_date']) ? (string) $data['effective_date'] : null,
-            reviewDate: isset($data['review_date']) ? (string) $data['review_date'] : null,
-            isActive: (bool) ($data['is_active'] ?? false),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            createdById: isset($createdBy['id']) ? (int) $createdBy['id'] : null,
-            createdByName: isset($createdBy['name']) ? (string) $createdBy['name'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            acknowledgedAt: isset($data['acknowledged_at']) ? (string) $data['acknowledged_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

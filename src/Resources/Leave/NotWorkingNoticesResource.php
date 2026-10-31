@@ -64,6 +64,6 @@ final class NotWorkingNoticesResource extends Resource
 
     protected function hydrate(ResourceObject $object): NotWorkingNotice
     {
-        return NotWorkingNotice::fromArray($object->flat(), $object->meta);
+        return NotWorkingNotice::fromArray($object->flat());
     }
 }

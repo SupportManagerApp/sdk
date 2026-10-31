@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The authenticated user's full profile, as returned by `GET user/profile`.
  *
@@ -47,24 +49,11 @@ final readonly class Profile
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            title: isset($data['title']) ? (string) $data['title'] : null,
-            name: (string) ($data['name'] ?? ''),
-            email: isset($data['email']) ? (string) $data['email'] : null,
-            avatar: isset($data['avatar']) ? (string) $data['avatar'] : null,
-            mobileNumber: isset($data['mobile_number']) ? (string) $data['mobile_number'] : null,
-            dateOfBirth: isset($data['date_of_birth']) ? (string) $data['date_of_birth'] : null,
-            gender: isset($data['gender']) ? (string) $data['gender'] : null,
-            niNumber: isset($data['ni_number']) ? (string) $data['ni_number'] : null,
-            showBirthdayOnRoster: (bool) ($data['show_birthday_on_roster'] ?? false),
-            isViewOnly: (bool) ($data['is_view_only'] ?? false),
-            address: self::nested($data['address'] ?? null, Address::fromArray(...)),
-            emergencyContacts: self::emergencyContacts($data['emergency_contacts'] ?? null),
-            teams: self::teams($data['teams'] ?? null),
-            hasSecondFactor: (bool) ($data['has_second_factor'] ?? false),
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data, [
+            'address' => self::nested($data['address'] ?? null, Address::fromArray(...)),
+            'emergencyContacts' => self::emergencyContacts($data['emergency_contacts'] ?? null),
+            'teams' => self::teams($data['teams'] ?? null),
+        ]);
     }
 
     /**

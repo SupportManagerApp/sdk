@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Compliance;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A DBS (Disclosure and Barring Service) check record for an employee.
  *
@@ -21,6 +25,7 @@ final readonly class DBSCheck
         public string $id,
         public ?int $teamId,
         public ?int $userId,
+        #[From('user.name')]
         public ?string $userName,
         public ?string $dateOfIssue,
         public ?string $certificateNumber,
@@ -29,7 +34,9 @@ final readonly class DBSCheck
         public ?string $notes,
         public ?string $createdAt,
         public ?string $updatedAt,
+        #[Can('update')]
         public bool $canUpdate = false,
+        #[Can('download')]
         public bool $canDownload = false,
     ) {}
 
@@ -38,26 +45,6 @@ final readonly class DBSCheck
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed} $user */
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-
-        /** @var array{update?: mixed, download?: mixed} $can */
-        $can = is_array($data['meta']['can'] ?? null) ? $data['meta']['can'] : [];
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            userId: isset($data['user_id']) ? (int) $data['user_id'] : null,
-            userName: isset($user['name']) ? (string) $user['name'] : null,
-            dateOfIssue: isset($data['date_of_issue']) ? (string) $data['date_of_issue'] : null,
-            certificateNumber: isset($data['certificate_number']) ? (string) $data['certificate_number'] : null,
-            certificate: isset($data['certificate']) ? (string) $data['certificate'] : null,
-            checkResult: isset($data['check_result']) ? (string) $data['check_result'] : null,
-            notes: isset($data['notes']) ? (string) $data['notes'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            canUpdate: (bool) ($can['update'] ?? false),
-            canDownload: (bool) ($can['download'] ?? false),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

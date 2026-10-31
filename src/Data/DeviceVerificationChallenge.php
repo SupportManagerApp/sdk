@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The challenge returned (HTTP 403) when login succeeds but the device is
  * not yet trusted. The verification token authorises the follow-up
@@ -16,9 +20,14 @@ final readonly class DeviceVerificationChallenge
      */
     public function __construct(
         public string $verificationToken,
+        #[From('verification_token_expires_in')]
         public int $expiresIn,
+        #[From('available_methods')]
+        #[ListOf(DeviceVerificationMethod::class)]
         public array $methods,
+        #[From('user.id')]
         public ?int $userId = null,
+        #[From('user.name')]
         public ?string $userName = null,
     ) {}
 
@@ -29,18 +38,6 @@ final readonly class DeviceVerificationChallenge
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            verificationToken: (string) $data['verification_token'],
-            expiresIn: (int) ($data['verification_token_expires_in'] ?? 0),
-            methods: array_values(array_map(
-                static fn (array $method): DeviceVerificationMethod => DeviceVerificationMethod::fromArray($method),
-                array_filter(
-                    is_array($data['available_methods'] ?? null) ? $data['available_methods'] : [],
-                    is_array(...),
-                ),
-            )),
-            userId: isset($data['user']['id']) ? (int) $data['user']['id'] : null,
-            userName: $data['user']['name'] ?? null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

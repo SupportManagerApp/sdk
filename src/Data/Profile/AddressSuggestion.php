@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One UK address autocomplete match from `GET user/address/suggestions`.
  *
@@ -23,9 +25,6 @@ final readonly class AddressSuggestion
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            address: (string) ($data['address'] ?? ''),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Signing;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Defaults;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Signing\FieldType;
 
 /**
@@ -22,6 +24,7 @@ final readonly class SigningField
         public ?FieldType $type,
         public bool $isMine,
         public bool $isRequired,
+        #[Defaults(1)]
         public int $page,
         public float $x,
         public float $y,
@@ -35,17 +38,6 @@ final readonly class SigningField
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            type: isset($data['type']) ? FieldType::tryFrom((string) $data['type']) : null,
-            isMine: (bool) ($data['is_mine'] ?? false),
-            isRequired: (bool) ($data['is_required'] ?? false),
-            page: (int) ($data['page'] ?? 1),
-            x: (float) ($data['x'] ?? 0),
-            y: (float) ($data['y'] ?? 0),
-            width: (float) ($data['width'] ?? 0),
-            height: (float) ($data['height'] ?? 0),
-            value: isset($data['value']) ? (string) $data['value'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

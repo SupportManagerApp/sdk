@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The user's payroll banking details.
  *
@@ -28,14 +30,6 @@ final readonly class BankDetails
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            nameOnAccount: (string) ($data['name_on_account'] ?? ''),
-            sortCode: (string) ($data['sort_code'] ?? ''),
-            accountNumber: isset($data['account_number']) ? (string) $data['account_number'] : null,
-            paymentMethod: isset($data['payment_method']) ? (string) $data['payment_method'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

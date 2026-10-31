@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The authenticated user's identity card, as returned by `GET user`.
  *
@@ -25,12 +27,6 @@ final readonly class User
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            email: isset($data['email']) ? (string) $data['email'] : null,
-            avatar: isset($data['avatar']) ? (string) $data['avatar'] : null,
-            role: isset($data['role']) ? (string) $data['role'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

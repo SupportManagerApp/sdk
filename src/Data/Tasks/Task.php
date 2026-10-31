@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Tasks;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Defaults;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Tasks\TaskCompletionRole;
 
 /**
@@ -22,6 +24,7 @@ final readonly class Task
         public string $description,
         public string $icon,
         public bool $completed,
+        #[Defaults(TaskCompletionRole::SelfOnly)]
         public TaskCompletionRole $completionRole,
         public ?string $completionRoleLabel,
         public int $priority,
@@ -32,15 +35,6 @@ final readonly class Task
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            key: (string) ($data['key'] ?? ''),
-            label: (string) ($data['label'] ?? ''),
-            description: (string) ($data['description'] ?? ''),
-            icon: (string) ($data['icon'] ?? ''),
-            completed: (bool) ($data['completed'] ?? false),
-            completionRole: TaskCompletionRole::from((string) ($data['completion_role'] ?? 'self')),
-            completionRoleLabel: isset($data['completion_role_label']) ? (string) $data['completion_role_label'] : null,
-            priority: (int) ($data['priority'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

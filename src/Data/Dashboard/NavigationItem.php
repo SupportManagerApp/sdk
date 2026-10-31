@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A page in a {@see NavigationArea}. `routeName` is the page's web route name
  * (e.g. `payroll.index`), for mapping onto a native screen, or null when the
@@ -22,10 +24,6 @@ final readonly class NavigationItem
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            label: (string) ($data['label'] ?? ''),
-            icon: isset($data['icon']) ? (string) $data['icon'] : null,
-            routeName: isset($data['route_name']) ? (string) $data['route_name'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

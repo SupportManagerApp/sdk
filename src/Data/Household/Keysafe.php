@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The team's keysafe state. Mirrors the platform's `KeysafeController` payload:
  * `show()`/`update()` return whether a code is set and whether the current user
@@ -23,10 +25,6 @@ final readonly class Keysafe
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            hasCode: (bool) ($data['has_code'] ?? false),
-            canEdit: (bool) ($data['can_edit'] ?? false),
-            code: isset($data['code']) ? (string) $data['code'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

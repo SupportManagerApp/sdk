@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A category used to organise chores. Mirrors the platform's
  * `ChoreCategoryResource`; `choresCount` is only present when the controller
@@ -29,15 +31,6 @@ final readonly class ChoreCategory
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            color: isset($data['color']) ? (string) $data['color'] : null,
-            icon: isset($data['icon']) ? (string) $data['icon'] : null,
-            choresCount: isset($data['chores_count']) ? (int) $data['chores_count'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            dueChoresCount: isset($data['due_chores_count']) ? (int) $data['due_chores_count'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

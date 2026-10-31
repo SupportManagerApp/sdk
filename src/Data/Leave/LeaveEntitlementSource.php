@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One source of a leave entitlement (the contract, overtime, time off in lieu
  * or manual adjustments, or their total), in hours and sleeping-nights.
@@ -25,10 +27,6 @@ final readonly class LeaveEntitlementSource
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            hours: (float) ($data['hours'] ?? 0),
-            sleeps: (float) ($data['sleeps'] ?? 0),
-            hasData: isset($data['has_data']) ? (bool) $data['has_data'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }
