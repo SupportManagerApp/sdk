@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One standard evening start time offered for a sleepover, checked against the
  * caller's Working Time rest.
@@ -26,11 +28,6 @@ final readonly class SleepoverStartOption
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            time: (string) ($data['time'] ?? ''),
-            label: isset($data['label']) ? (string) $data['label'] : null,
-            compliant: (bool) ($data['compliant'] ?? false),
-            reason: isset($data['reason']) ? (string) $data['reason'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

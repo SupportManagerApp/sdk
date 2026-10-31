@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A user's request to the managers to change one of their shifts — its times,
  * pay enhancement or tags — reviewed by a manager on the web.
@@ -25,6 +28,7 @@ final readonly class ShiftAmendmentRequest
         public ?string $proposedStart,
         public ?string $proposedEnd,
         public ?int $requestedPayEnhancementId,
+        #[ListOf('string')]
         public array $requestedTags,
         public ?string $reason,
         public ?string $status,
@@ -39,29 +43,6 @@ final readonly class ShiftAmendmentRequest
      */
     public static function fromArray(array $data): self
     {
-        $tags = [];
-
-        foreach (is_array($data['requested_tags'] ?? null) ? $data['requested_tags'] : [] as $tag) {
-            if (is_string($tag)) {
-                $tags[] = $tag;
-            }
-        }
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            userId: isset($data['user_id']) ? (int) $data['user_id'] : null,
-            rotaEntryId: isset($data['rota_entry_id']) ? (int) $data['rota_entry_id'] : null,
-            proposedStart: isset($data['proposed_start']) ? (string) $data['proposed_start'] : null,
-            proposedEnd: isset($data['proposed_end']) ? (string) $data['proposed_end'] : null,
-            requestedPayEnhancementId: isset($data['requested_pay_enhancement_id']) ? (int) $data['requested_pay_enhancement_id'] : null,
-            requestedTags: $tags,
-            reason: isset($data['reason']) ? (string) $data['reason'] : null,
-            status: isset($data['status']) ? (string) $data['status'] : null,
-            reviewedBy: isset($data['reviewed_by']) ? (int) $data['reviewed_by'] : null,
-            reviewedAt: isset($data['reviewed_at']) ? (string) $data['reviewed_at'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

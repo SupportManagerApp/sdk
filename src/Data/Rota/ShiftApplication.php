@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A user's application for an available shift.
  *
@@ -21,7 +24,9 @@ final readonly class ShiftApplication
         public ?string $status,
         public ?string $startTime,
         public ?string $endTime,
+        #[From('user.id')]
         public ?int $userId,
+        #[From('user.name')]
         public ?string $userName,
         public ?Shift $rotaEntry,
         public ?int $reviewedBy,
@@ -35,25 +40,11 @@ final readonly class ShiftApplication
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed} $user */
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-
         /** @var array<string, mixed>|null $rotaEntry */
         $rotaEntry = is_array($data['rota_entry'] ?? null) ? $data['rota_entry'] : null;
 
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            status: isset($data['status']) ? (string) $data['status'] : null,
-            startTime: isset($data['start_time']) ? (string) $data['start_time'] : null,
-            endTime: isset($data['end_time']) ? (string) $data['end_time'] : null,
-            userId: isset($user['id']) ? (int) $user['id'] : null,
-            userName: isset($user['name']) ? (string) $user['name'] : null,
-            rotaEntry: $rotaEntry !== null ? Shift::fromArray(NestedResource::flatten($rotaEntry)) : null,
-            reviewedBy: isset($data['reviewed_by']) ? (int) $data['reviewed_by'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            isProvisional: isset($data['is_provisional']) ? (bool) $data['is_provisional'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data, [
+            'rotaEntry' => $rotaEntry !== null ? Shift::fromArray(NestedResource::flatten($rotaEntry)) : null,
+        ]);
     }
 }

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Attributes\Meta;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Rota\EntryType;
 
 /**
@@ -30,8 +35,11 @@ final readonly class Shift
     public function __construct(
         public string $id,
         public ?int $teamId,
+        #[From('user_id', 'user.id')]
         public ?int $userId,
+        #[From('user.name')]
         public ?string $userName,
+        #[From('user.avatar')]
         public ?string $userAvatar,
         public ?string $start,
         public ?string $end,
@@ -49,10 +57,14 @@ final readonly class Shift
         public bool $isForToil = false,
         public bool $isPrivate = false,
         public ?int $shiftBlockId = null,
+        #[ListOf('string')]
         public array $tags = [],
         public ?string $ownApplicationStatus = null,
+        #[Can('apply')]
         public bool $canApply = false,
+        #[Can('request_amendment')]
         public bool $canRequestAmendment = false,
+        #[Meta('cannot_apply_reason')]
         public ?string $cannotApplyReason = null,
     ) {}
 
@@ -61,50 +73,6 @@ final readonly class Shift
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed, avatar?: mixed} $user */
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-
-        /** @var array<string, mixed> $meta */
-        $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
-
-        /** @var array<string, mixed> $can */
-        $can = is_array($meta['can'] ?? null) ? $meta['can'] : [];
-
-        $tags = [];
-
-        foreach (is_array($data['tags'] ?? null) ? $data['tags'] : [] as $tag) {
-            if (is_string($tag)) {
-                $tags[] = $tag;
-            }
-        }
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            userId: isset($data['user_id']) ? (int) $data['user_id'] : (isset($user['id']) ? (int) $user['id'] : null),
-            userName: isset($user['name']) ? (string) $user['name'] : null,
-            userAvatar: isset($user['avatar']) ? (string) $user['avatar'] : null,
-            start: isset($data['start']) ? (string) $data['start'] : null,
-            end: isset($data['end']) ? (string) $data['end'] : null,
-            type: isset($data['type']) ? EntryType::tryFrom((string) $data['type']) : null,
-            typeLabel: isset($data['type_label']) ? (string) $data['type_label'] : null,
-            duration: (float) ($data['duration'] ?? 0),
-            isPublished: (bool) ($data['is_published'] ?? false),
-            isAvailable: (bool) ($data['is_available'] ?? false),
-            isSleepingNight: (bool) ($data['is_sleeping_night'] ?? false),
-            isOvertime: (bool) ($data['is_overtime'] ?? false),
-            notes: isset($data['notes']) ? (string) $data['notes'] : null,
-            shiftApplicationsCount: isset($data['shift_applications_count']) ? (int) $data['shift_applications_count'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            isForToil: (bool) ($data['is_for_toil'] ?? false),
-            isPrivate: (bool) ($data['is_private'] ?? false),
-            shiftBlockId: isset($data['shift_block_id']) ? (int) $data['shift_block_id'] : null,
-            tags: $tags,
-            ownApplicationStatus: isset($data['own_application_status']) ? (string) $data['own_application_status'] : null,
-            canApply: (bool) ($can['apply'] ?? false),
-            canRequestAmendment: (bool) ($can['request_amendment'] ?? false),
-            cannotApplyReason: isset($meta['cannot_apply_reason']) ? (string) $meta['cannot_apply_reason'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

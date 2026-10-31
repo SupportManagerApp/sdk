@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A team member's work anniversary falling on a given date.
  *
@@ -25,11 +27,6 @@ final readonly class Anniversary
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            date: (string) ($data['date'] ?? ''),
-            userId: isset($data['user_id']) ? (int) $data['user_id'] : null,
-            userName: isset($data['user_name']) ? (string) $data['user_name'] : null,
-            years: isset($data['years']) ? (int) $data['years'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

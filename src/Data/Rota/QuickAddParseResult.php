@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Rota\QuickAddIntent;
 
 /**
@@ -27,6 +29,7 @@ final readonly class QuickAddParseResult
         public ?string $title,
         public ?string $assigneeName,
         public ?int $assigneeId,
+        #[ListOf(QuickAddAssigneeCandidate::class)]
         public array $assigneeCandidates,
         public ?string $date,
         public ?string $endDate,
@@ -38,6 +41,7 @@ final readonly class QuickAddParseResult
         public bool $isAllDay,
         public bool $isSleepingNight,
         public bool $isPrivate,
+        #[ListOf('string')]
         public array $tags,
         public ?string $notes,
         public ?float $confidence,
@@ -48,43 +52,7 @@ final readonly class QuickAddParseResult
      */
     public static function fromArray(array $data): self
     {
-        $candidates = [];
-
-        foreach (is_array($data['assignee_candidates'] ?? null) ? $data['assignee_candidates'] : [] as $candidate) {
-            if (is_array($candidate)) {
-                /** @var array<string, mixed> $candidate */
-                $candidates[] = QuickAddAssigneeCandidate::fromArray($candidate);
-            }
-        }
-
-        $tags = [];
-
-        foreach (is_array($data['tags'] ?? null) ? $data['tags'] : [] as $tag) {
-            if (is_string($tag)) {
-                $tags[] = $tag;
-            }
-        }
-
-        return new self(
-            intent: isset($data['intent']) ? QuickAddIntent::tryFrom((string) $data['intent']) : null,
-            title: isset($data['title']) ? (string) $data['title'] : null,
-            assigneeName: isset($data['assignee_name']) ? (string) $data['assignee_name'] : null,
-            assigneeId: isset($data['assignee_id']) ? (int) $data['assignee_id'] : null,
-            assigneeCandidates: $candidates,
-            date: isset($data['date']) ? (string) $data['date'] : null,
-            endDate: isset($data['end_date']) ? (string) $data['end_date'] : null,
-            startTime: isset($data['start_time']) ? (string) $data['start_time'] : null,
-            endTime: isset($data['end_time']) ? (string) $data['end_time'] : null,
-            durationMinutes: isset($data['duration_minutes']) ? (int) $data['duration_minutes'] : null,
-            location: isset($data['location']) ? (string) $data['location'] : null,
-            isVirtual: (bool) ($data['is_virtual'] ?? false),
-            isAllDay: (bool) ($data['is_all_day'] ?? false),
-            isSleepingNight: (bool) ($data['is_sleeping_night'] ?? false),
-            isPrivate: (bool) ($data['is_private'] ?? false),
-            tags: $tags,
-            notes: isset($data['notes']) ? (string) $data['notes'] : null,
-            confidence: isset($data['confidence']) ? (float) $data['confidence'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 
     /**
