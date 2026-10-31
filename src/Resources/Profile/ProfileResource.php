@@ -103,7 +103,7 @@ final class ProfileResource extends Resource
      */
     public function deleteAddress(): void
     {
-        $this->delete('user/address');
+        $this->throwForErrorResponse($this->delete('user/address'));
     }
 
     /**
@@ -227,14 +227,18 @@ final class ProfileResource extends Resource
      * Change the user's password (`PUT user/password`).
      *
      * The server confirms the current password, so all three values are required.
+     * A wrong current password, a new one that fails the platform's rules or
+     * matches the current one, or a confirmation that doesn't match is an
+     * {@see \SupportManager\Sdk\Exceptions\ApiValidationException}, e.g. on
+     * `current_password` ("The current password is incorrect.").
      */
     public function changePassword(string $currentPassword, string $password, string $passwordConfirmation): void
     {
-        $this->put('user/password', [
+        $this->throwForErrorResponse($this->put('user/password', [
             'current_password' => $currentPassword,
             'password' => $password,
             'password_confirmation' => $passwordConfirmation,
-        ]);
+        ]));
     }
 
     /**
@@ -273,7 +277,7 @@ final class ProfileResource extends Resource
      */
     public function deleteAvatar(): void
     {
-        $this->delete('user/avatar');
+        $this->throwForErrorResponse($this->delete('user/avatar'));
     }
 
     /**

@@ -378,6 +378,28 @@ it('changes the password', function () {
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
+it('throws when the current password is wrong, rather than failing silently', function () {
+    // ChangePasswordRequest validates current_password with Laravel's current_password rule.
+    fakeApi(['user/password' => Http::response([
+        'message' => 'The current password is incorrect.',
+        'errors' => ['current_password' => ['The current password is incorrect.']],
+    ], 422)]);
+
+    expect(fn () => sdk()->profile()->changePassword('wrong', 'new-secret', 'new-secret'))
+        ->toThrow(fn (ApiValidationException $e) => expect($e->first('current_password'))->toBe('The current password is incorrect.'));
+});
+
+it('throws when a profile write without a body is refused', function (Closure $call, string $method, string $path) {
+    fakeApi([$path => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+
+    expect(fn () => $call(sdk()->profile()))->toThrow(SupportManagerApiException::class, 'This action is unauthorized.');
+    assertSentTo($method, $path);
+})->with([
+    'deleteAddress()' => [fn ($profile) => $profile->deleteAddress(), 'DELETE', 'user/address'],
+    'deleteAvatar()' => [fn ($profile) => $profile->deleteAvatar(), 'DELETE', 'user/avatar'],
+    'changePassword()' => [fn ($profile) => $profile->changePassword('old-secret', 'new-secret', 'new-secret'), 'PUT', 'user/password'],
+]);
+
 it('uploads the avatar as a multipart file with a team header', function () {
     fakeApi(['user/avatar' => ['data' => ['avatar_url' => 'https://cdn.test/avatars/new.png']]]);
 
