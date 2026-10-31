@@ -27,10 +27,22 @@ final class Json
     public static function item(?string $type, array $record): array
     {
         if ($type === null) {
-            return ['data' => $record];
+            return ['data' => self::withoutBookkeeping($record)];
         }
 
         return ['data' => self::object($type, $record)];
+    }
+
+    /**
+     * The `{data: {type, id, attributes}}` shape one JSON:API resource takes
+     * when another resource nests it (e.g. a shift application's `rota_entry`).
+     *
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>
+     */
+    public static function nested(string $type, array $record): array
+    {
+        return self::item($type, $record);
     }
 
     /**
@@ -46,7 +58,7 @@ final class Json
     public static function collection(?string $type, array $records, array $meta = [], array $links = []): array
     {
         $data = $type === null
-            ? array_values($records)
+            ? array_map(self::withoutBookkeeping(...), array_values($records))
             : array_map(static fn (array $record): array => self::object($type, $record), array_values($records));
 
         return [
@@ -66,7 +78,7 @@ final class Json
      */
     private static function object(string $type, array $record): array
     {
-        $attributes = $record;
+        $attributes = self::withoutBookkeeping($record);
         unset($attributes['id'], $attributes['meta']);
 
         return [
@@ -75,5 +87,18 @@ final class Json
             'attributes' => $attributes,
             ...(is_array($record['meta'] ?? null) ? ['meta' => $record['meta']] : []),
         ];
+    }
+
+    /**
+     * Drop the fake's own bookkeeping keys (those starting with `_`, e.g. the
+     * `_today` flag a factory state sets for a custom route to filter on): the
+     * platform never sends them.
+     *
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>
+     */
+    private static function withoutBookkeeping(array $record): array
+    {
+        return array_filter($record, static fn (string|int $key): bool => ! is_string($key) || ! str_starts_with($key, '_'), ARRAY_FILTER_USE_KEY);
     }
 }

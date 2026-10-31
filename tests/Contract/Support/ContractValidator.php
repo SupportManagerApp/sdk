@@ -69,12 +69,16 @@ final class ContractValidator
             return [];
         }
 
-        $method = mb_strtoupper($request->getMethod());
+        $method = self::effectiveMethod($request);
         $relative = mb_substr($path, mb_strlen(self::API_PREFIX));
         $spec = OpenApiSpec::instance();
         $operation = $spec->match($method, $relative);
 
         if ($operation === null) {
+            if (Allowlist::instance()->allowsMissing($method, $relative)) {
+                return [];
+            }
+
             $methods = $spec->methodsFor($relative);
 
             return [$methods === []
@@ -190,6 +194,30 @@ final class ContractValidator
             && ! str_contains($response->getHeaderLine('Content-Type'), 'json');
     }
 
+    /**
+     * The method Laravel routes on: a POST whose form or multipart body carries
+     * `_method` (method spoofing, for file uploads) counts as that method.
+     */
+    private static function effectiveMethod(RequestInterface $request): string
+    {
+        $method = mb_strtoupper($request->getMethod());
+
+        if ($method !== 'POST' || ! str_contains($request->getHeaderLine('Content-Type'), 'multipart/form-data')) {
+            return $method;
+        }
+
+        $body = $request->getBody();
+        $contents = (string) $body;
+
+        if ($body->isSeekable()) {
+            $body->rewind();
+        }
+
+        return preg_match('/name="_method"\r?\n(?:[^\r\n]+\r?\n)*\r?\n(PUT|PATCH|DELETE)\r?\n/i', $contents, $m) === 1
+            ? mb_strtoupper($m[1])
+            : $method;
+    }
+
     private static function serverRequest(RequestInterface $request): ServerRequestInterface
     {
         $body = $request->getBody();
@@ -216,7 +244,7 @@ final class ContractValidator
         }
 
         $server = new ServerRequest(
-            $request->getMethod(),
+            self::effectiveMethod($request),
             $request->getUri(),
             $request->getHeaders(),
             $contents,

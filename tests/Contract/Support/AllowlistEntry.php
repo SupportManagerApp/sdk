@@ -124,7 +124,7 @@ final class AllowlistEntry
             // A status the spec leaves out entirely.
             $operation['responses'][(string) $this->in] = [
                 'description' => "Undocumented (allowlisted: {$this->id})",
-                'content' => ['application/json' => ['schema' => OpenApiSpec::strict($this->schema)]],
+                'content' => ['application/json' => ['schema' => OpenApiSpec::strict(OpenApiSpec::instance()->inlineSchema($this->schema))]],
             ];
 
             return $operation;
@@ -294,7 +294,7 @@ final class AllowlistEntry
     private function patchValue(array &$node): void
     {
         if ($this->schema !== null) {
-            $node = OpenApiSpec::strict($this->schema);
+            $node = OpenApiSpec::strict(OpenApiSpec::instance()->inlineSchema($this->schema));
         }
 
         if ($this->nullable) {

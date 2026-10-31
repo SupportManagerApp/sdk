@@ -107,7 +107,16 @@ final class OpenApiSpec
             foreach ($members as $member) {
                 $member = self::strict($member);
 
-                $schema['properties'] = [...($schema['properties'] ?? []), ...($member['properties'] ?? [])];
+                $schema['properties'] ??= [];
+
+                foreach ($member['properties'] ?? [] as $name => $property) {
+                    // Two members describing the same object property (e.g.
+                    // both add to `attributes`) mean the union of the two.
+                    $schema['properties'][$name] = isset($schema['properties'][$name]['properties'], $property['properties'])
+                        ? self::strict(['allOf' => [$schema['properties'][$name], $property]])
+                        : $property;
+                }
+
                 $schema['required'] = array_values(array_unique([...($schema['required'] ?? []), ...($member['required'] ?? [])]));
 
                 unset($member['properties'], $member['required']);
@@ -307,6 +316,31 @@ final class OpenApiSpec
                     $op['requestBody']['content'][$type]['schema'] = self::strict($media['schema']);
                 }
             }
+
+            $content = $op['requestBody']['content'];
+            $multipart = $content['multipart/form-data']['schema'] ?? null;
+
+            if (is_array($multipart)) {
+                // Laravel's method spoofing: a file upload to a PUT/PATCH route
+                // goes out as a multipart POST carrying `_method`.
+                if (isset($multipart['properties'])) {
+                    $multipart['properties']['_method'] = ['type' => 'string', 'enum' => ['PUT', 'PATCH', 'DELETE']];
+
+                    // A form field cannot be null; the client sends '' and
+                    // Laravel's ConvertEmptyStringsToNull turns it back.
+                    foreach ($multipart['properties'] as $name => $property) {
+                        if (($property['nullable'] ?? false) === true && isset($property['enum'])) {
+                            $multipart['properties'][$name]['enum'][] = '';
+                        }
+                    }
+
+                    $op['requestBody']['content']['multipart/form-data']['schema'] = $multipart;
+                }
+
+                // A FormRequest reads a JSON body exactly like form fields, so
+                // a multipart-only operation also takes JSON (without files).
+                $op['requestBody']['content']['application/json'] ??= ['schema' => $content['multipart/form-data']['schema']];
+            }
         }
 
         $responses = [];
@@ -324,6 +358,19 @@ final class OpenApiSpec
         $op['responses'] = $responses;
 
         return $this->prepared[$operation] = $op;
+    }
+
+    /**
+     * A schema with its local `$ref`s inlined, for allowlist patches that
+     * reuse one of the spec's component schemas.
+     *
+     * @param  array<array-key, mixed>  $schema
+     * @return array<array-key, mixed>
+     */
+    public function inlineSchema(array $schema): array
+    {
+        /** @var array<array-key, mixed> */
+        return $this->inline($schema);
     }
 
     /**
