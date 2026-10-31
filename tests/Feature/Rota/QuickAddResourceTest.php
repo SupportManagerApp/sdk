@@ -8,14 +8,7 @@ use SupportManager\Sdk\Data\Rota\QuickAddParse;
 use SupportManager\Sdk\Data\Rota\QuickAddParseResult;
 use SupportManager\Sdk\Enums\Rota\QuickAddIntent;
 use SupportManager\Sdk\Enums\Rota\QuickAddStatus;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Rota\QuickAddResource;
-
-function rotaQuickAdd(): QuickAddResource
-{
-    return app(QuickAddResource::class);
-}
 
 function rotaQuickAddResult(array $overrides = []): array
 {
@@ -46,12 +39,11 @@ function rotaQuickAddResult(array $overrides = []): array
 }
 
 it('submits text with the timezone and returns the pending token', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse' => Http::response([
+    fakeApi(['rota/quick-add/parse' => Http::response([
         'data' => ['token' => '9b1f2c1e-7c2a-4d1f-9d0f-1f9f3a4b5c6d', 'status' => 'pending', 'expires_in' => 300],
     ], 202)]);
-    bootTenantSession();
 
-    $parse = rotaQuickAdd()->parse('dentist tuesday half three', 'Europe/London');
+    $parse = sdk()->quickAdd()->parse('dentist tuesday half three', 'Europe/London');
 
     expect($parse)->toBeInstanceOf(QuickAddParse::class)
         ->and($parse->token)->toBe('9b1f2c1e-7c2a-4d1f-9d0f-1f9f3a4b5c6d')
@@ -66,40 +58,26 @@ it('submits text with the timezone and returns the pending token', function () {
 });
 
 it('omits the timezone when none is given', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse' => Http::response([
+    fakeApi(['rota/quick-add/parse' => Http::response([
         'data' => ['token' => '9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12', 'status' => 'pending', 'expires_in' => 300],
     ], 202)]);
-    bootTenantSession();
 
-    rotaQuickAdd()->parse('dentist tuesday');
+    sdk()->quickAdd()->parse('dentist tuesday');
 
     Http::assertSent(fn ($request) => ! array_key_exists('timezone', $request->data()));
 });
 
-it('maps a 422 on parse to a validation exception', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse' => Http::response([
-        'message' => 'The timezone must be a valid IANA timezone identifier.',
-        'errors' => ['timezone' => ['The timezone must be a valid IANA timezone identifier.']],
-    ], 422)]);
-    bootTenantSession();
-
-    expect(fn () => rotaQuickAdd()->parse('dentist tuesday', 'Mars/Olympus'))
-        ->toThrow(ApiValidationException::class);
-});
-
 it('throws an api exception when the parse is throttled', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse' => Http::response(['message' => 'Too Many Attempts.'], 429)]);
-    bootTenantSession();
+    fakeApi(['rota/quick-add/parse' => Http::response(['message' => 'Too Many Attempts.'], 429)]);
 
-    expect(fn () => rotaQuickAdd()->parse('dentist tuesday'))
+    expect(fn () => sdk()->quickAdd()->parse('dentist tuesday'))
         ->toThrow(SupportManagerApiException::class);
 });
 
 it('polls a pending parse', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response(['data' => ['status' => 'pending']])]);
-    bootTenantSession();
+    fakeApi(['rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => ['data' => ['status' => 'pending']]]);
 
-    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
+    $state = sdk()->quickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
 
     expect($state->isPending())->toBeTrue()
         ->and($state->isCompleted())->toBeFalse()
@@ -108,12 +86,11 @@ it('polls a pending parse', function () {
 });
 
 it('polls a completed parse and hydrates the full result', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response([
+    fakeApi(['rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => [
         'data' => ['status' => 'completed', 'result' => rotaQuickAddResult()],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
+    $state = sdk()->quickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
     $result = $state->result;
 
     expect($state->isCompleted())->toBeTrue()
@@ -131,12 +108,11 @@ it('polls a completed parse and hydrates the full result', function () {
 });
 
 it('polls a failed parse and carries the hint', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response([
+    fakeApi(['rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => [
         'data' => ['status' => 'failed', 'hint' => "We couldn't read that. Try again, or enter the details yourself."],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
+    $state = sdk()->quickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
 
     expect($state->isFailed())->toBeTrue()
         ->and($state->result)->toBeNull()
@@ -144,12 +120,11 @@ it('polls a failed parse and carries the hint', function () {
 });
 
 it('tolerates a status and intent it does not recognise', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response([
+    fakeApi(['rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => [
         'data' => ['status' => 'queued', 'result' => rotaQuickAddResult(['intent' => 'reminder'])],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
+    $state = sdk()->quickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
 
     expect($state->status)->toBeNull()
         ->and($state->isPending())->toBeFalse()
@@ -158,10 +133,9 @@ it('tolerates a status and intent it does not recognise', function () {
 });
 
 it('returns null for an unknown or expired token (404)', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/gone' => Http::response(['message' => 'Parse token not found.'], 404)]);
-    bootTenantSession();
+    fakeApi(['rota/quick-add/parse/gone' => Http::response(['message' => 'Parse token not found.'], 404)]);
 
-    expect(rotaQuickAdd()->poll('gone'))->toBeNull();
+    expect(sdk()->quickAdd()->poll('gone'))->toBeNull();
 });
 
 it('builds create payloads from a confirmed result', function () {

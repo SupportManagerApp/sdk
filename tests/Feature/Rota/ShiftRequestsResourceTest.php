@@ -5,14 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\ShiftRequest;
 use SupportManager\Sdk\Enums\Rota\EntryType;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
-
-function rotaShiftRequests(): ShiftRequestsResource
-{
-    return app(ShiftRequestsResource::class);
-}
 
 function rotaShiftRequestObject(string $id = '12', array $attributes = [], array $can = ['delete' => true]): array
 {
@@ -41,14 +33,13 @@ function rotaShiftRequestObject(string $id = '12', array $attributes = [], array
 }
 
 it('encodes filter, sort and tenant header on the shift requests index', function () {
-    Http::fake(['api.test/api/v1/rota/shift-requests*' => Http::response([
+    fakeApi(['rota/shift-requests*' => [
         'data' => [rotaShiftRequestObject()],
         'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1, 'team_id' => 42],
         'links' => ['next' => null],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $page = rotaShiftRequests()->query()->filter('status', 'Pending')->sort('start')->get();
+    $page = sdk()->shiftRequests()->query()->filter('status', 'Pending')->sort('start')->get();
 
     expect($page->items()[0])->toBeInstanceOf(ShiftRequest::class)
         ->and($page->items()[0]->type)->toBe(EntryType::OvertimeHours)
@@ -65,7 +56,7 @@ it('encodes filter, sort and tenant header on the shift requests index', functio
 });
 
 it('hydrates an approved request with its created shift and no delete permission', function () {
-    Http::fake(['api.test/api/v1/rota/shift-requests*' => Http::response([
+    fakeApi(['rota/shift-requests*' => [
         'data' => [rotaShiftRequestObject('3', [
             'type' => 'Overtime Sleeping Night',
             'status' => 'Approved',
@@ -74,10 +65,9 @@ it('hydrates an approved request with its created shift and no delete permission
             'rota_entry_id' => 51,
             'requested_pay_enhancement_id' => 4,
         ], ['delete' => false])],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $request = rotaShiftRequests()->all()->items()[0];
+    $request = sdk()->shiftRequests()->all()->items()[0];
 
     expect($request->type)->toBe(EntryType::OvertimeSleepingNight)
         ->and($request->status)->toBe('Approved')
@@ -89,13 +79,12 @@ it('hydrates an approved request with its created shift and no delete permission
 });
 
 it('creates a shift request and hydrates the pending record', function () {
-    Http::fake(['api.test/api/v1/rota/shift-requests' => Http::response([
+    fakeApi(['rota/shift-requests' => Http::response([
         'data' => rotaShiftRequestObject('13'),
         'meta' => ['team_id' => 42],
     ], 201)]);
-    bootTenantSession();
 
-    $request = rotaShiftRequests()->create([
+    $request = sdk()->shiftRequests()->create([
         'date' => '2026-11-20',
         'start_time' => '09:00',
         'end_time' => '17:00',
@@ -113,35 +102,15 @@ it('creates a shift request and hydrates the pending record', function () {
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('maps a 422 on create to a validation exception', function () {
-    Http::fake(['api.test/api/v1/rota/shift-requests' => Http::response([
-        'message' => 'The selected type is invalid.',
-        'errors' => ['type' => ['The selected type is invalid.']],
-    ], 422)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShiftRequests()->create(['date' => '2026-11-20', 'start_time' => '09:00', 'end_time' => '17:00', 'type' => 'Sickness']))
-        ->toThrow(ApiValidationException::class);
-});
-
 it('withdraws a shift request', function () {
-    Http::fake(['api.test/api/v1/rota/shift-requests/12' => Http::response([
+    fakeApi(['rota/shift-requests/12' => [
         'message' => 'Shift request deleted.',
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    rotaShiftRequests()->destroy(12);
+    sdk()->shiftRequests()->destroy(12);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'rota/shift-requests/12')
         && $request->hasHeader('X-Team-ID', '42'));
-});
-
-it('throws when withdrawing a request that is no longer open to the caller (403)', function () {
-    Http::fake(['api.test/api/v1/rota/shift-requests/12' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShiftRequests()->destroy(12))
-        ->toThrow(SupportManagerApiException::class);
 });

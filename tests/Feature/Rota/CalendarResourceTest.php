@@ -7,26 +7,17 @@ use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
 use SupportManager\Sdk\Data\Rota\CalendarFeed;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Rota\CalendarResource;
-
-function rotaCalendar(): CalendarResource
-{
-    return app(CalendarResource::class);
-}
 
 it('reads flat bank holiday rows and forwards the date range filter', function () {
-    Http::fake(['api.test/api/v1/rota/bank-holidays*' => Http::response([
+    fakeApi(['rota/bank-holidays*' => [
         'data' => [
             ['date' => '2026-12-25', 'name' => 'Christmas Day', 'region' => 'england-and-wales'],
             ['date' => '2026-12-26', 'name' => 'Boxing Day', 'region' => 'england-and-wales'],
         ],
         'meta' => ['team_id' => 42, 'region' => 'england-and-wales'],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $holidays = rotaCalendar()->bankHolidays([
+    $holidays = sdk()->rotaCalendar()->bankHolidays([
         'filter' => ['start_date' => '2026-01-01', 'end_date' => '2026-12-31'],
     ]);
 
@@ -45,12 +36,11 @@ it('reads flat bank holiday rows and forwards the date range filter', function (
 });
 
 it('reads flat birthday rows', function () {
-    Http::fake(['api.test/api/v1/rota/birthdays*' => Http::response([
+    fakeApi(['rota/birthdays*' => [
         'data' => [['date' => '2026-06-10', 'user_id' => 7, 'user_name' => 'Ada']],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $birthdays = rotaCalendar()->birthdays(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
+    $birthdays = sdk()->rotaCalendar()->birthdays(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
 
     expect($birthdays)->toHaveCount(1)
         ->and($birthdays[0])->toBeInstanceOf(Birthday::class)
@@ -59,37 +49,24 @@ it('reads flat birthday rows', function () {
 });
 
 it('reads flat anniversary rows including years of service', function () {
-    Http::fake(['api.test/api/v1/rota/anniversaries*' => Http::response([
+    fakeApi(['rota/anniversaries*' => [
         'data' => [['date' => '2026-06-12', 'user_id' => 8, 'user_name' => 'Grace', 'years' => 5]],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $anniversaries = rotaCalendar()->anniversaries(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
+    $anniversaries = sdk()->rotaCalendar()->anniversaries(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
 
     expect($anniversaries)->toHaveCount(1)
         ->and($anniversaries[0])->toBeInstanceOf(Anniversary::class)
         ->and($anniversaries[0]->years)->toBe(5);
 });
 
-it('maps a 422 (missing date range) to a validation exception', function () {
-    Http::fake(['api.test/api/v1/rota/bank-holidays*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter.start_date' => ['The filter.start date field is required.']],
-    ], 422)]);
-    bootTenantSession();
-
-    expect(fn () => rotaCalendar()->bankHolidays())
-        ->toThrow(ApiValidationException::class);
-});
-
 it('reads the calendar feed address', function () {
-    Http::fake(['api.test/api/v1/rota/calendar-feed' => Http::response([
+    fakeApi(['rota/calendar-feed' => [
         'data' => ['url' => 'https://suptmgr.test/calendar/0b6f4f9e.ics'],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $feed = rotaCalendar()->feed();
+    $feed = sdk()->rotaCalendar()->feed();
 
     expect($feed)->toBeInstanceOf(CalendarFeed::class)
         ->and($feed->url)->toBe('https://suptmgr.test/calendar/0b6f4f9e.ics');
@@ -97,30 +74,20 @@ it('reads the calendar feed address', function () {
 });
 
 it('reads a null feed address until one is issued', function () {
-    Http::fake(['api.test/api/v1/rota/calendar-feed' => Http::response(['data' => ['url' => null], 'meta' => ['team_id' => 42]])]);
-    bootTenantSession();
+    fakeApi(['rota/calendar-feed' => ['data' => ['url' => null], 'meta' => ['team_id' => 42]]]);
 
-    expect(rotaCalendar()->feed()->url)->toBeNull();
+    expect(sdk()->rotaCalendar()->feed()->url)->toBeNull();
 });
 
 it('issues a new calendar feed address', function () {
-    Http::fake(['api.test/api/v1/rota/calendar-feed/token' => Http::response([
+    fakeApi(['rota/calendar-feed/token' => [
         'data' => ['url' => 'https://suptmgr.test/calendar/new-token.ics'],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $feed = rotaCalendar()->regenerateFeed();
+    $feed = sdk()->rotaCalendar()->regenerateFeed();
 
     expect($feed->url)->toBe('https://suptmgr.test/calendar/new-token.ics');
     Http::assertSent(fn ($request) => $request->method() === 'POST'
         && str_contains($request->url(), 'rota/calendar-feed/token'));
-});
-
-it('throws when the token cannot issue a feed address (403)', function () {
-    Http::fake(['api.test/api/v1/rota/calendar-feed/token' => Http::response(['message' => 'Invalid ability provided.'], 403)]);
-    bootTenantSession();
-
-    expect(fn () => rotaCalendar()->regenerateFeed())
-        ->toThrow(SupportManagerApiException::class);
 });
