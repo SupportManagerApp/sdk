@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -106,10 +107,7 @@ final class QuickAddParseFactory extends Factory implements ProvidesFakeRoutes
                 $text = is_string($input['text'] ?? null) ? $input['text'] : '';
 
                 if (mb_strlen($text) < 2) {
-                    return Http::response([
-                        'message' => 'The information provided was invalid.',
-                        'errors' => ['text' => ['Some text to parse is required.']],
-                    ], 422);
+                    return Json::validation(['text' => 'Some text to parse is required.'], Json::INVALID);
                 }
 
                 $records = $store->all('rota/quick-add/parse');
@@ -157,15 +155,15 @@ final class QuickAddParseFactory extends Factory implements ProvidesFakeRoutes
             FakeRoute::get('rota/quick-add/parse/{token}', static function (RecordStore $store, array $matches): mixed {
                 foreach ($store->all('rota/quick-add/parse') as $record) {
                     if (($record['claimed'] ?? false) && ($record['token'] ?? null) === $matches[1]) {
-                        return Http::response(['data' => match ($record['status'] ?? null) {
+                        return Http::response(Json::flat(match ($record['status'] ?? null) {
                             'pending' => ['status' => 'pending'],
                             'completed' => ['status' => 'completed', 'result' => $record['result'] ?? null],
                             default => ['status' => 'failed', 'hint' => $record['hint'] ?? self::FAILURE_HINT],
-                        }]);
+                        }));
                     }
                 }
 
-                return Http::response(['message' => 'Parse token not found.'], 404);
+                return Json::notFound('Parse token not found.');
             }),
         ];
     }

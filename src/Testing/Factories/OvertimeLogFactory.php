@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -78,18 +79,15 @@ final class OvertimeLogFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                return Http::response([
-                    'data' => [
-                        'year' => $year,
-                        'months' => array_map(static function (array $month): array {
-                            unset($month['leave_year']);
+                return Http::response(Json::flat([
+                    'year' => $year,
+                    'months' => array_map(static function (array $month): array {
+                        unset($month['leave_year']);
 
-                            return $month;
-                        }, $months),
-                        'totals' => $totals,
-                    ],
-                    'meta' => ['team_id' => 42],
-                ]);
+                        return $month;
+                    }, $months),
+                    'totals' => $totals,
+                ], ['team_id' => $fake->teamId()]));
             }),
         ];
     }

@@ -4,24 +4,22 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
-use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake uploaded documents.
  *
  * JSON:API collection (`documents`), so generic CRUD comes for free from the
  * resource path. This factory adds the non-RESTful `download()` action, which
- * returns a flat `{data: {download_url, filename, expires_at}}` payload the
- * resource hands back raw.
+ * answers a flat `{data: {download_url, filename, expires_at}}` payload, read
+ * back as a {@see \SupportManager\Sdk\Http\DownloadLink}.
  *
  * ```php
  * SupportManager::fake()->seed(DocumentFactory::new()->count(3));
- * SupportManager::documents()->download(1)->json('data.download_url');
+ * SupportManager::documents()->download(1)->url; // https://s3.test/signed/1.pdf
  * ```
  */
 final class DocumentFactory extends Factory implements ProvidesFakeRoutes
@@ -43,7 +41,7 @@ final class DocumentFactory extends Factory implements ProvidesFakeRoutes
         return [
             'name' => "Document {$number}",
             'scope' => 'personal',
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 9,
             'user' => ['id' => 9, 'name' => 'Ada'],
             'document_folder_id' => 3,
@@ -76,19 +74,11 @@ final class DocumentFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('documents/documents/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                $record = $store->find('documents/documents', $matches[1]);
-
-                if ($record === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                return Http::response(Json::item(null, [
-                    'download_url' => 'https://s3.test/signed/'.$matches[1].'.pdf',
-                    'filename' => (string) ($record['name'] ?? ''),
-                    'expires_at' => '2026-01-01T09:05:00Z',
-                ]));
-            }),
+            FakeRoute::downloadLink(
+                'documents/documents/{id}/download',
+                'name',
+                static fn (array $document): string => "https://s3.test/signed/{$document['id']}.pdf",
+            ),
         ];
     }
 }

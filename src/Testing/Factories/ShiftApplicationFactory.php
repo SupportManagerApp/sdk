@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\NestedResource;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
@@ -35,7 +34,7 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
 
     public function type(): string
     {
-        return 'shift-applications';
+        return 'shift_applications';
     }
 
     public function definition(int $index): array
@@ -43,12 +42,12 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'status' => 'Pending',
             'start_time' => '09:00',
             'end_time' => '17:00',
             'user' => ['id' => 7, 'name' => "Applicant {$number}"],
-            'rota_entry' => Json::nested('rota-entries', ['id' => (string) $number, 'type' => 'Contracted Hours', 'duration' => 8.0]),
+            'rota_entry' => Json::nested('rota_entries', ['id' => (string) $number, 'type' => 'Contracted Hours', 'duration' => 8.0]),
             'reviewed_by' => null,
             'created_at' => '2026-06-06T09:00:00Z',
             'updated_at' => '2026-06-06T09:00:00Z',
@@ -82,7 +81,7 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
                 }
 
                 if (($application['status'] ?? null) !== 'Pending') {
-                    return Http::response(['message' => 'Only pending applications can be retracted.'], 422);
+                    return Json::message('Only pending applications can be retracted.', 422);
                 }
 
                 /** @var array<string, mixed> $entry */
@@ -90,7 +89,7 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
                 $shift = NestedResource::flatten($entry);
 
                 if (($shift['shift_block_id'] ?? null) !== null) {
-                    return Http::response(['message' => ShiftFactory::SLEEPOVER_SEGMENT_MESSAGE], 422);
+                    return Json::message(ShiftFactory::SLEEPOVER_SEGMENT_MESSAGE, 422);
                 }
 
                 // Fall through to the generic delete.

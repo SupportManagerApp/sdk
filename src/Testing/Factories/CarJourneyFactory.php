@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -42,7 +43,7 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'car-journeys';
+        return 'car_journeys';
     }
 
     public function definition(int $index): array
@@ -123,34 +124,28 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     ...self::journeyAttributes($request->data()),
                 ]);
 
-                return Http::response(Json::item('car-journeys', $created), 201);
+                return Http::response(Json::item('car_journeys', $created), 201);
             }),
 
             // Like the platform's UpdateCarJourneyRequest, an edit resends the
             // whole trip as date and time fields.
-            FakeRoute::patch('car-journeys/{id}', static function (RecordStore $store, array $matches, Request $request): mixed {
-                $updated = $store->update('car-journeys', $matches[1], self::journeyAttributes($request->data()));
-
-                return $updated === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('car-journeys', $updated));
-            }),
+            FakeRoute::action('PATCH', 'car-journeys/{id}', static fn (array $journey, Request $request): array => self::journeyAttributes($request->data())),
 
             FakeRoute::get('car-journeys/ongoing', static function (RecordStore $store): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
-                        return Http::response(Json::item('car-journeys', $record));
+                        return Http::response(Json::item('car_journeys', $record));
                     }
                 }
 
-                return Http::response(['message' => 'No ongoing journey found.'], 404);
+                return Json::notFound('No ongoing journey found.');
             }),
 
             // Like the platform, starting refuses while another journey is open.
-            FakeRoute::post('car-journeys/start', static function (RecordStore $store) use ($driverName): mixed {
+            FakeRoute::post('car-journeys/start', static function (RecordStore $store, array $matches, Request $request, Fake $fake) use ($driverName): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
-                        return Http::response(['message' => 'A journey is already in progress.', 'meta' => ['team_id' => 42]], 422);
+                        return Json::message('A journey is already in progress.', 422, ['team_id' => $fake->teamId()]);
                     }
                 }
 
@@ -164,20 +159,14 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     'duration_minutes' => null,
                 ]);
 
-                return Http::response(Json::item('car-journeys', $started), 201);
+                return Http::response(Json::item('car_journeys', $started), 201);
             }),
 
-            FakeRoute::patch('car-journeys/{id}/finish', static function (RecordStore $store, array $matches): mixed {
-                $finished = $store->update('car-journeys', $matches[1], [
-                    'is_ongoing' => false,
-                    'trip_end' => '2026-01-01T10:00:00Z',
-                    'duration_minutes' => 60,
-                ]);
-
-                return $finished === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('car-journeys', $finished));
-            }),
+            FakeRoute::action('PATCH', 'car-journeys/{id}/finish', static fn (): array => [
+                'is_ongoing' => false,
+                'trip_end' => '2026-01-01T10:00:00Z',
+                'duration_minutes' => 60,
+            ]),
         ];
     }
 

@@ -7,7 +7,9 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -85,26 +87,26 @@ final class StarterDeclarationFactory extends Factory implements ProvidesFakeRou
 
     public function fakeRoutes(): array
     {
-        $save = static function (RecordStore $store, array $matches, Request $request): mixed {
+        $save = static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
             $record = $store->all('payroll/starter-declaration')[0] ?? [];
 
             if (! ($record['can_update'] ?? false)) {
-                return Http::response(['message' => 'This action is unauthorized.'], 403);
+                return Json::forbidden();
             }
 
             $record = [...$record, ...self::answers($request), 'updated_at' => '2026-10-31T09:00:00.000000Z'];
             $store->put('payroll/starter-declaration', [$record]);
 
-            return self::declaration($record);
+            return self::declaration($record, $fake);
         };
 
         return [
-            FakeRoute::get('payroll/starter-declaration', static function (RecordStore $store): mixed {
+            FakeRoute::get('payroll/starter-declaration', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $record = $store->all('payroll/starter-declaration')[0] ?? null;
 
                 return $record === null
-                    ? Http::response(['message' => 'This action is unauthorized.'], 403)
-                    : self::declaration($record);
+                    ? Json::forbidden()
+                    : self::declaration($record, $fake);
             }),
 
             FakeRoute::put('payroll/starter-declaration', $save),
@@ -117,12 +119,12 @@ final class StarterDeclarationFactory extends Factory implements ProvidesFakeRou
      *
      * @param  array<string, mixed>  $record
      */
-    private static function declaration(array $record): mixed
+    private static function declaration(array $record, Fake $fake): mixed
     {
         $canUpdate = (bool) ($record['can_update'] ?? false);
         unset($record['can_update']);
 
-        return Http::response(['data' => $record, 'meta' => ['can' => ['update' => $canUpdate], 'team_id' => 42]]);
+        return Http::response(Json::flat($record, ['can' => ['update' => $canUpdate], 'team_id' => $fake->teamId()]));
     }
 
     /**

@@ -68,7 +68,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
             'has_second_factor' => false,
             'created_at' => '2026-01-01T00:00:00Z',
             'teams' => [
-                ['id' => 42, 'name' => 'Care Team', 'role' => 'PA'],
+                ['id' => $this->teamId(), 'name' => 'Care Team', 'role' => 'PA'],
             ],
             'role' => 'PA',
             'address' => [
@@ -213,10 +213,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                 $search = is_string($search) ? $search : '';
 
                 if (mb_strlen($search) < 3) {
-                    return Http::response([
-                        'message' => 'The q field must be at least 3 characters.',
-                        'errors' => ['q' => ['The q field must be at least 3 characters.']],
-                    ], 422);
+                    return Json::validation(['q' => 'The q field must be at least 3 characters.']);
                 }
 
                 $hits = array_filter(
@@ -237,7 +234,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                return Http::response(['message' => 'Address not found.'], 404);
+                return Json::notFound('Address not found.');
             }),
 
             // user/emergency-contacts — list, save many, delete one.
@@ -257,10 +254,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                     $position = $id === null ? false : array_search($id, array_column($contacts, 'id'), true);
 
                     if ($id !== null && $position === false) {
-                        return Http::response([
-                            'message' => 'The emergency contact could not be found.',
-                            'errors' => ["contacts.{$index}.id" => ['The emergency contact could not be found.']],
-                        ], 422);
+                        return Json::validation(["contacts.{$index}.id" => 'The emergency contact could not be found.']);
                     }
 
                     if ($position === false) {
@@ -282,7 +276,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                 ));
 
                 if (count($remaining) === count($contacts)) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 self::putNested($store, 'emergency_contacts', $remaining);
@@ -297,16 +291,14 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
 
                 return is_array($employment)
                     ? Http::response(Json::item('employment-summaries', [...$employment, 'id' => $record['id'] ?? '0']))
-                    : Http::response(['message' => 'Only employees and former personal assistants have employment details.'], 403);
+                    : Json::forbidden('Only employees and former personal assistants have employment details.');
             }),
             FakeRoute::get('user/employment/confirmation-letter', static fn (RecordStore $store): mixed => is_array(self::record($store)['employment'] ?? null)
                 ? Http::response('%PDF-1.4 confirmation-letter-bytes', 200, ['Content-Type' => 'application/pdf'])
-                : Http::response(['message' => 'This action is unauthorized.'], 403)),
+                : Json::forbidden()),
 
             // user/password — confirm-and-change.
-            FakeRoute::put('user/password', static fn (): mixed => Http::response(
-                ['message' => 'Password changed successfully.'],
-            )),
+            FakeRoute::put('user/password', static fn (): mixed => Json::message('Password changed successfully.')),
 
             // user/avatar — multipart upload & removal. The upload stores a
             // fake signed URL on the record (so `me()` reflects it) and answers
@@ -315,16 +307,13 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                 $part = self::avatarPart($request);
 
                 if ($part === null) {
-                    return Http::response([
-                        'message' => 'An avatar image is required.',
-                        'errors' => ['avatar' => ['An avatar image is required.']],
-                    ], 422);
+                    return Json::validation(['avatar' => 'An avatar image is required.']);
                 }
 
                 $url = 'https://cdn.test/avatars/'.rawurlencode($part['filename'] ?? 'avatar');
                 $store->put('user', [[...self::record($store), 'avatar' => $url]]);
 
-                return Http::response(['data' => ['avatar_url' => $url]]);
+                return Http::response(Json::flat(['avatar_url' => $url]));
             }),
             // Removal falls back to the platform's generated initials avatar
             // (HasTenancy::getAvatarUrl() never answers null).
@@ -355,7 +344,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
                 }
 
                 if ($errors !== []) {
-                    return Http::response(['message' => (string) array_values($errors)[0][0], 'errors' => $errors], 422);
+                    return Json::validation($errors);
                 }
 
                 $inbound['account_number'] = '****'.mb_substr((string) $inbound['account_number'], -4);
@@ -502,7 +491,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
     private static function nestedResponse(string $type, ?array $nested): mixed
     {
         return $nested === null
-            ? Http::response(['data' => null])
+            ? Http::response(Json::flat(null))
             : Http::response(Json::item($type, $nested));
     }
 

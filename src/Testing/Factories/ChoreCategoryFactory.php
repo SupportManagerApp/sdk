@@ -24,7 +24,7 @@ final class ChoreCategoryFactory extends Factory
 
     public function type(): string
     {
-        return 'chore-categories';
+        return 'chore_categories';
     }
 
     public function definition(int $index): array

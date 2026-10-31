@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Testing\Factories;
 
 use DateTimeImmutable;
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
@@ -55,7 +56,7 @@ final class NotWorkingNoticeFactory extends Factory implements ProvidesFakeRoute
         $start = (new DateTimeImmutable('2099-11-09'))->modify('+'.($index * 7).' days');
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 9,
             'user' => ['id' => 9, 'name' => 'Sam Carter'],
             ...self::period('Whole Days', $start->format('Y-m-d'), $start->modify('+2 days')->format('Y-m-d'), null, null),
@@ -107,28 +108,25 @@ final class NotWorkingNoticeFactory extends Factory implements ProvidesFakeRoute
                     ? strcmp((string) $a['start_date'], (string) $b['start_date'])
                     : strcmp((string) $b['start_date'], (string) $a['start_date']));
 
-                return $fake->paginate('leave/not-working', 'not-working-notices', $records, $request, ['team_id' => 42]);
+                return $fake->paginate('leave/not-working', 'not-working-notices', $records, $request, ['team_id' => $fake->teamId()]);
             }),
 
-            FakeRoute::post('leave/not-working', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('leave/not-working', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $data = $request->data();
                 $durationType = is_string($data['duration_type'] ?? null) ? $data['duration_type'] : null;
                 $startDate = is_string($data['start_date'] ?? null) ? $data['start_date'] : null;
 
                 if ($durationType === null || $startDate === null) {
-                    return Http::response([
-                        'message' => 'The duration type and start date are required.',
-                        'errors' => array_filter([
-                            'duration_type' => $durationType === null ? ['The duration type field is required.'] : null,
-                            'start_date' => $startDate === null ? ['The start date field is required.'] : null,
-                        ]),
-                    ], 422);
+                    return Json::validation(array_filter([
+                        'duration_type' => $durationType === null ? 'The duration type field is required.' : null,
+                        'start_date' => $startDate === null ? 'The start date field is required.' : null,
+                    ]), 'The duration type and start date are required.');
                 }
 
                 $contractorId = (int) ($data['contractor_id'] ?? 9);
                 $record = $store->append('leave/not-working', [
                     'id' => $store->nextId('leave/not-working'),
-                    'team_id' => 42,
+                    'team_id' => $fake->teamId(),
                     'user_id' => $contractorId,
                     'user' => ['id' => $contractorId, 'name' => "User {$contractorId}"],
                     ...self::period(
@@ -151,24 +149,9 @@ final class NotWorkingNoticeFactory extends Factory implements ProvidesFakeRoute
                 return Http::response(Json::item('not-working-notices', $record), 201);
             }),
 
-            FakeRoute::patch('leave/not-working/{id}/withdraw', static function (RecordStore $store, array $matches): mixed {
-                $notice = $store->find('leave/not-working', $matches[1]);
-
-                if ($notice === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                if ($notice['status'] === 'Cancelled') {
-                    return Http::response(['message' => 'This action is unauthorized.'], 403);
-                }
-
-                $updated = $store->update('leave/not-working', $matches[1], [
-                    'status' => 'Cancelled',
-                    'meta' => ['can' => ['withdraw' => false]],
-                ]);
-
-                return Http::response(Json::item('not-working-notices', $updated ?? $notice));
-            }),
+            FakeRoute::action('PATCH', 'leave/not-working/{id}/withdraw', static fn (array $notice): array|PromiseInterface => $notice['status'] === 'Cancelled'
+                ? Json::forbidden()
+                : ['status' => 'Cancelled', 'meta' => ['can' => ['withdraw' => false]]]),
         ];
     }
 

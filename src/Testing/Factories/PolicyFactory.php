@@ -55,7 +55,7 @@ final class PolicyFactory extends Factory implements ProvidesFakeRoutes
             'review_date' => '2025-01-01',
             'is_active' => true,
             'acknowledged_at' => null,
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'created_by' => ['id' => 1, 'name' => 'Grace'],
             'created_at' => '2026-01-01T09:00:00Z',
             'updated_at' => '2026-01-01T09:00:00Z',
@@ -96,7 +96,7 @@ final class PolicyFactory extends Factory implements ProvidesFakeRoutes
                 $record = $store->find('documents/policies', $matches[1]);
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 $alreadyAcknowledged = isset($record['acknowledged_at']);

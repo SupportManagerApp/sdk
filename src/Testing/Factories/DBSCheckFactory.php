@@ -7,17 +7,19 @@ namespace SupportManager\Sdk\Testing\Factories;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Concerns\FakesComplianceRecords;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake DBS (Disclosure and Barring Service) checks.
  *
- * JSON:API collection (`dbs-checks`), so generic GET list/find come for free
+ * JSON:API collection (`d_b_s_checks`, Laravel's default type for the
+ * platform's `DBSCheckResource`), so generic GET list/find come for free
  * from the resource path. This factory adds the employee's multipart
  * {@see \SupportManager\Sdk\Resources\Compliance\DBSChecksResource::submit()}
  * and the flat certificate download. States cover the obvious outcomes
@@ -48,7 +50,7 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'dbs-checks';
+        return 'd_b_s_checks';
     }
 
     public function definition(int $index): array
@@ -56,7 +58,7 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => $number,
             'user' => ['id' => $number, 'name' => "Employee {$number}"],
             'date_of_issue' => '2026-01-01T00:00:00Z',
@@ -105,19 +107,16 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::post('compliance/dbs-checks', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('compliance/dbs-checks', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $fields = self::submittedFields($request);
                 $own = self::ownRecord($store, 'compliance/dbs-checks');
                 $certificate = $fields['certificate'] ?? $own['certificate'] ?? null;
 
                 if ($certificate === null || $certificate === '') {
-                    return Http::response([
-                        'message' => 'Please upload a copy of your DBS certificate.',
-                        'errors' => ['certificate' => ['Please upload a copy of your DBS certificate.']],
-                    ], 422);
+                    return Json::validation(['certificate' => 'Please upload a copy of your DBS certificate.']);
                 }
 
-                return self::saveOwnRecord($store, 'compliance/dbs-checks', 'dbs-checks', $own, [
+                return self::saveOwnRecord($store, $fake, 'compliance/dbs-checks', 'd_b_s_checks', $own, [
                     // The platform stores the date and serialises it as midnight
                     // wall-clock time in Europe/London (ApiResource::wallClock()).
                     'date_of_issue' => isset($fields['date_of_issue'])
@@ -128,10 +127,7 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
                 ]);
             }),
 
-            FakeRoute::get('compliance/dbs-checks/{id}/certificate', static fn (RecordStore $store, array $matches): mixed => self::downloadPayload(
-                $store->find('compliance/dbs-checks', $matches[1])['certificate'] ?? null,
-                "dbs-checks/{$matches[1]}",
-            )),
+            FakeRoute::downloadLink('compliance/dbs-checks/{id}/certificate', 'certificate'),
         ];
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -96,46 +97,45 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('tasks/count', static function (RecordStore $store): mixed {
+            FakeRoute::flat('tasks/count', static function (RecordStore $store): array {
                 $tasks = $store->all('tasks');
                 $mine = self::pending($tasks, 'self');
                 $inbox = self::pending($tasks, 'manager');
 
-                return self::data([
+                return [
                     'count' => $mine + $inbox,
                     'my_tasks' => $mine,
                     'manager_inbox' => $inbox,
-                ]);
+                ];
             }),
 
-            FakeRoute::get('tasks/progress', static function (RecordStore $store): mixed {
+            FakeRoute::flat('tasks/progress', static function (RecordStore $store): array {
                 $tasks = $store->all('tasks');
                 $total = count($tasks);
                 $done = count(array_filter($tasks, static fn (array $t): bool => (bool) ($t['completed'] ?? false)));
-                $percentage = $total === 0 ? 100 : (int) round($done / $total * 100);
 
-                return self::data([
-                    'percentage' => $percentage,
+                return [
+                    'percentage' => $total === 0 ? 100 : (int) round($done / $total * 100),
                     'completed' => $done,
                     'total' => $total,
-                ]);
+                ];
             }),
 
             // EmployeeTaskProgressResource emits {user, pending_tasks} for the
             // inbox and {user, percentage, incomplete_tasks} for team progress.
-            FakeRoute::get('tasks/manager-inbox', static function (RecordStore $store): mixed {
+            FakeRoute::get('tasks/manager-inbox', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $rows = array_map(
                     static fn (array $row): array => ['user' => $row['user'] ?? null, 'pending_tasks' => $row['pending_tasks'] ?? []],
                     $store->all(self::EMPLOYEE_PATH),
                 );
 
-                return self::list($rows, [
-                    'team_id' => 42,
+                return Http::response(Json::flat($rows, [
+                    'team_id' => $fake->teamId(),
                     'total_pending' => array_sum(array_map(static fn (array $row): int => count($row['pending_tasks']), $rows)),
-                ]);
+                ]));
             }),
 
-            FakeRoute::get('tasks/team-progress', static fn (RecordStore $store): mixed => self::list(
+            FakeRoute::get('tasks/team-progress', static fn (RecordStore $store, array $matches, Request $request, Fake $fake): mixed => Http::response(Json::flat(
                 array_map(
                     static fn (array $row): array => [
                         'user' => $row['user'] ?? null,
@@ -144,10 +144,10 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                     ],
                     $store->all(self::EMPLOYEE_PATH),
                 ),
-                ['team_id' => 42],
-            )),
+                ['team_id' => $fake->teamId()],
+            ))),
 
-            FakeRoute::post('tasks/{id}/complete', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::post('tasks/{id}/complete', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $key = $matches[1];
 
                 foreach ($store->all('tasks') as $index => $task) {
@@ -156,11 +156,11 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                         $records[$index] = [...$task, 'completed' => true];
                         $store->put('tasks', $records);
 
-                        return Http::response(['message' => 'Task cache cleared successfully.', 'data' => $records[$index], 'meta' => ['team_id' => 42]]);
+                        return Http::response(['message' => 'Task cache cleared successfully.', ...Json::flat($records[$index], ['team_id' => $fake->teamId()])]);
                     }
                 }
 
-                return Http::response(['message' => 'Task not found.'], 404);
+                return Json::notFound('Task not found.');
             }),
 
             // Index: plain {data, meta} with the completed/completion_role filters.
@@ -178,7 +178,7 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                     $tasks = array_filter($tasks, static fn (array $t): bool => ($t['completion_role'] ?? null) === $role);
                 }
 
-                return self::list(array_values($tasks), ['team_id' => 42]);
+                return Http::response(Json::flat(array_values($tasks), ['team_id' => $fake->teamId()]));
             }),
         ];
     }
@@ -194,26 +194,5 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
             $tasks,
             static fn (array $t): bool => ($t['completion_role'] ?? 'self') === $role && ! ($t['completed'] ?? false),
         ));
-    }
-
-    /**
-     * A plain `{data: {...}}` body for the scalar summary endpoints.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private static function data(array $data): mixed
-    {
-        return Http::response(['data' => $data]);
-    }
-
-    /**
-     * A plain `{data: [...], meta}` body for the list endpoints.
-     *
-     * @param  list<array<string, mixed>>  $records
-     * @param  array<string, mixed>  $meta
-     */
-    private static function list(array $records, array $meta = []): mixed
-    {
-        return Http::response(['data' => array_values($records), 'meta' => $meta]);
     }
 }
