@@ -156,6 +156,10 @@ it('uploads a P45 as multipart form data spoofed to PUT', function () {
         'week1_month1' => true,
         'postgraduate_loan' => false,
         'total_pay_to_date' => 8000.5,
+        'tax_code' => '1257L',
+        'leaving_date' => '2026-06-30',
+        'total_tax_to_date' => 1200.0,
+        'final_pay_period_type' => 'monthly',
     ], '%PDF-1.4 p45', 'my-p45.pdf');
 
     Http::assertSent(function (Request $request): bool {
@@ -199,7 +203,14 @@ it('serves and saves the seeded declaration through the fake', function () {
     $declaration = starterDeclaration()->show();
     assert($declaration instanceof StarterDeclaration);
 
-    $saved = starterDeclaration()->update(['student_loan_plan' => 'plan_1', 'postgraduate_loan' => true]);
+    $saved = starterDeclaration()->update([
+        'tax_form_type' => 'New Starter Checklist',
+        'ni_number' => 'AB123456C',
+        'starter_declaration_circumstances' => 'A',
+        'national_insurance_letter' => 'A',
+        'student_loan_plan' => 'plan_1',
+        'postgraduate_loan' => true,
+    ]);
     assert($saved instanceof StarterDeclaration);
 
     expect($declaration->niNumber)->toBe('AB123456C')
@@ -216,6 +227,13 @@ it('stores an uploaded P45 through the fake', function () {
 
     $saved = starterDeclaration()->update([
         'tax_form_type' => 'P45',
+        'ni_number' => 'AB123456C',
+        'starter_declaration_circumstances' => 'A',
+        'national_insurance_letter' => 'A',
+        'tax_code' => '1257L',
+        'leaving_date' => '2026-06-30',
+        'total_tax_to_date' => 1200.0,
+        'final_pay_period_type' => 'monthly',
         'student_loan_plan' => null,
         'week1_month1' => true,
         'total_pay_to_date' => 8000.5,
@@ -240,5 +258,10 @@ it('serves a P45 declaration and refuses saves when read-only', function () {
         ->and($declaration?->leavingDate)->toBe('2026-06-30')
         ->and($declaration?->taxFormUrl)->not->toBeNull()
         ->and($declaration?->canUpdate)->toBeFalse()
-        ->and(fn () => starterDeclaration()->update(['tax_code' => '1100L']))->toThrow(SupportManagerApiException::class);
+        ->and(fn () => starterDeclaration()->update([
+            'tax_form_type' => 'New Starter Checklist',
+            'ni_number' => 'AB123456C',
+            'starter_declaration_circumstances' => 'A',
+            'national_insurance_letter' => 'A',
+        ]))->toThrow(SupportManagerApiException::class);
 });

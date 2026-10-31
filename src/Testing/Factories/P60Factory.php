@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -26,6 +28,8 @@ use SupportManager\Sdk\Testing\RecordStore;
  */
 final class P60Factory extends Factory implements ProvidesFakeRoutes
 {
+    private const array DETAIL_KEYS = ['pay_details', 'ni_contributions', 'statutory_payments', 'other_details'];
+
     public function path(): string
     {
         return 'payroll/p60s';
@@ -80,6 +84,32 @@ final class P60Factory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // The platform's index does not eager-load the detail rows, so
+            // P60Resource's whenLoaded() omits them (P60Controller::index).
+            FakeRoute::get('payroll/p60s', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $filters = $fake->query($request)['filter'] ?? [];
+
+                $records = array_values(array_filter(
+                    $store->all('payroll/p60s'),
+                    static function (array $record) use ($filters): bool {
+                        foreach (is_array($filters) ? $filters : [] as $key => $value) {
+                            if ((string) ($record[$key] ?? '') !== (string) $value) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    },
+                ));
+
+                $rows = array_map(
+                    static fn (array $record): array => array_diff_key($record, array_flip(self::DETAIL_KEYS)),
+                    $records,
+                );
+
+                return $fake->paginate('payroll/p60s', 'p60s', $rows, $request, ['team_id' => 42]);
+            }),
+
             // Opening or downloading marks the P60 viewed, as the platform does.
             FakeRoute::get('payroll/p60s/{id}', static function (RecordStore $store, array $matches): mixed {
                 $record = $store->update('payroll/p60s', $matches[1], ['viewed' => true]);

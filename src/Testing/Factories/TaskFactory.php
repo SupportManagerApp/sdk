@@ -28,13 +28,30 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * ```php
  * SupportManager::fake()->seed(TaskFactory::new()->count(3));
- * SupportManager::tasks()->all()->total();         // 3
- * SupportManager::tasks()->complete('task_1');
+ * count(SupportManager::tasks()->all()->items()); // 3
+ * SupportManager::tasks()->complete('task_a');
  * ```
  */
 final class TaskFactory extends Factory implements ProvidesFakeRoutes
 {
     public const EMPLOYEE_PATH = 'tasks/employee-progress';
+
+    /**
+     * The seeded task key for an index: `task_a`, `task_b`, …. Platform task
+     * keys only contain `[a-z._]` (the `tasks/{taskKey}/complete` route
+     * constraint), so the key carries no digits.
+     */
+    public static function key(int $index): string
+    {
+        $key = '';
+
+        do {
+            $key = chr(97 + $index % 26).$key;
+            $index = intdiv($index, 26) - 1;
+        } while ($index >= 0);
+
+        return "task_{$key}";
+    }
 
     public function path(): string
     {
@@ -46,7 +63,7 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'key' => "task_{$number}",
+            'key' => self::key($index),
             'label' => "Task {$number}",
             'description' => "Do task {$number}",
             'icon' => 'check',
@@ -104,12 +121,30 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                 ]);
             }),
 
-            FakeRoute::get('tasks/manager-inbox', static fn (RecordStore $store): mixed => self::list(
-                $store->all(self::EMPLOYEE_PATH),
-            )),
+            // EmployeeTaskProgressResource emits {user, pending_tasks} for the
+            // inbox and {user, percentage, incomplete_tasks} for team progress.
+            FakeRoute::get('tasks/manager-inbox', static function (RecordStore $store): mixed {
+                $rows = array_map(
+                    static fn (array $row): array => ['user' => $row['user'] ?? null, 'pending_tasks' => $row['pending_tasks'] ?? []],
+                    $store->all(self::EMPLOYEE_PATH),
+                );
+
+                return self::list($rows, [
+                    'team_id' => 42,
+                    'total_pending' => array_sum(array_map(static fn (array $row): int => count($row['pending_tasks']), $rows)),
+                ]);
+            }),
 
             FakeRoute::get('tasks/team-progress', static fn (RecordStore $store): mixed => self::list(
-                $store->all(self::EMPLOYEE_PATH),
+                array_map(
+                    static fn (array $row): array => [
+                        'user' => $row['user'] ?? null,
+                        'percentage' => $row['percentage'] ?? 0,
+                        'incomplete_tasks' => $row['incomplete_tasks'] ?? [],
+                    ],
+                    $store->all(self::EMPLOYEE_PATH),
+                ),
+                ['team_id' => 42],
             )),
 
             FakeRoute::post('tasks/{id}/complete', static function (RecordStore $store, array $matches): mixed {
@@ -121,7 +156,7 @@ final class TaskFactory extends Factory implements ProvidesFakeRoutes
                         $records[$index] = [...$task, 'completed' => true];
                         $store->put('tasks', $records);
 
-                        return Http::response(['message' => 'ok', 'data' => $records[$index]]);
+                        return Http::response(['message' => 'Task cache cleared successfully.', 'data' => $records[$index], 'meta' => ['team_id' => 42]]);
                     }
                 }
 

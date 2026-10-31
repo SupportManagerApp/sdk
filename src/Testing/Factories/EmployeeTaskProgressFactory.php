@@ -36,7 +36,7 @@ final class EmployeeTaskProgressFactory extends Factory
         $number = $index + 1;
 
         $task = [
-            'key' => "task_{$number}",
+            'key' => TaskFactory::key($index),
             'label' => "Task {$number}",
             'description' => "Do task {$number}",
             'icon' => 'check',

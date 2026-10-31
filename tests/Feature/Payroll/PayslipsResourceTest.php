@@ -156,9 +156,10 @@ it('returns null when finding a missing payslip (404)', function () {
 });
 
 it('maps a 422 on the payslips path to a validation exception', function () {
+    // The only 422 this index returns is SetApiTenant's missing/invalid team
+    // response, which carries a message and no field errors.
     Http::fake(['api.test/api/v1/payroll/payslips*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The year filter is invalid.']],
+        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
     ], 422)]);
     bootTenantSession();
 
@@ -166,7 +167,8 @@ it('maps a 422 on the payslips path to a validation exception', function () {
         payslips()->query()->filter('year', 'nope')->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The year filter is invalid.');
+        expect($e->getMessage())->toContain('Invalid or missing team')
+            ->and($e->errors)->toBe([]);
     }
 });
 
