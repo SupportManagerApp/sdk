@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use SupportManager\Sdk\Data\Dashboard\Capabilities;
 use SupportManager\Sdk\Data\Dashboard\DashboardLayout;
+use SupportManager\Sdk\Data\Dashboard\WeatherForecast;
 use SupportManager\Sdk\Enums\Dashboard\OptionalModule;
 use SupportManager\Sdk\Enums\Dashboard\PlanFeature;
+use SupportManager\Sdk\Enums\Dashboard\WeatherCondition;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\CapabilitiesFactory;
 use SupportManager\Sdk\Testing\Factories\DashboardFactory;
+use SupportManager\Sdk\Testing\Factories\WeatherForecastFactory;
 
 // Dashboard endpoints are flat singletons ({data, meta}), not JSON:API.
 
@@ -81,3 +84,31 @@ it('drives a 403 on the dashboard through the real error mapping', function () {
 
     SupportManager::dashboard()->layout();
 })->throws(SupportManagerApiException::class);
+
+it('reads the seeded weather forecast beside the layout', function () {
+    SupportManager::fake()->seed(DashboardFactory::new(), WeatherForecastFactory::new());
+
+    $forecast = SupportManager::dashboard()->weather();
+
+    expect($forecast)->toBeInstanceOf(WeatherForecast::class)
+        ->and($forecast?->location)->toBe('Weymouth')
+        ->and($forecast?->current->condition)->toBe(WeatherCondition::PartlyCloudy)
+        ->and($forecast?->current->temperature)->toBe(14)
+        ->and($forecast?->days)->toHaveCount(2)
+        ->and($forecast?->days[1]->condition)->toBe(WeatherCondition::Thunderstorm)
+        ->and(SupportManager::dashboard()->layout()->widgets[0]->key)->toBe('dashboard.weather');
+});
+
+it('seeds a forecast that is unavailable', function () {
+    SupportManager::fake()->seed(WeatherForecastFactory::new()->unavailable());
+
+    expect(SupportManager::dashboard()->weather())->toBeNull();
+});
+
+it('drives the 403 a former PA gets for the weather', function () {
+    SupportManager::fake()
+        ->seed(WeatherForecastFactory::new())
+        ->fail('dashboard/weather', 403, ['message' => 'This action is unauthorized.']);
+
+    SupportManager::dashboard()->weather();
+})->throws(SupportManagerApiException::class, 'This action is unauthorized.');

@@ -2,15 +2,18 @@
 
 declare(strict_types=1);
 
+use SupportManager\Sdk\Data\Household\BinCollectionSchedule;
 use SupportManager\Sdk\Data\Household\Chore;
 use SupportManager\Sdk\Data\Household\ChoreCategory;
 use SupportManager\Sdk\Data\Household\Consumable;
 use SupportManager\Sdk\Data\Household\MealPlan;
 use SupportManager\Sdk\Data\Household\ShoppingListItem;
+use SupportManager\Sdk\Enums\Household\BinType;
 use SupportManager\Sdk\Enums\Household\ChoreFrequency;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Testing\Factories\BinCollectionScheduleFactory;
 use SupportManager\Sdk\Testing\Factories\ChoreCategoryFactory;
 use SupportManager\Sdk\Testing\Factories\ChoreFactory;
 use SupportManager\Sdk\Testing\Factories\ConsumableFactory;
@@ -279,4 +282,44 @@ it('rejects an invalid adjustment and an unknown variant', function () {
 
     expect(fn () => SupportManager::consumables()->adjustStock(101, 2))->toThrow(ApiValidationException::class)
         ->and(fn () => SupportManager::consumables()->adjustStock(999, 1))->toThrow(SupportManagerApiException::class);
+});
+
+// ── Bin day ────────────────────────────────────────────────────────────────────
+
+it('reads the seeded bin collections', function () {
+    SupportManager::fake()->seed(BinCollectionScheduleFactory::new());
+
+    $schedule = SupportManager::binDay()->show();
+
+    expect($schedule)->toBeInstanceOf(BinCollectionSchedule::class)
+        ->and($schedule->binsDueTomorrow)->toBe([BinType::Rubbish, BinType::Food])
+        ->and(array_map(static fn ($collection): BinType => $collection->bin, $schedule->collections))->toBe(BinType::cases())
+        ->and($schedule->collectionOf(BinType::Rubbish)?->nextCollectionOn)->toBe(BinCollectionScheduleFactory::TOMORROW)
+        ->and($schedule->collectionOf(BinType::Recycling)?->nextCollectionOn)->toBe(BinCollectionScheduleFactory::NEXT_WEEK)
+        ->and($schedule->collectionOf(BinType::Recycling)?->label)->toBe('Recycling');
+});
+
+it('seeds the bins due tomorrow, and a bin the council has no date for', function () {
+    SupportManager::fake()->seed(BinCollectionScheduleFactory::new()->dueTomorrow(BinType::Recycling)->withoutDate(BinType::Food));
+
+    $schedule = SupportManager::binDay()->show();
+
+    expect($schedule->binsDueTomorrow)->toBe([BinType::Recycling])
+        ->and($schedule->collectionOf(BinType::Recycling)?->isDueTomorrow)->toBeTrue()
+        ->and($schedule->collectionOf(BinType::Rubbish)?->isDueTomorrow)->toBeFalse()
+        ->and($schedule->collectionOf(BinType::Food)?->nextCollectionOn)->toBeNull();
+});
+
+it('seeds a week with no bins due tomorrow', function () {
+    SupportManager::fake()->seed(BinCollectionScheduleFactory::new()->dueTomorrow());
+
+    expect(SupportManager::binDay()->show()->hasBinsDueTomorrow())->toBeFalse();
+});
+
+it('drives the 404 bin day gives while Household is switched off', function () {
+    SupportManager::fake()->fail('household/bin-day', 404, ['message' => 'Not Found']);
+
+    expect(fn () => SupportManager::binDay()->show())->toThrow(
+        fn (SupportManagerApiException $exception) => expect($exception->status)->toBe(404),
+    );
 });
