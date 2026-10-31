@@ -199,3 +199,23 @@ it('clears programmed failures', function () {
 
     expect(SupportManager::journeys()->all()->total())->toBe(1);
 });
+
+it('ends the ongoing journey when one is logged directly', function () {
+    SupportManager::fake()->seed(CarJourneyFactory::new()->ongoing()->state(['driver_name' => 'Ada']));
+
+    SupportManager::journeys()->create(['driver_name' => 'Grace', 'is_ongoing' => false]);
+
+    expect(SupportManager::journeys()->ongoing())->toBeNull()
+        ->and(SupportManager::journeys()->find(1)?->tripEnd)->not->toBeNull();
+});
+
+it('carries seeded journey permissions through meta.can', function () {
+    SupportManager::fake()->seed(CarJourneyFactory::new(), CarJourneyFactory::new()->locked());
+
+    $journeys = SupportManager::journeys()->all()->items();
+
+    expect($journeys[0]->canUpdate)->toBeTrue()
+        ->and($journeys[0]->canDelete)->toBeTrue()
+        ->and($journeys[1]->canUpdate)->toBeFalse()
+        ->and($journeys[1]->canDelete)->toBeFalse();
+});

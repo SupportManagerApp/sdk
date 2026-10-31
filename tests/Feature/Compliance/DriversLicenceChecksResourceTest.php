@@ -111,3 +111,76 @@ it('maps a 422 on the collection path to a validation exception', function () {
         expect($e->first('filter'))->toBe('The user_id filter is invalid.');
     }
 });
+
+it('hydrates the meta.can permission flags', function () {
+    Http::fake(['api.test/api/v1/compliance/drivers-licence-checks/7' => Http::response([
+        'data' => [
+            'type' => 'drivers-licence-checks',
+            'id' => '7',
+            'attributes' => ['check_result_document' => 'result.pdf'],
+            'meta' => ['can' => ['update' => false, 'download' => true]],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $check = complianceDriversLicenceChecks()->find(7);
+
+    expect($check->checkResultDocument)->toBe('result.pdf')
+        ->and($check->canUpdate)->toBeFalse()
+        ->and($check->canDownload)->toBeTrue();
+});
+
+it('submits driving licence details as JSON', function () {
+    Http::fake(['api.test/api/v1/compliance/drivers-licence-checks' => Http::response([
+        'data' => [
+            'type' => 'drivers-licence-checks',
+            'id' => '9',
+            'attributes' => ['drivers_licence_number' => 'HARBO801234AB9CD', 'check_code' => 'Xy7Kp2Qm', 'declaration_accepted' => true],
+        ],
+    ], 201)]);
+    bootTenantSession();
+
+    $check = complianceDriversLicenceChecks()->submit('HARBO801234AB9CD', 'Xy7Kp2Qm', declarationAccepted: true);
+
+    expect($check)->toBeInstanceOf(DriversLicenceCheck::class)
+        ->and($check->driversLicenceNumber)->toBe('HARBO801234AB9CD')
+        ->and($check->declarationAccepted)->toBeTrue();
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/compliance/drivers-licence-checks')
+        && $request->hasHeader('X-Team-ID', '42')
+        && $request['drivers_licence_number'] === 'HARBO801234AB9CD'
+        && $request['check_code'] === 'Xy7Kp2Qm'
+        && $request['declaration_accepted'] === true);
+});
+
+it('maps a 422 on an unaccepted declaration to a validation exception', function () {
+    Http::fake(['api.test/api/v1/compliance/drivers-licence-checks' => Http::response([
+        'message' => 'You must accept the declaration to continue.',
+        'errors' => ['declaration_accepted' => ['You must accept the declaration to continue.']],
+    ], 422)]);
+    bootTenantSession();
+
+    try {
+        complianceDriversLicenceChecks()->submit('HARBO801234AB9CD', 'Xy7Kp2Qm', declarationAccepted: false);
+        test()->fail('Expected ApiValidationException');
+    } catch (ApiValidationException $e) {
+        expect($e->first('declaration_accepted'))->toBe('You must accept the declaration to continue.');
+    }
+});
+
+it('returns the raw check result document download payload response', function () {
+    Http::fake(['api.test/api/v1/compliance/drivers-licence-checks/7/check-result-document' => Http::response([
+        'data' => [
+            'download_url' => 'https://s3.test/signed/result.pdf',
+            'filename' => 'result.pdf',
+            'expires_at' => '2026-06-06T10:05:00Z',
+        ],
+    ])]);
+    bootTenantSession();
+
+    $response = complianceDriversLicenceChecks()->downloadCheckResultDocument(7);
+
+    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/result.pdf')
+        ->and($response->json('data.filename'))->toBe('result.pdf');
+});

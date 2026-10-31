@@ -6,8 +6,8 @@ namespace SupportManager\Sdk\Data\Household;
 
 /**
  * The team's weekly meal plan — one meal per day. Mirrors the platform's
- * `MealPlanResource`, which nests the seven days under a `days` key. A null day
- * means no meal is planned for it.
+ * `MealPlanResource` attributes, which nest the seven days under a `days` key.
+ * A null day means no meal is planned for it.
  */
 final readonly class MealPlan
 {
@@ -24,7 +24,7 @@ final readonly class MealPlan
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data  The MealPlanResource `data` payload.
+     * @param  array<string, mixed>  $data  A flattened JSON:API resource object.
      */
     public static function fromArray(array $data): self
     {

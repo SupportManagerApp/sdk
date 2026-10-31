@@ -41,6 +41,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static \SupportManager\Sdk\Resources\Household\ShoppingListItemsResource shoppingList()
  * @method static \SupportManager\Sdk\Resources\Household\ChoresResource chores()
  * @method static \SupportManager\Sdk\Resources\Household\ChoreCategoriesResource choreCategories()
+ * @method static \SupportManager\Sdk\Resources\Household\ConsumablesResource consumables()
  * @method static \SupportManager\Sdk\Resources\Household\MealPlanResource mealPlan()
  * @method static \SupportManager\Sdk\Resources\Household\KeysafeResource keysafe()
  * @method static \SupportManager\Sdk\Resources\Leave\LeaveRequestsResource leaveRequests()

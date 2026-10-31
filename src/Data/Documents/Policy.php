@@ -10,8 +10,11 @@ use SupportManager\Sdk\Enums\Documents\PolicyCategory;
  * A company policy with versioning, effective/review dates and content.
  *
  * Mirrors the platform's `PolicyResource` attributes. `category` is the typed
- * enum; `categoryLabel` is the server's human label for it. `createdBy` is only
- * populated when the server includes the relation.
+ * enum; `categoryLabel` is the server's human label for it. `contentHtml` is the
+ * policy rendered as sanitised HTML, exactly as the web app shows it.
+ * `acknowledgedAt` is when the authenticated user acknowledged the policy (null
+ * if they have not). `createdBy` is only populated when the server includes the
+ * relation.
  */
 final readonly class Policy
 {
@@ -19,7 +22,7 @@ final readonly class Policy
         public string $id,
         public string $title,
         public ?string $slug,
-        public ?string $content,
+        public ?string $contentHtml,
         public ?PolicyCategory $category,
         public ?string $categoryLabel,
         public ?string $version,
@@ -31,6 +34,7 @@ final readonly class Policy
         public ?string $createdByName,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public ?string $acknowledgedAt = null,
     ) {}
 
     /**
@@ -45,7 +49,7 @@ final readonly class Policy
             id: (string) ($data['id'] ?? ''),
             title: (string) ($data['title'] ?? ''),
             slug: isset($data['slug']) ? (string) $data['slug'] : null,
-            content: isset($data['content']) ? (string) $data['content'] : null,
+            contentHtml: isset($data['content_html']) ? (string) $data['content_html'] : null,
             category: isset($data['category'])
                 ? PolicyCategory::tryFrom((string) $data['category'])
                 : null,
@@ -59,6 +63,7 @@ final readonly class Policy
             createdByName: isset($createdBy['name']) ? (string) $createdBy['name'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            acknowledgedAt: isset($data['acknowledged_at']) ? (string) $data['acknowledged_at'] : null,
         );
     }
 }

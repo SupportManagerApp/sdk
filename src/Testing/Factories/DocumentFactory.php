@@ -42,7 +42,7 @@ final class DocumentFactory extends Factory implements ProvidesFakeRoutes
 
         return [
             'name' => "Document {$number}",
-            'file' => "documents/{$number}.pdf",
+            'scope' => 'personal',
             'team_id' => 42,
             'user_id' => 9,
             'user' => ['id' => 9, 'name' => 'Ada'],
@@ -52,6 +52,14 @@ final class DocumentFactory extends Factory implements ProvidesFakeRoutes
             'created_at' => '2026-01-01T09:00:00Z',
             'updated_at' => '2026-01-01T09:00:00Z',
         ];
+    }
+
+    /**
+     * A team document shared with the whole team (no assigned user).
+     */
+    public function team(): static
+    {
+        return $this->state(['scope' => 'team', 'user_id' => null, 'user' => null]);
     }
 
     /**

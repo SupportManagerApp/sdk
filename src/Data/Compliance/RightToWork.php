@@ -9,7 +9,12 @@ namespace SupportManager\Sdk\Data\Compliance;
  * the government share code.
  *
  * Mirrors the platform's `RightToWorkResource` attributes. `shareCode` is
- * decrypted server-side and only returned to authorised viewers.
+ * decrypted server-side and only returned to authorised viewers. The
+ * `*Document` fields are the uploaded files' names — fetch them via
+ * {@see \SupportManager\Sdk\Resources\Compliance\RightToWorkResource::downloadPrimaryDocument()}
+ * and `downloadSupportingDocument()`. `canUpdate`/`canDownload` are the
+ * server's `meta.can` flags for the authenticated user (update is true only
+ * for the record's own employee).
  */
 final readonly class RightToWork
 {
@@ -24,6 +29,8 @@ final readonly class RightToWork
         public ?string $shareCode,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public bool $canUpdate = false,
+        public bool $canDownload = false,
     ) {}
 
     /**
@@ -33,6 +40,9 @@ final readonly class RightToWork
     {
         /** @var array{id?: mixed, name?: mixed} $user */
         $user = is_array($data['user'] ?? null) ? $data['user'] : [];
+
+        /** @var array{update?: mixed, download?: mixed} $can */
+        $can = is_array($data['meta']['can'] ?? null) ? $data['meta']['can'] : [];
 
         return new self(
             id: (string) ($data['id'] ?? ''),
@@ -45,6 +55,8 @@ final readonly class RightToWork
             shareCode: isset($data['share_code']) ? (string) $data['share_code'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            canUpdate: (bool) ($can['update'] ?? false),
+            canDownload: (bool) ($can['download'] ?? false),
         );
     }
 }

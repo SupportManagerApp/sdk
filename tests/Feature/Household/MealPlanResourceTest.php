@@ -16,23 +16,27 @@ function householdMealPlanBody(array $days = []): array
 {
     return [
         'data' => [
-            'team_id' => 42,
-            'days' => array_merge([
-                'monday' => 'Pasta',
-                'tuesday' => null,
-                'wednesday' => null,
-                'thursday' => null,
-                'friday' => null,
-                'saturday' => null,
-                'sunday' => null,
-            ], $days),
-            'updated_at' => '2026-06-06T10:00:00Z',
+            'id' => '1',
+            'type' => 'meal_plans',
+            'attributes' => [
+                'team_id' => 42,
+                'days' => array_merge([
+                    'monday' => 'Pasta',
+                    'tuesday' => null,
+                    'wednesday' => null,
+                    'thursday' => null,
+                    'friday' => null,
+                    'saturday' => null,
+                    'sunday' => null,
+                ], $days),
+                'updated_at' => '2026-06-06T10:00:00Z',
+            ],
         ],
         'meta' => ['team_id' => 42],
     ];
 }
 
-it('shows the meal plan from a flat data body', function () {
+it('shows the meal plan from a JSON:API body', function () {
     Http::fake(['api.test/api/v1/household/meal-plan' => Http::response(householdMealPlanBody())]);
     bootTenantSession();
 
@@ -71,4 +75,20 @@ it('maps a 422 on an invalid day to a validation exception', function () {
 
     expect(fn () => householdMealPlan()->removeDay('funday'))
         ->toThrow(ApiValidationException::class);
+});
+
+it('shows an unsaved meal plan, which carries an empty id', function () {
+    $body = householdMealPlanBody(['monday' => null]);
+    $body['data']['id'] = '';
+    $body['data']['attributes']['updated_at'] = null;
+
+    Http::fake(['api.test/api/v1/household/meal-plan' => Http::response($body)]);
+    bootTenantSession();
+
+    $plan = householdMealPlan()->show();
+
+    expect($plan)->toBeInstanceOf(MealPlan::class)
+        ->and($plan->teamId)->toBe(42)
+        ->and($plan->monday)->toBeNull()
+        ->and($plan->updatedAt)->toBeNull();
 });

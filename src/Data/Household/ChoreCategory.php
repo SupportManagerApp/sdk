@@ -7,7 +7,9 @@ namespace SupportManager\Sdk\Data\Household;
 /**
  * A category used to organise chores. Mirrors the platform's
  * `ChoreCategoryResource`; `choresCount` is only present when the controller
- * counts the relationship (it always does on index).
+ * counts the relationship (it always does on index). `dueChoresCount` counts
+ * the category's chores that are due now and not snoozed — the
+ * `filter[due]=true` chore list — as the web app's category tiles do.
  */
 final readonly class ChoreCategory
 {
@@ -19,6 +21,7 @@ final readonly class ChoreCategory
         public ?int $choresCount,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public ?int $dueChoresCount = null,
     ) {}
 
     /**
@@ -34,6 +37,7 @@ final readonly class ChoreCategory
             choresCount: isset($data['chores_count']) ? (int) $data['chores_count'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            dueChoresCount: isset($data['due_chores_count']) ? (int) $data['due_chores_count'] : null,
         );
     }
 }

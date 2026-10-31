@@ -13,6 +13,8 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * The collection (`query()`, `find()`, `all()`) plus the non-RESTful
  * `acknowledge()` action recording that the current user has read a policy.
+ * Filter by `category` or `title` (partial); each policy carries the current
+ * user's `acknowledgedAt`.
  *
  * ```php
  * SupportManager::policies()->query()->filter('category', 'hr')->sort('title')->get();

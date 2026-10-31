@@ -112,3 +112,106 @@ it('maps a 422 on the collection path to a validation exception', function () {
         expect($e->first('filter'))->toBe('The user_id filter is invalid.');
     }
 });
+
+it('hydrates the meta.can permission flags', function () {
+    Http::fake(['api.test/api/v1/compliance/dbs-checks/7' => Http::response([
+        'data' => [
+            'type' => 'dbs-checks',
+            'id' => '7',
+            'attributes' => ['certificate' => 'certificate.pdf'],
+            'meta' => ['can' => ['update' => true, 'download' => true]],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $check = complianceDbsChecks()->find(7);
+
+    expect($check->certificate)->toBe('certificate.pdf')
+        ->and($check->canUpdate)->toBeTrue()
+        ->and($check->canDownload)->toBeTrue();
+});
+
+it('defaults the permission flags to false when meta is absent', function () {
+    Http::fake(['api.test/api/v1/compliance/dbs-checks/7' => Http::response([
+        'data' => ['type' => 'dbs-checks', 'id' => '7', 'attributes' => []],
+    ])]);
+    bootTenantSession();
+
+    $check = complianceDbsChecks()->find(7);
+
+    expect($check->canUpdate)->toBeFalse()
+        ->and($check->canDownload)->toBeFalse();
+});
+
+it('submits a DBS check as multipart with the certificate file', function () {
+    Http::fake(['api.test/api/v1/compliance/dbs-checks' => Http::response([
+        'data' => [
+            'type' => 'dbs-checks',
+            'id' => '9',
+            'attributes' => ['certificate_number' => '001234567890', 'certificate' => 'dbs.pdf'],
+            'meta' => ['can' => ['update' => true, 'download' => true]],
+        ],
+        'meta' => ['team_id' => 42],
+    ], 201)]);
+    bootTenantSession();
+
+    $check = complianceDbsChecks()->submit('2026-03-14', '001234567890', 'PDF-BYTES', 'dbs.pdf');
+
+    expect($check)->toBeInstanceOf(DBSCheck::class)
+        ->and($check->id)->toBe('9')
+        ->and($check->certificate)->toBe('dbs.pdf');
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/v1/compliance/dbs-checks')
+        && $request->hasHeader('X-Team-ID', '42')
+        && str_starts_with($request->header('Content-Type')[0], 'multipart/form-data; boundary=')
+        && $request->hasFile('certificate', 'PDF-BYTES', 'dbs.pdf')
+        && str_contains($request->body(), 'name="date_of_issue"')
+        && str_contains($request->body(), '2026-03-14')
+        && str_contains($request->body(), 'name="certificate_number"'));
+});
+
+it('submits a DBS check without a file to keep the stored certificate', function () {
+    Http::fake(['api.test/api/v1/compliance/dbs-checks' => Http::response([
+        'data' => ['type' => 'dbs-checks', 'id' => '9', 'attributes' => ['certificate' => 'dbs.pdf']],
+    ])]);
+    bootTenantSession();
+
+    complianceDbsChecks()->submit('2026-03-14', '001234567890');
+
+    Http::assertSent(fn ($request) => str_starts_with($request->header('Content-Type')[0], 'multipart/form-data; boundary=')
+        && ! str_contains($request->body(), 'name="certificate"'));
+});
+
+it('maps a 422 on submit to a validation exception', function () {
+    Http::fake(['api.test/api/v1/compliance/dbs-checks' => Http::response([
+        'message' => 'Please upload a copy of your DBS certificate.',
+        'errors' => ['certificate' => ['Please upload a copy of your DBS certificate.']],
+    ], 422)]);
+    bootTenantSession();
+
+    try {
+        complianceDbsChecks()->submit('2026-03-14', '001234567890');
+        test()->fail('Expected ApiValidationException');
+    } catch (ApiValidationException $e) {
+        expect($e->first('certificate'))->toBe('Please upload a copy of your DBS certificate.');
+    }
+});
+
+it('returns the raw certificate download payload response', function () {
+    Http::fake(['api.test/api/v1/compliance/dbs-checks/7/certificate' => Http::response([
+        'data' => [
+            'download_url' => 'https://s3.test/signed/dbs.pdf',
+            'filename' => 'certificate.pdf',
+            'expires_at' => '2026-06-06T10:05:00Z',
+        ],
+    ])]);
+    bootTenantSession();
+
+    $response = complianceDbsChecks()->downloadCertificate(7);
+
+    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/dbs.pdf')
+        ->and($response->json('data.filename'))->toBe('certificate.pdf');
+    Http::assertSent(fn ($request) => $request->method() === 'GET'
+        && $request->hasHeader('X-Team-ID', '42'));
+});

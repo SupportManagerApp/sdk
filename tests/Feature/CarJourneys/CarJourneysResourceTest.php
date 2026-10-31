@@ -232,3 +232,36 @@ it('deletes a journey record', function () {
 
     Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_contains($r->url(), 'car-journeys/11'));
 });
+
+it('hydrates the meta.can permission flags', function () {
+    Http::fake(['api.test/api/v1/car-journeys/7' => Http::response([
+        'data' => [
+            'type' => 'car-journeys',
+            'id' => '7',
+            'attributes' => ['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00+01:00', 'is_ongoing' => true],
+            'meta' => ['can' => ['update' => true, 'delete' => false]],
+        ],
+        'meta' => ['team_id' => 42],
+    ])]);
+    bootTenantSession();
+
+    $journey = journeys()->find(7);
+
+    expect($journey->canUpdate)->toBeTrue()
+        ->and($journey->canDelete)->toBeFalse();
+});
+
+it('maps a 400 for a privileged-only filter to an api exception', function () {
+    Http::fake(['api.test/api/v1/car-journeys*' => Http::response([
+        'message' => 'Requested filter(s) `ongoing` are not allowed. Allowed filter(s) are `user_id, driver_name`.',
+    ], 400)]);
+    bootTenantSession();
+
+    try {
+        journeys()->query()->filter('ongoing', true)->get();
+        test()->fail('Expected SupportManagerApiException');
+    } catch (SupportManagerApiException $e) {
+        expect($e->getCode())->toBe(400)
+            ->and($e->getMessage())->toContain('not allowed');
+    }
+});

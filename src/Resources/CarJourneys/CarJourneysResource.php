@@ -20,6 +20,13 @@ use SupportManager\Sdk\Resources\Resource;
  * `create()`/`update()`/`destroy()` are the direct record management for
  * back-filling or correcting logged journeys.
  *
+ * Visibility is role-dependent server-side: admins and managers see the full
+ * history and may filter by `trip_start_from`, `trip_start_to` and `ongoing`;
+ * anyone else sees only journeys completed in the last 30 days (plus the
+ * ongoing one by id), may filter only by `user_id` and `driver_name`, and gets
+ * a 400 for the privileged filters. Shift workers get a 403 outside their shift
+ * window (an hour either side of a published shift).
+ *
  * ```php
  * SupportManager::journeys()->query()->filter('ongoing', true)->sort('-trip_start')->get();
  * SupportManager::journeys()->ongoing();
@@ -31,7 +38,9 @@ use SupportManager\Sdk\Resources\Resource;
 final class CarJourneysResource extends Resource
 {
     /**
-     * Create a journey record directly, returning the stored trip.
+     * Create a journey record directly, returning the stored trip. Logging a
+     * journey ends any journey still ongoing for the team (its `trip_end` is
+     * set to now), whoever started it.
      *
      * @param  array<string, mixed>  $data
      */

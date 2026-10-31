@@ -18,6 +18,7 @@ use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
+use SupportManager\Sdk\Resources\Household\ConsumablesResource;
 use SupportManager\Sdk\Resources\Household\KeysafeResource;
 use SupportManager\Sdk\Resources\Household\MealPlanResource;
 use SupportManager\Sdk\Resources\Household\ShoppingListItemsResource;
@@ -174,19 +175,19 @@ final class SupportManager
         return $this->resource(CarJourneysResource::class);
     }
 
-    /** Compliance — DBS checks (read-only). */
+    /** Compliance — DBS checks, with self-submission and certificate download. */
     public function dbsChecks(): DBSChecksResource
     {
         return $this->resource(DBSChecksResource::class);
     }
 
-    /** Compliance — right to work records (read-only). */
+    /** Compliance — right to work records, with self-submission and document downloads. */
     public function rightToWork(): RightToWorkResource
     {
         return $this->resource(RightToWorkResource::class);
     }
 
-    /** Compliance — drivers licence checks (read-only). */
+    /** Compliance — drivers licence checks, with self-submission and result download. */
     public function driversLicenceChecks(): DriversLicenceChecksResource
     {
         return $this->resource(DriversLicenceChecksResource::class);
@@ -204,7 +205,7 @@ final class SupportManager
         return $this->resource(DocumentsResource::class);
     }
 
-    /** Documents — document folders (read-only). */
+    /** Documents — document folders (read-only, with breadcrumb ancestors on find). */
     public function documentFolders(): DocumentFoldersResource
     {
         return $this->resource(DocumentFoldersResource::class);
@@ -244,6 +245,12 @@ final class SupportManager
     public function choreCategories(): ChoreCategoriesResource
     {
         return $this->resource(ChoreCategoriesResource::class);
+    }
+
+    /** Household — consumables and their variants' stock. */
+    public function consumables(): ConsumablesResource
+    {
+        return $this->resource(ConsumablesResource::class);
     }
 
     /** Household — the weekly meal plan (singleton). */

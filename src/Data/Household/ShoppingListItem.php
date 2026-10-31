@@ -7,6 +7,8 @@ namespace SupportManager\Sdk\Data\Household;
 /**
  * A single shared shopping-list item. Mirrors the platform's
  * `ShoppingListItemResource`; `requestedBy` identifies the user who added it.
+ * `section` is the supermarket section (e.g. `dairy_eggs_and_chilled`), null
+ * while the server has not sorted it yet — treat unknown values as unsorted.
  */
 final readonly class ShoppingListItem
 {
@@ -21,6 +23,8 @@ final readonly class ShoppingListItem
         public ?string $requestedByName,
         public ?string $createdAt,
         public ?string $updatedAt,
+        public ?string $section = null,
+        public ?string $notes = null,
     ) {}
 
     /**
@@ -42,6 +46,8 @@ final readonly class ShoppingListItem
             requestedByName: isset($requestedBy['name']) ? (string) $requestedBy['name'] : null,
             createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
             updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
+            section: isset($data['section']) ? (string) $data['section'] : null,
+            notes: isset($data['notes']) ? (string) $data['notes'] : null,
         );
     }
 }

@@ -255,6 +255,13 @@ final class Fake
 
         $registration = $this->matchRegistration($path);
 
+        // A custom route may live outside its factory's collection path (e.g.
+        // `household/consumable-variants/{id}/stock` for consumables), so an
+        // unclaimed path is offered to every registration's routes first.
+        if ($registration === null && ($result = $this->routeAnywhere($method, $path, $request)) !== null) {
+            return $result;
+        }
+
         if ($registration === null) {
             // An unseeded collection reads as empty rather than hitting the
             // network; seed the resource to get records back.
@@ -276,6 +283,25 @@ final class Fake
         }
 
         return $this->rest($registration, $path, $method, $request);
+    }
+
+    /**
+     * Answer a request from any registration's custom routes, or null when none
+     * matches.
+     */
+    private function routeAnywhere(string $method, string $path, Request $request): mixed
+    {
+        foreach ($this->registrations as $registration) {
+            foreach ($registration->routes as $route) {
+                $matches = $route->match($method, $path);
+
+                if ($matches !== null && ($result = ($route->handler)($this->store, $matches, $request, $this)) !== null) {
+                    return $result;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
