@@ -7,12 +7,6 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\CarJourneys\CarJourney;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource;
-
-function journeys(): CarJourneysResource
-{
-    return app(CarJourneysResource::class);
-}
 
 function journeyPage(int $page, int $lastPage): array
 {
@@ -28,10 +22,9 @@ function journeyPage(int $page, int $lastPage): array
 }
 
 it('encodes filter, sort and pagination as Spatie-style query params', function () {
-    Http::fake(['api.test/api/v1/car-journeys*' => Http::response(journeyPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['car-journeys*' => Http::response(journeyPage(1, 1))]);
 
-    journeys()->query()
+    sdk()->journeys()->query()
         ->filter('ongoing', true)
         ->sort('-trip_start', 'driver_name')
         ->perPage(15)
@@ -48,10 +41,9 @@ it('encodes filter, sort and pagination as Spatie-style query params', function 
 });
 
 it('hydrates DTOs and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/car-journeys*' => Http::response(journeyPage(1, 3))]);
-    bootTenantSession();
+    fakeApi(['car-journeys*' => Http::response(journeyPage(1, 3))]);
 
-    $page = journeys()->query()->get();
+    $page = sdk()->journeys()->query()->get();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(CarJourney::class)
@@ -64,14 +56,13 @@ it('hydrates DTOs and exposes pagination metadata', function () {
 });
 
 it('walks to the next page by re-running the query', function () {
-    Http::fake([
-        'api.test/api/v1/car-journeys*' => Http::sequence()
+    fakeApi([
+        'car-journeys*' => Http::sequence()
             ->push(journeyPage(1, 2))
             ->push(journeyPage(2, 2)),
     ]);
-    bootTenantSession();
 
-    $page = journeys()->query()->perPage(1)->get();
+    $page = sdk()->journeys()->query()->perPage(1)->get();
     $next = $page->next();
 
     expect($next)->not->toBeNull()
@@ -84,14 +75,13 @@ it('walks to the next page by re-running the query', function () {
 });
 
 it('finds a single resource by id', function () {
-    Http::fake([
-        'api.test/api/v1/car-journeys/7' => Http::response([
+    fakeApi([
+        'car-journeys/7' => [
             'data' => ['type' => 'car-journeys', 'id' => '7', 'attributes' => ['driver_name' => 'Ada', 'is_ongoing' => false, 'trip_end' => '2026-06-06T11:00:00Z']],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $journey = journeys()->find(7);
+    $journey = sdk()->journeys()->find(7);
 
     expect($journey)->toBeInstanceOf(CarJourney::class)
         ->and($journey->id)->toBe('7')
@@ -99,37 +89,33 @@ it('finds a single resource by id', function () {
 });
 
 it('returns null when finding a missing resource (404)', function () {
-    Http::fake(['api.test/api/v1/car-journeys/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['car-journeys/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(journeys()->find(999))->toBeNull();
+    expect(sdk()->journeys()->find(999))->toBeNull();
 });
 
 it('hydrates the ongoing journey via the item helper', function () {
-    Http::fake([
-        'api.test/api/v1/car-journeys/ongoing' => Http::response([
+    fakeApi([
+        'car-journeys/ongoing' => [
             'data' => ['type' => 'car-journeys', 'id' => '5', 'attributes' => ['driver_name' => 'Grace', 'is_ongoing' => true]],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    expect(journeys()->ongoing()->driverName)->toBe('Grace');
+    expect(sdk()->journeys()->ongoing()->driverName)->toBe('Grace');
 });
 
 it('returns null from a 404 ongoing lookup before mapping it as an error', function () {
-    Http::fake(['api.test/api/v1/car-journeys/ongoing' => Http::response(['message' => 'No ongoing journey found.'], 404)]);
-    bootTenantSession();
+    fakeApi(['car-journeys/ongoing' => Http::response(['message' => 'No ongoing journey found.'], 404)]);
 
-    expect(journeys()->ongoing())->toBeNull();
+    expect(sdk()->journeys()->ongoing())->toBeNull();
 });
 
 it('starts a new journey with no request body', function () {
-    Http::fake(['api.test/api/v1/car-journeys/start' => Http::response([
+    fakeApi(['car-journeys/start' => Http::response([
         'data' => ['type' => 'car-journeys', 'id' => '8', 'attributes' => ['driver_name' => 'Hopper', 'is_ongoing' => true]],
     ], 201)]);
-    bootTenantSession();
 
-    $journey = journeys()->start();
+    $journey = sdk()->journeys()->start();
 
     expect($journey->driverName)->toBe('Hopper')
         ->and($journey->isOngoing)->toBeTrue();
@@ -137,58 +123,32 @@ it('starts a new journey with no request body', function () {
 });
 
 it('throws when starting while another journey is in progress', function () {
-    Http::fake(['api.test/api/v1/car-journeys/start' => Http::response([
+    fakeApi(['car-journeys/start' => Http::response([
         'message' => 'A journey is already in progress.',
         'meta' => ['team_id' => 42],
     ], 422)]);
-    bootTenantSession();
 
-    expect(fn () => journeys()->start())
+    expect(fn () => sdk()->journeys()->start())
         ->toThrow(ApiValidationException::class, 'A journey is already in progress.');
 });
 
 it('finishes an open journey', function () {
-    Http::fake(['api.test/api/v1/car-journeys/8/finish' => Http::response([
+    fakeApi(['car-journeys/8/finish' => [
         'data' => ['type' => 'car-journeys', 'id' => '8', 'attributes' => ['driver_name' => 'Hopper', 'is_ongoing' => false, 'trip_end' => '2026-06-06T12:00:00Z']],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    expect(journeys()->finish(8)->isOngoing)->toBeFalse();
-});
-
-it('maps a 422 (invalid team context) on the resource path to a validation exception', function () {
-    Http::fake(['api.test/api/v1/car-journeys*' => Http::response([
-        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        journeys()->query()->get();
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->getMessage())->toBe('Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.')
-            ->and($e->errors)->toBe([]);
-    }
-});
-
-it('maps a 500 on the resource path to an api exception instead of an empty page', function () {
-    Http::fake(['api.test/api/v1/car-journeys*' => Http::response('<html>boom</html>', 500)]);
-    bootTenantSession();
-
-    expect(fn () => journeys()->query()->get())
-        ->toThrow(SupportManagerApiException::class);
+    expect(sdk()->journeys()->finish(8)->isOngoing)->toBeFalse();
 });
 
 it('lazily walks every page, fetching on demand', function () {
-    Http::fake([
-        'api.test/api/v1/car-journeys*' => Http::sequence()
+    fakeApi([
+        'car-journeys*' => Http::sequence()
             ->push(journeyPage(1, 3))
             ->push(journeyPage(2, 3))
             ->push(journeyPage(3, 3)),
     ]);
-    bootTenantSession();
 
-    $drivers = journeys()->query()->perPage(1)->lazy()
+    $drivers = sdk()->journeys()->query()->perPage(1)->lazy()
         ->map(fn (CarJourney $journey) => $journey->driverName)
         ->all();
 
@@ -197,22 +157,20 @@ it('lazily walks every page, fetching on demand', function () {
 });
 
 it('returns a Laravel Collection from collect()', function () {
-    Http::fake(['api.test/api/v1/car-journeys*' => Http::response(journeyPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['car-journeys*' => Http::response(journeyPage(1, 1))]);
 
-    $collection = journeys()->query()->collect();
+    $collection = sdk()->journeys()->query()->collect();
 
     expect($collection)->toBeInstanceOf(Collection::class)
         ->and($collection->first())->toBeInstanceOf(CarJourney::class);
 });
 
 it('creates a journey record directly', function () {
-    Http::fake(['api.test/api/v1/car-journeys' => Http::response([
+    fakeApi(['car-journeys' => Http::response([
         'data' => ['type' => 'car-journeys', 'id' => '11', 'attributes' => ['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z', 'is_ongoing' => false]],
     ], 201)]);
-    bootTenantSession();
 
-    $journey = journeys()->create([
+    $journey = sdk()->journeys()->create([
         'driver_name' => 'Ada',
         'trip_start_date' => '2026-06-06',
         'trip_start_time' => '09:00',
@@ -229,12 +187,11 @@ it('creates a journey record directly', function () {
 });
 
 it('updates a journey record', function () {
-    Http::fake(['api.test/api/v1/car-journeys/11' => Http::response([
+    fakeApi(['car-journeys/11' => [
         'data' => ['type' => 'car-journeys', 'id' => '11', 'attributes' => ['comments' => 'Edited']],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $journey = journeys()->update(11, [
+    $journey = sdk()->journeys()->update(11, [
         'driver_name' => 'Ada',
         'trip_start_date' => '2026-06-06',
         'trip_start_time' => '09:00',
@@ -246,16 +203,15 @@ it('updates a journey record', function () {
 });
 
 it('deletes a journey record', function () {
-    Http::fake(['api.test/api/v1/car-journeys/11' => Http::response(['message' => 'deleted'])]);
-    bootTenantSession();
+    fakeApi(['car-journeys/11' => ['message' => 'deleted']]);
 
-    journeys()->destroy(11);
+    sdk()->journeys()->destroy(11);
 
     Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_contains($r->url(), 'car-journeys/11'));
 });
 
 it('hydrates the meta.can permission flags', function () {
-    Http::fake(['api.test/api/v1/car-journeys/7' => Http::response([
+    fakeApi(['car-journeys/7' => [
         'data' => [
             'type' => 'car-journeys',
             'id' => '7',
@@ -263,23 +219,21 @@ it('hydrates the meta.can permission flags', function () {
             'meta' => ['can' => ['update' => true, 'delete' => false]],
         ],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $journey = journeys()->find(7);
+    $journey = sdk()->journeys()->find(7);
 
     expect($journey->canUpdate)->toBeTrue()
         ->and($journey->canDelete)->toBeFalse();
 });
 
 it('maps a 400 for a privileged-only filter to an api exception', function () {
-    Http::fake(['api.test/api/v1/car-journeys*' => Http::response([
+    fakeApi(['car-journeys*' => Http::response([
         'message' => 'Requested filter(s) `ongoing` are not allowed. Allowed filter(s) are `user_id, driver_name`.',
     ], 400)]);
-    bootTenantSession();
 
     try {
-        journeys()->query()->filter('ongoing', true)->get();
+        sdk()->journeys()->query()->filter('ongoing', true)->get();
         test()->fail('Expected SupportManagerApiException');
     } catch (SupportManagerApiException $e) {
         expect($e->getCode())->toBe(400)

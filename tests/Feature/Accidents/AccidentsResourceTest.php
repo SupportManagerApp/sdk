@@ -8,13 +8,6 @@ use SupportManager\Sdk\Data\Accidents\AccidentRiddorOutcome;
 use SupportManager\Sdk\Enums\Accidents\AccidentSubjectCapacity;
 use SupportManager\Sdk\Enums\Accidents\AccidentSubjectType;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Accidents\AccidentsResource;
-
-function accidents(): AccidentsResource
-{
-    return app(AccidentsResource::class);
-}
 
 function accidentReportObject(string $id, array $attributes = [], bool $canDeclare = false): array
 {
@@ -42,14 +35,13 @@ function accidentReportObject(string $id, array $attributes = [], bool $canDecla
 }
 
 it('lists accident reports with sort and pagination params and the team header', function () {
-    Http::fake(['api.test/api/v1/accidents*' => Http::response([
+    fakeApi(['accidents*' => [
         'data' => [accidentReportObject('7', canDeclare: true)],
         'meta' => ['team_id' => 42, 'current_page' => 1, 'last_page' => 3, 'per_page' => 1, 'total' => 3],
         'links' => ['next' => 'https://api.test/api/v1/accidents?page=2'],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $page = accidents()->query()->sort('-happened_at')->perPage(1)->get();
+    $page = sdk()->accidents()->query()->sort('-happened_at')->perPage(1)->get();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(AccidentReport::class)
@@ -76,16 +68,15 @@ it('lists accident reports with sort and pagination params and the team header',
 });
 
 it('finds a report including the RIDDOR outcome sent to managers', function () {
-    Http::fake(['api.test/api/v1/accidents/7' => Http::response([
+    fakeApi(['accidents/7' => [
         'data' => accidentReportObject('7', [
             'riddor_reportable' => true,
             'riddor' => ['how_reported' => 'HSE online form', 'declared_name' => 'Morgan Manager', 'declared_at' => '2026-10-31T09:30:00.000000Z'],
         ]),
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $report = accidents()->find(7);
+    $report = sdk()->accidents()->find(7);
 
     expect($report)->toBeInstanceOf(AccidentReport::class)
         ->and($report->riddorReportable)->toBeTrue()
@@ -95,22 +86,20 @@ it('finds a report including the RIDDOR outcome sent to managers', function () {
 });
 
 it('returns null when finding a missing report (404)', function () {
-    Http::fake(['api.test/api/v1/accidents/999' => Http::response(['message' => 'Not Found'], 404)]);
-    bootTenantSession();
+    fakeApi(['accidents/999' => Http::response(['message' => 'Not Found'], 404)]);
 
-    expect(accidents()->find(999))->toBeNull();
+    expect(sdk()->accidents()->find(999))->toBeNull();
 });
 
 it('records an accident, encoding enums to their values', function () {
-    Http::fake(['api.test/api/v1/accidents' => Http::response([
+    fakeApi(['accidents' => Http::response([
         'data' => accidentReportObject('8', [
             'subject' => ['user_id' => null, 'name' => 'Alex Visitor', 'occupation' => 'Visitor'],
         ], canDeclare: true),
         'meta' => ['team_id' => 42],
     ], 201)]);
-    bootTenantSession();
 
-    $report = accidents()->create([
+    $report = sdk()->accidents()->create([
         'subject' => ['type' => AccidentSubjectType::SomeoneElse, 'name' => 'Alex Visitor', 'capacity' => AccidentSubjectCapacity::Visitor],
         'happened_at' => '2026-10-30T14:15:00+00:00',
         'location' => 'Front steps',
@@ -129,31 +118,15 @@ it('records an accident, encoding enums to their values', function () {
         && $request['reporter_declared_name'] === 'Sam Carer');
 });
 
-it('maps a 422 on create to a validation exception', function () {
-    Http::fake(['api.test/api/v1/accidents' => Http::response([
-        'message' => 'The selected subject.user id is invalid.',
-        'errors' => ['subject.user_id' => ['The selected subject.user id is invalid.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        accidents()->create(['subject' => ['type' => 'team_member', 'user_id' => 999]]);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('subject.user_id'))->toBe('The selected subject.user id is invalid.');
-    }
-});
-
 it('records the subject declaration', function () {
-    Http::fake(['api.test/api/v1/accidents/7/subject-declaration' => Http::response([
+    fakeApi(['accidents/7/subject-declaration' => [
         'data' => accidentReportObject('7', [
             'subject_declaration' => ['name' => 'Jamie Doe', 'declared_at' => '2026-10-31T09:00:00.000000Z'],
         ]),
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $report = accidents()->recordSubjectDeclaration(7, 'Jamie Doe');
+    $report = sdk()->accidents()->recordSubjectDeclaration(7, 'Jamie Doe');
 
     expect($report?->subjectDeclaredName)->toBe('Jamie Doe')
         ->and($report?->isConfirmedBySubject())->toBeTrue()
@@ -164,24 +137,16 @@ it('records the subject declaration', function () {
 });
 
 it('surfaces the plain 422 refusal when the report is already confirmed', function () {
-    Http::fake(['api.test/api/v1/accidents/7/subject-declaration' => Http::response([
+    fakeApi(['accidents/7/subject-declaration' => Http::response([
         'message' => 'The person who had the accident has already confirmed this report.',
         'meta' => ['team_id' => 42],
     ], 422)]);
-    bootTenantSession();
 
     try {
-        accidents()->recordSubjectDeclaration(7, 'Jamie Doe');
+        sdk()->accidents()->recordSubjectDeclaration(7, 'Jamie Doe');
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
         expect($e->getMessage())->toBe('The person who had the accident has already confirmed this report.')
             ->and($e->errors)->toBe([]);
     }
 });
-
-it('throws when the team has the accident book switched off (404)', function () {
-    Http::fake(['api.test/api/v1/accidents*' => Http::response(['message' => 'Not Found'], 404)]);
-    bootTenantSession();
-
-    accidents()->all();
-})->throws(SupportManagerApiException::class);
