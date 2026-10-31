@@ -99,3 +99,16 @@ it('acknowledges a policy', function () {
     Http::assertSent(fn ($request) => str_contains($request->url(), 'documents/policies/7/acknowledge')
         && $request->method() === 'POST');
 });
+
+it('reads the first page of policies with all()', function () {
+    fakeApi(['documents/policies*' => Http::response(policyPage(1, 1))]);
+
+    $page = sdk()->policies()->all();
+
+    expect($page->items())->toHaveCount(1)
+        ->and($page->items()[0])->toBeInstanceOf(Policy::class)
+        ->and($page->items()[0]->title)->toBe('Policy 1')
+        ->and($page->hasMorePages())->toBeFalse();
+
+    assertSentTo('GET', 'documents/policies', fn ($request) => $request->hasHeader('X-Team-ID', '42'));
+});

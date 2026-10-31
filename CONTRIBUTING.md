@@ -226,6 +226,11 @@ under [Writing a factory](README.md#writing-a-factory).
   Use the platform's real response body, including the error cases.
 - **Fake tests** go in `tests/Feature/Testing/<Module>FakeTest.php`. Seed the
   factory and drive the resource through `SupportManager::fake()`.
+- **Every public method needs a test that sends its request.** At the end of
+  a full run, `tests/Contract/CoverageTest.php` fails on any public resource
+  method that never sent a contract-validated request. A method that sends
+  nothing (a builder such as `query()`) goes in
+  `tests/Contract/request-free-methods.php` with its reason instead.
 - **Types:** if the method returns something generic, pin it with
   `assertType()` in `tests/types/`, which PHPStan analyses.
 
@@ -381,10 +386,17 @@ groups, because its `meta` group used to rewrite `Resource<…>` to the
   `GET {path}/{id}` in the spec, and one with `all()` or `query()` has
   `GET {path}`. Where the method comes from `Findable` or `Listable`, the
   spec's 200 must also be a JSON:API item or collection, which is what those
-  traits read.
+  traits read. `ResourceQuery`'s public methods are pinned to its builders
+  and its `GET {path}` terminals, so `query()` can't reach another route.
 - `tests/Arch/WiringTest.php`: every resource has exactly one accessor on
   `SupportManager` and a matching facade `@method`, and neither has orphans.
 - `tests/Contract/`: every faked request and response matches the OpenAPI
   spec, and every spec operation is called or listed as unwrapped.
+- `tests/Contract/CoverageTest.php` (method coverage): every public method on
+  a resource, its own or from a trait, sends a request that passes contract
+  validation in at least one test, or is listed in
+  `tests/Contract/request-free-methods.php` as sending nothing. With the
+  contract check, every public resource method reaches a documented route.
+  It runs on full, single-process runs only.
 - PHPStan at level 8, including the `assertType()` probes in `tests/types/`.
 - Pint, configured by `pint.json`.
