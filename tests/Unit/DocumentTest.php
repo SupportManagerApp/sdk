@@ -71,3 +71,18 @@ it('exposes side-loaded included resources', function () {
         ->and($document->included()[0]->type)->toBe('users')
         ->and($document->included()[0]->attribute('name'))->toBe('Ada');
 });
+
+it('keeps a resource object\'s own meta apart from its flattened attributes', function () {
+    $resource = Document::fromArray([
+        'data' => [
+            'type' => 'accident_reports',
+            'id' => '7',
+            'attributes' => ['location' => 'Kitchen'],
+            'meta' => ['can' => ['record_subject_declaration' => true]],
+        ],
+    ])->resource();
+
+    expect($resource?->meta)->toBe(['can' => ['record_subject_declaration' => true]])
+        ->and($resource?->flat())->toBe(['id' => '7', 'type' => 'accident_reports', 'location' => 'Kitchen'])
+        ->and(Document::fromArray(['data' => ['type' => 'x', 'id' => '1', 'attributes' => []]])->resource()?->meta)->toBe([]);
+});

@@ -5,25 +5,28 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Http;
 
 /**
- * A single JSON:API resource object — the `{type, id, attributes, relationships}`
- * shape the platform emits via Laravel's native JSON:API resources.
+ * A single JSON:API resource object — the `{type, id, attributes, relationships,
+ * meta}` shape the platform emits via Laravel's native JSON:API resources.
  *
  * JSON:API splits the identifier out of the attribute bag and always serialises
  * it as a string. {@see self::flat()} folds `id` (and `type`) back in so a DTO's
  * `fromArray()` can read every field from one associative array, the same way it
- * would a flat payload.
+ * would a flat payload. The per-resource `meta` (e.g. `meta.can` permission
+ * flags) is kept apart in {@see self::$meta} rather than mixed into `flat()`.
  */
 final readonly class ResourceObject
 {
     /**
      * @param  array<string, mixed>  $attributes
      * @param  array<string, mixed>  $relationships
+     * @param  array<string, mixed>  $meta
      */
     public function __construct(
         public ?string $type,
         public ?string $id,
         public array $attributes,
         public array $relationships = [],
+        public array $meta = [],
     ) {}
 
     /**
@@ -36,6 +39,7 @@ final readonly class ResourceObject
             id: isset($data['id']) ? (string) $data['id'] : null,
             attributes: $data['attributes'] ?? [],
             relationships: $data['relationships'] ?? [],
+            meta: $data['meta'] ?? [],
         );
     }
 
