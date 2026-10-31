@@ -136,6 +136,7 @@ final class FakeRoute
      * the record whose id is the pattern's first placeholder isn't stored.
      * `$changes` are merged into the record as it's downloaded (e.g.
      * `['viewed' => true]`); a `$filename` adds a `Content-Disposition` header.
+     * The SDK reads the answer back as a {@see \SupportManager\Sdk\Http\Download}.
      *
      * @param  array<string, mixed>  $changes
      */
@@ -159,7 +160,8 @@ final class FakeRoute
 
     /**
      * A `GET` that answers a short-lived signed link to a stored record's file,
-     * as the flat `{data: {download_url, filename, expires_at}}` body. It 404s
+     * as the flat `{data: {download_url, filename, expires_at}}` body the SDK
+     * reads back as a {@see \SupportManager\Sdk\Http\DownloadLink}. It 404s
      * when the record isn't stored or has no file.
      *
      * `$filename` names the attribute holding the stored filename, or is a

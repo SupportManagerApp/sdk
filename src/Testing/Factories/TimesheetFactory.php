@@ -12,11 +12,12 @@ use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
  * Fake monthly timesheets.
  *
  * A JSON:API collection (type `timesheets`): generic list/find come for free;
- * this factory adds the raw PDF `{id}/download`.
+ * this factory adds the raw PDF `{id}/download`, read back as a
+ * {@see \SupportManager\Sdk\Http\Download}.
  *
  * ```php
  * SupportManager::fake()->seed(TimesheetFactory::new()->count(3)->approved());
- * SupportManager::timesheets()->download(1);
+ * SupportManager::timesheets()->download(1)->body(); // '%PDF-1.4 timesheet-bytes'
  * ```
  */
 final class TimesheetFactory extends Factory implements ProvidesFakeRoutes

@@ -14,12 +14,12 @@ use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
  *
  * JSON:API collection (`documents`), so generic CRUD comes for free from the
  * resource path. This factory adds the non-RESTful `download()` action, which
- * returns a flat `{data: {download_url, filename, expires_at}}` payload the
- * resource hands back raw.
+ * answers a flat `{data: {download_url, filename, expires_at}}` payload, read
+ * back as a {@see \SupportManager\Sdk\Http\DownloadLink}.
  *
  * ```php
  * SupportManager::fake()->seed(DocumentFactory::new()->count(3));
- * SupportManager::documents()->download(1)->json('data.download_url');
+ * SupportManager::documents()->download(1)->url; // https://s3.test/signed/1.pdf
  * ```
  */
 final class DocumentFactory extends Factory implements ProvidesFakeRoutes
