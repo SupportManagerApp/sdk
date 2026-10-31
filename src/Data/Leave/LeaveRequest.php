@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Leave\LeaveDurationType;
 use SupportManager\Sdk\Enums\Leave\LeaveStatus;
 
@@ -23,6 +26,7 @@ final readonly class LeaveRequest
         public string $id,
         public ?int $teamId,
         public ?int $userId,
+        #[From('user.name')]
         public ?string $userName,
         public ?string $startDate,
         public ?string $endDate,
@@ -37,8 +41,11 @@ final readonly class LeaveRequest
         public ?string $approverComments,
         public ?string $createdAt,
         public ?string $updatedAt,
+        #[Can('edit_dates')]
         public ?bool $canEditDates,
+        #[Can('cancel')]
         public ?bool $canCancel,
+        #[Can('request_reapproval')]
         public ?bool $canRequestReapproval,
     ) {}
 
@@ -48,32 +55,6 @@ final readonly class LeaveRequest
      */
     public static function fromArray(array $data, array $meta = []): self
     {
-        /** @var array{id?: mixed, name?: mixed} $user */
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-        /** @var array<string, mixed> $can */
-        $can = is_array($meta['can'] ?? null) ? $meta['can'] : [];
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            userId: isset($data['user_id']) ? (int) $data['user_id'] : null,
-            userName: isset($user['name']) ? (string) $user['name'] : null,
-            startDate: isset($data['start_date']) ? (string) $data['start_date'] : null,
-            endDate: isset($data['end_date']) ? (string) $data['end_date'] : null,
-            type: LeaveDurationType::tryFrom((string) ($data['type'] ?? '')),
-            typeLabel: isset($data['type_label']) ? (string) $data['type_label'] : null,
-            leaveType: isset($data['leave_type']) ? (string) $data['leave_type'] : null,
-            leaveTypeLabel: isset($data['leave_type_label']) ? (string) $data['leave_type_label'] : null,
-            status: LeaveStatus::tryFrom((string) ($data['status'] ?? '')),
-            hours: (float) ($data['hours'] ?? 0),
-            sleeps: (float) ($data['sleeps'] ?? 0),
-            requesterComments: isset($data['requester_comments']) ? (string) $data['requester_comments'] : null,
-            approverComments: isset($data['approver_comments']) ? (string) $data['approver_comments'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            canEditDates: isset($can['edit_dates']) ? (bool) $can['edit_dates'] : null,
-            canCancel: isset($can['cancel']) ? (bool) $can['cancel'] : null,
-            canRequestReapproval: isset($can['request_reapproval']) ? (bool) $can['request_reapproval'] : null,
-        );
+        return Hydrator::hydrate(self::class, [...$data, 'meta' => $meta]);
     }
 }

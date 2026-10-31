@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * An estimated-pay projection for a single month. Mirrors the platform's
  * `EstimatedPayResource`.
@@ -42,19 +44,12 @@ final readonly class EstimatedPay
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            year: (int) ($data['year'] ?? 0),
-            month: (int) ($data['month'] ?? 0),
-            monthLabel: isset($data['month_label']) ? (string) $data['month_label'] : null,
-            hours: self::money($data['hours'] ?? null),
-            sleeps: self::money($data['sleeps'] ?? null),
-            enhancements: self::enhancements($data['enhancements'] ?? null),
-            grandTotal: self::money($data['grand_total'] ?? null),
-            grossPay: isset($data['gross_pay']) ? (float) $data['gross_pay'] : null,
-            netPay: isset($data['net_pay']) ? (float) $data['net_pay'] : null,
-            deductionsTotal: isset($data['deductions_total']) ? (float) $data['deductions_total'] : null,
-            deductions: is_array($data['deductions'] ?? null) ? EstimatedPayDeductions::fromArray($data['deductions']) : null,
-        );
+        return Hydrator::hydrate(self::class, $data, [
+            'hours' => self::money($data['hours'] ?? null),
+            'sleeps' => self::money($data['sleeps'] ?? null),
+            'enhancements' => self::enhancements($data['enhancements'] ?? null),
+            'grandTotal' => self::money($data['grand_total'] ?? null),
+        ]);
     }
 
     /**

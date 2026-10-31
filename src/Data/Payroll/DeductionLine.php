@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One ad-hoc deduction row — a payroll correction or an attachment/earnings
  * order — as a description and the amount taken.
@@ -23,9 +25,6 @@ final readonly class DeductionLine
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            description: (string) ($data['description'] ?? ''),
-            amount: (float) ($data['amount'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

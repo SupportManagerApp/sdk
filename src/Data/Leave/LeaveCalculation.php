@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The balance impact of a prospective leave request: how much leave it needs,
  * the user's balance for the leave year it falls in, and what would remain
@@ -28,20 +30,12 @@ final readonly class LeaveCalculation
      */
     public static function fromArray(array $data): self
     {
-        /** @var array<string, mixed> $requirement */
-        $requirement = is_array($data['requirement'] ?? null) ? $data['requirement'] : [];
         /** @var array<string, mixed> $current */
         $current = is_array($data['current_balance'] ?? null) ? $data['current_balance'] : [];
-        /** @var array<string, mixed> $after */
-        $after = is_array($data['balance_after_request'] ?? null) ? $data['balance_after_request'] : [];
 
-        $year = isset($data['year']) ? (int) $data['year'] : null;
-
-        return new self(
-            year: $year,
-            requirement: LeaveAmount::fromArray($requirement),
-            currentBalance: LeaveBalance::fromArray([...$current, 'year' => $year]),
-            balanceAfterRequest: LeaveAmount::fromArray($after),
-        );
+        // The balance block carries no year of its own; it is the calculation's.
+        return Hydrator::hydrate(self::class, $data, [
+            'currentBalance' => LeaveBalance::fromArray([...$current, 'year' => $data['year'] ?? null]),
+        ]);
     }
 }

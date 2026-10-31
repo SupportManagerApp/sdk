@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * An amount of leave on both axes — hours and sleeping-nights — such as what a
  * prospective request needs, or what would be left after it.
@@ -20,9 +22,6 @@ final readonly class LeaveAmount
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            hours: (float) ($data['hours'] ?? 0),
-            sleeps: (float) ($data['sleeps'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

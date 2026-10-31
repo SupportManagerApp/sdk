@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The deductions breakdown of an estimated-pay projection — the figures that
  * bridge gross to net.
@@ -26,7 +29,9 @@ final readonly class EstimatedPayDeductions
         public float $pension,
         public float $studentLoan,
         public float $postgraduateLoan,
+        #[ListOf(DeductionLine::class)]
         public array $corrections,
+        #[ListOf(DeductionLine::class)]
         public array $earningsOrders,
     ) {}
 
@@ -35,29 +40,6 @@ final readonly class EstimatedPayDeductions
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            incomeTax: (float) ($data['income_tax'] ?? 0),
-            nationalInsurance: (float) ($data['national_insurance'] ?? 0),
-            pension: (float) ($data['pension'] ?? 0),
-            studentLoan: (float) ($data['student_loan'] ?? 0),
-            postgraduateLoan: (float) ($data['postgraduate_loan'] ?? 0),
-            corrections: self::lines($data['corrections'] ?? null),
-            earningsOrders: self::lines($data['earnings_orders'] ?? null),
-        );
-    }
-
-    /**
-     * @return list<DeductionLine>
-     */
-    private static function lines(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(
-            static fn (mixed $row): DeductionLine => DeductionLine::fromArray(is_array($row) ? $row : []),
-            $value,
-        ));
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The leave years the authenticated user can browse — every year from the one
  * their employment started in ({@see $minimum}) to the later of the current
@@ -24,10 +27,12 @@ final readonly class LeaveYears
      * @param  array<int, string>  $labels
      */
     public function __construct(
+        #[ListOf('int')]
         public array $years,
         public ?int $minimum,
         public ?int $maximum,
         public int $current,
+        #[ListOf('int')]
         public array $locked,
         public array $labels,
     ) {}
@@ -45,14 +50,7 @@ final readonly class LeaveYears
             }
         }
 
-        return new self(
-            years: self::years($data['years'] ?? null),
-            minimum: isset($data['minimum']) ? (int) $data['minimum'] : null,
-            maximum: isset($data['maximum']) ? (int) $data['maximum'] : null,
-            current: (int) ($data['current'] ?? 0),
-            locked: self::years($data['locked'] ?? null),
-            labels: $labels,
-        );
+        return Hydrator::hydrate(self::class, $data, ['labels' => $labels]);
     }
 
     /**
@@ -62,13 +60,5 @@ final readonly class LeaveYears
     public function isLocked(int $year): bool
     {
         return in_array($year, $this->locked, true);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private static function years(mixed $value): array
-    {
-        return is_array($value) ? array_values(array_map(intval(...), $value)) : [];
     }
 }
