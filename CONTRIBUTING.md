@@ -264,22 +264,20 @@ Add your change to `CHANGELOG.md` under the next version's heading, in the
 existing style: a **Breaking** section for anything that can break a caller
 (say what to change), then **Added**, **Deprecated** and **Fixed**.
 
-The SDK follows semver, pre-1.0:
-
-- A **breaking change** bumps the minor version (`0.1.x` → `0.2.0`). Breaking
-  includes removing or renaming a public method or class, changing a
-  signature or a return type, inserting a DTO constructor parameter mid-list or
-  removing its default, and changing what a test fake answers.
-- **Anything else** bumps the patch version (`0.2.0` → `0.2.1`). That includes
-  new endpoints, new DTO parameters appended with defaults, fixes, and
-  deprecations.
+While the SDK is pre-1.0, releases are `0.0.x`: every release bumps the patch
+version (`0.0.3` → `0.0.4`), whether or not it breaks anything. A release may
+contain breaking changes, so list every one under **Breaking**, with what the
+caller has to change. Breaking includes removing or renaming a public method or
+class, changing a signature or a return type, inserting a DTO constructor
+parameter mid-list or removing its default, and changing what a test fake
+answers.
 
 To release, merge the release PR into `main`, then tag the merge commit and
 push the tag:
 
 ```bash
-git tag -a v0.2.0 -m "v0.2.0" <merge-commit-sha>
-git push origin v0.2.0
+git tag -a v0.0.3 -m "v0.0.3" <merge-commit-sha>
+git push origin v0.0.3
 ```
 
 Packagist reads the version from the git tag. There is no version string in
@@ -319,7 +317,7 @@ place, such as `leaveRequests()->cancel()` (`PATCH leave/requests/{id}/cancel`).
 ### Renaming a public method
 
 A rename breaks callers, so keep the old name as a deprecated proxy for at least
-one minor release:
+one release:
 
 ```php
 public function destroy(string|int $id): void

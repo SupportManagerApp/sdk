@@ -1,13 +1,24 @@
 # Changelog
 
-All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, breaking changes bump the minor version (see `CONTRIBUTING.md`), and they are always listed under **Breaking**.
+All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, every release bumps the patch version (`0.0.x`) and may contain breaking changes; they are always listed under **Breaking** (see `CONTRIBUTING.md`).
 
-## v0.2.0 — 2026-10-31
+## v0.0.3 — 2026-10-31
 
-An internal rework that makes the SDK cheaper to extend and checks it against the platform's API spec, plus fixes for the bugs that check found. Adding an endpoint is now a typed DTO, one resource method using the base helpers, and a short test. `CONTRIBUTING.md` walks through it end to end.
+An internal rework that makes the SDK cheaper to extend and checks it against the platform's API spec, plus fixes for the bugs that check found. It also includes the leave-calculation and journey-start fixes that were merged as v0.1.0 but never tagged, so v0.1.0 was not released. Adding an endpoint is now a typed DTO, one resource method using the base helpers, and a short test. `CONTRIBUTING.md` walks through it end to end.
 
 ### Breaking
 
+- **`leaveBalance()->calculate()`** now returns a `LeaveCalculation` instead of a `LeaveBalance`. It used to read the response as a balance, so its hours and sleeps always came back as zero. `LeaveCalculation` has:
+  - `requirement`: the hours and sleeps the request needs
+  - `currentBalance`: the user's balance for that leave year, as a `LeaveBalance`
+  - `balanceAfterRequest`: what would be left; a negative value means the request would overdraw the balance
+  - `year`
+
+  Replace `calculate(...)->hours->remaining` with `calculate(...)->balanceAfterRequest->hours`, or with `->currentBalance->hours->remaining` if you want the balance before the request.
+- **`journeys()->start()`** takes no arguments. The platform always ignored `$driverName` and `$comments`: it records the signed-in user as the driver and leaves comments empty, so set comments afterwards with `update()`. It also never closed an open journey. It refuses with a 422, which the SDK now documents as an `ApiValidationException` ("A journey is already in progress."). Call `finish()` on the open journey first.
+- **Test fakes:**
+  - The `leave/balance/calculate` fake now returns the platform's response shape. It takes the requirement off the seeded balance; the default is one 8-hour day, and `LeaveBalanceFactory::calculating($hours, $sleeps)` sets your own.
+  - The `car-journeys/start` fake now refuses with a 422 while a journey is open, instead of closing it. The driver it records defaults to `Fake User`; set it with `CarJourneyFactory::startedBy($name)`.
 - **Downloads return typed results** and throw `SupportManagerApiException` on an error response, instead of returning the raw `Response`.
   - **Return `Http\Download`** (`body()`, `filename()`, `mimeType()`, `size()`, `saveTo()`, `response()`):
     - `payslips()`, `p45s()`, `p60s()` and `timesheets()`: `download()`
@@ -69,27 +80,6 @@ These still work, and raise `E_USER_DEPRECATED` pointing at the new name:
   - DTO constructors only grow at the end, checked by a snapshot.
   - Backed enums, strict types and layer boundaries.
 - **Docs:** `CONTRIBUTING.md`, a guide to adding an endpoint end to end, plus the conventions.
-
-## v0.1.0 — 2026-10-31
-
-Fixes two SDK calls that didn't match the platform. Both fixes change a public signature.
-
-### Breaking
-
-- **`leaveBalance()->calculate()`** now returns a `LeaveCalculation` instead of a `LeaveBalance`. It used to read the response as a balance, so its hours and sleeps always came back as zero. `LeaveCalculation` has:
-  - `requirement`: the hours and sleeps the request needs
-  - `currentBalance`: the user's balance for that leave year, as a `LeaveBalance`
-  - `balanceAfterRequest`: what would be left; a negative value means the request would overdraw the balance
-  - `year`
-
-  Replace `calculate(...)->hours->remaining` with `calculate(...)->balanceAfterRequest->hours`, or with `->currentBalance->hours->remaining` if you want the balance before the request.
-- **`journeys()->start()`** takes no arguments. The platform always ignored `$driverName` and `$comments`: it records the signed-in user as the driver and leaves comments empty, so set comments afterwards with `update()`. It also never closed an open journey. It refuses with a 422, which the SDK now documents as an `ApiValidationException` ("A journey is already in progress."). Call `finish()` on the open journey first.
-- **Test fakes:**
-  - The `leave/balance/calculate` fake now returns the platform's response shape. It takes the requirement off the seeded balance; the default is one 8-hour day, and `LeaveBalanceFactory::calculating($hours, $sleeps)` sets your own.
-  - The `car-journeys/start` fake now refuses with a 422 while a journey is open, instead of closing it. The driver it records defaults to `Fake User`; set it with `CarJourneyFactory::startedBy($name)`.
-
-### Added
-
 - `Data\Leave\LeaveCalculation` and `Data\Leave\LeaveAmount`.
 
 ## v0.0.2 — 2026-10-31
