@@ -17,8 +17,10 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * Generic CRUD (list, find, create, update, delete) comes for free from the
  * resource path; this factory adds the module's non-RESTful actions — the single
- * {@see ongoing()} trip, {@see start()}ing one (which auto-closes any open trip,
- * as the server does), and {@see finish()}ing one by id.
+ * {@see ongoing()} trip, {@see start()}ing one (which auto-closes any open trip),
+ * and {@see finish()}ing one by id — and, like the platform, logging a journey
+ * directly (`create()`) ends any journey still ongoing. Seeded journeys are
+ * editable by default; {@see locked()} clears their `meta.can` flags.
  *
  * ```php
  * SupportManager::fake()->seed(
@@ -52,7 +54,17 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
             'comments' => null,
             'created_at' => '2026-01-01T09:00:00Z',
             'updated_at' => '2026-01-01T10:00:00Z',
+            'meta' => ['can' => ['update' => true, 'delete' => true]],
         ];
+    }
+
+    /**
+     * Seed the journey as one the authenticated user may no longer change
+     * (someone else's, or past the 12-hour edit window).
+     */
+    public function locked(): static
+    {
+        return $this->state(['meta' => ['can' => ['update' => false, 'delete' => false]]]);
     }
 
     /**
@@ -70,6 +82,21 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // Logging a journey ends any ongoing one, then falls through to the
+            // generic create.
+            FakeRoute::post('car-journeys', static function (RecordStore $store): mixed {
+                foreach ($store->all('car-journeys') as $record) {
+                    if ($record['is_ongoing'] ?? false) {
+                        $store->update('car-journeys', (string) $record['id'], [
+                            'is_ongoing' => false,
+                            'trip_end' => '2026-01-01T10:00:00Z',
+                        ]);
+                    }
+                }
+
+                return null;
+            }),
+
             FakeRoute::get('car-journeys/ongoing', static function (RecordStore $store): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {

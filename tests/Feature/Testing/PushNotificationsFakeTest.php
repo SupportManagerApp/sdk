@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SupportManager\Sdk\Data\PushNotifications\DeviceToken;
 use SupportManager\Sdk\Data\PushNotifications\PushNotificationStatus;
 use SupportManager\Sdk\Enums\PushNotifications\DevicePlatform;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\DeviceTokenFactory;
 
@@ -67,3 +68,11 @@ it('dismisses the setup prompt without error', function () {
 
     SupportManager::deviceTokens()->dismissPrompt();
 })->throwsNoExceptions();
+
+it('throws when deleting a token id that is not the user\'s', function () {
+    SupportManager::fake()->seed(DeviceTokenFactory::new()->count(1));
+
+    expect(fn () => SupportManager::deviceTokens()->destroy(999))
+        ->toThrow(SupportManagerApiException::class);
+    expect(SupportManager::deviceTokens()->status()->tokenCount)->toBe(1);
+});
