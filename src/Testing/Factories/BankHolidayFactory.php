@@ -20,9 +20,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * ```php
  * SupportManager::fake()->seed(BankHolidayFactory::new()->count(2));
- * SupportManager::rotaCalendar()->bankHolidays([
- *     'filter' => ['start_date' => '2026-01-01', 'end_date' => '2026-12-31'],
- * ]);
+ * SupportManager::rotaCalendar()->bankHolidays('2026-01-01', '2026-12-31');
  * ```
  */
 final class BankHolidayFactory extends Factory implements ProvidesFakeRoutes

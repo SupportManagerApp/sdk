@@ -18,7 +18,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * ```php
  * SupportManager::fake()->seed(AnniversaryFactory::new()->count(2));
- * SupportManager::rotaCalendar()->anniversaries();
+ * SupportManager::rotaCalendar()->anniversaries('2026-06-01', '2026-06-30');
  * ```
  */
 final class AnniversaryFactory extends Factory implements ProvidesFakeRoutes
