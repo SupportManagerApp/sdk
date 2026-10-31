@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Profile;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
 use SupportManager\Sdk\Data\Profile\UserOption;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -22,8 +19,8 @@ use SupportManager\Sdk\Resources\Resource;
  * routes (a 422 "Invalid or missing team" without it). It still hand-rolls
  * {@see self::list()} and {@see self::find()} — rather than the base
  * `query()`/`all()` — for its flat Spatie filter params and null-on-404
- * lookup, but routes them through the tenant-scoped {@see Resource::tenant()}
- * helper so each carries the current team's id.
+ * lookup, but routes them through the tenant-scoped base helpers so each
+ * carries the current team's id.
  *
  * ```php
  * SupportManager::users()->list(['search' => 'ada']);
@@ -45,16 +42,7 @@ final class UsersResource extends Resource
      */
     public function list(array $filters = []): array
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('users', $filters),
-        );
-
-        $this->throwForErrorResponse($response, 'users');
-
-        return array_map(
-            $this->hydrate(...),
-            Document::fromArray($response->json() ?? [])->resources(),
-        );
+        return $this->collection($this->get($this->path(), $filters));
     }
 
     /**
@@ -66,16 +54,7 @@ final class UsersResource extends Resource
      */
     public function options(): array
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('users/options'),
-        );
-
-        $this->throwForErrorResponse($response, 'users/options');
-
-        return array_map(
-            static fn (ResourceObject $resource): UserOption => UserOption::fromArray($resource->flat()),
-            Document::fromArray($response->json() ?? [])->resources(),
-        );
+        return $this->collection($this->get("{$this->path()}/options"), UserOption::class);
     }
 
     /**
@@ -84,19 +63,13 @@ final class UsersResource extends Resource
      */
     public function find(string|int $id): ?DirectoryUser
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get("users/{$id}"),
-        );
+        $response = $this->get("{$this->path()}/{$id}");
 
         if ($response->status() === 404) {
             return null;
         }
 
-        $this->throwForErrorResponse($response, "users/{$id}");
-
-        $resource = Document::fromArray($response->json() ?? [])->resource();
-
-        return $resource === null ? null : $this->hydrate($resource);
+        return $this->item($response);
     }
 
     protected function path(): string
