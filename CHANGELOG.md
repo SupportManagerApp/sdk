@@ -30,6 +30,7 @@ An internal rework that makes the SDK cheaper to extend and checks it against th
     - `rightToWork()->downloadPrimaryDocument()` and `downloadSupportingDocument()`
     - `driversLicenceChecks()->downloadCheckResultDocument()`
     - `signatureRequests()->downloadSigned()`
+- **`ResourceQuery::find()` is removed.** It let any resource with `query()` call `GET {path}/{id}`, including 11 where that route doesn't exist, for example `chores()->query()->find(1)`. Use the resource's own `find($id)`, which exists only where the route does.
 - **`find()`, `all()` and `query()` exist only where the platform has the route.** They used to be inherited by every resource, so calls like `chores()->find()` failed with a 405 against the real platform. They now come from the `Resources\Concerns\Listable` (`query()`, `all()`) and `Findable` (`find()`) traits, and an architecture test checks each against the spec.
   - **No longer offer any of the three:** `dashboard()`, `keysafe()`, `mealPlan()`, `leaveAdmin()`, `leaveBalance()`, `automaticPayEnhancements()`, `estimatedPay()`, `starterDeclaration()`, `profile()`, `rotaCalendar()`, `quickAdd()`, `shiftBlocks()`.
   - **No longer offer `find()`:** `choreCategories()`, `chores()`, `consumables()`, `shoppingList()`, `leaveEntitlements()`, `leaveAdjustments()`, `leaveNotWorkingNotices()`, `deviceTokens()`, `shiftAmendmentRequests()`, `shiftApplications()`, `shiftRequests()`.
@@ -79,6 +80,7 @@ These still work, and raise `E_USER_DEPRECATED` pointing at the new name:
   - `final readonly` DTOs using the hydrator.
   - DTO constructors only grow at the end, checked by a snapshot.
   - Backed enums, strict types and layer boundaries.
+- **Route guarantee:** every public resource method must send a contract-validated request in at least one test, or the suite fails. Combined with the spec check, no public SDK method can call a route the platform doesn't have. The auth client's 15 paths were checked against the spec by hand.
 - **Docs:** `CONTRIBUTING.md`, a guide to adding an endpoint end to end, plus the conventions.
 - `Data\Leave\LeaveCalculation` and `Data\Leave\LeaveAmount`.
 

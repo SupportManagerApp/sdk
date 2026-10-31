@@ -311,7 +311,7 @@ final class SupportManagerClient
 
     /**
      * A pre-configured request for tenant-scoped module endpoints, e.g.
-     * `$client->authenticated($token, $teamId)->get('payroll/...')`. The path
+     * `$client->authenticated($token, $teamId)->get('payroll/payslips')`. The path
      * is relative to /api/v1.
      */
     public function authenticated(string $accessToken, ?int $teamId = null): PendingRequest

@@ -38,7 +38,7 @@ final readonly class AuthenticatedApi
      *
      * The callback receives a {@see PendingRequest} already carrying the access
      * token (and X-Team-ID when $teamId is given) and must return the
-     * {@see Response}, e.g. `fn ($request) => $request->get('payroll/me')`.
+     * {@see Response}, e.g. `fn ($request) => $request->get('payroll/payslips')`.
      *
      * @param  Closure(PendingRequest): Response  $callback
      *
