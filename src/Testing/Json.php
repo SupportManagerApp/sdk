@@ -34,7 +34,9 @@ final class Json
     }
 
     /**
-     * Wrap a list of records as a collection document with pagination metadata.
+     * Wrap a list of records as a collection document. `meta` and `links` are
+     * emitted only when given, as the platform emits them only for paginated
+     * (or explicitly decorated) collections.
      *
      * @param  list<array<string, mixed>>  $records
      * @param  array<string, mixed>  $meta
@@ -47,7 +49,11 @@ final class Json
             ? array_values($records)
             : array_map(static fn (array $record): array => self::object($type, $record), array_values($records));
 
-        return ['data' => $data, 'meta' => $meta, 'links' => $links];
+        return [
+            'data' => $data,
+            ...($meta === [] ? [] : ['meta' => $meta]),
+            ...($links === [] ? [] : ['links' => $links]),
+        ];
     }
 
     /**

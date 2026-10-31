@@ -6,7 +6,7 @@ use SupportManager\Sdk\Data\AuthTokens;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\Tests\TestCase;
 
-pest()->extend(TestCase::class)->in('Feature', 'Unit');
+pest()->extend(TestCase::class)->in('Feature', 'Unit', 'Contract');
 
 /**
  * Boot a real, container-wired session with a cached current team so tenant

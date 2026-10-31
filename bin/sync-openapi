@@ -58,12 +58,12 @@ passthru($command, $status);
 $yaml = is_file($tmp) ? (string) file_get_contents($tmp) : '';
 @unlink($tmp);
 
-if ($status !== 0 || ! str_starts_with(ltrim($yaml), 'openapi:')) {
+if ($status !== 0 || ! str_starts_with(mb_ltrim($yaml), 'openapi:')) {
     fwrite(STDERR, "The platform did not produce an OpenAPI document (exit {$status}).\n");
     exit(1);
 }
 
-$git = static fn (string $args): string => trim((string) shell_exec(
+$git = static fn (string $args): string => mb_trim((string) shell_exec(
     'git -C '.escapeshellarg($platform).' '.$args.' 2>/dev/null',
 ));
 
