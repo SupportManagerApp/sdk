@@ -41,7 +41,11 @@
     },
     "scripts": {
         "analyse": "phpstan analyse --memory-limit=1G",
+        "sync-openapi": "@php bin/sync-openapi",
         "test": "pest"
+    },
+    "scripts-descriptions": {
+        "sync-openapi": "Regenerate tests/Contract/openapi.yaml from a platform checkout (path argument or SUPPORTMANAGER_PLATFORM_PATH)."
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
