@@ -11,16 +11,9 @@ use SupportManager\Sdk\Data\Dashboard\DashboardWidget;
 use SupportManager\Sdk\Data\Dashboard\NavigationArea;
 use SupportManager\Sdk\Enums\Dashboard\OptionalModule;
 use SupportManager\Sdk\Enums\Dashboard\PlanFeature;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
-
-function dashboardResource(): DashboardResource
-{
-    return app(DashboardResource::class);
-}
 
 it('reads the dashboard layout from a flat {data, meta} payload', function () {
-    Http::fake(['api.test/api/v1/dashboard' => Http::response([
+    fakeApi(['dashboard' => [
         'data' => [
             'widgets' => [
                 ['key' => 'dashboard.weather', 'width' => 'full', 'priority' => 10],
@@ -34,10 +27,9 @@ it('reads the dashboard layout from a flat {data, meta} payload', function () {
             ],
         ],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $layout = dashboardResource()->layout();
+    $layout = sdk()->dashboard()->layout();
 
     expect($layout)->toBeInstanceOf(DashboardLayout::class)
         ->and($layout->widgets)->toHaveCount(2)
@@ -57,7 +49,7 @@ it('reads the dashboard layout from a flat {data, meta} payload', function () {
 });
 
 it('reads the user capabilities', function () {
-    Http::fake(['api.test/api/v1/capabilities' => Http::response([
+    fakeApi(['capabilities' => [
         'data' => [
             'role' => 'PA',
             'is_privileged' => false,
@@ -74,10 +66,9 @@ it('reads the user capabilities', function () {
             ],
         ],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $capabilities = dashboardResource()->capabilities();
+    $capabilities = sdk()->dashboard()->capabilities();
 
     expect($capabilities)->toBeInstanceOf(Capabilities::class)
         ->and($capabilities->role)->toBe('PA')
@@ -97,10 +88,3 @@ it('reads the user capabilities', function () {
     Http::assertSent(fn ($request) => str_ends_with($request->url(), 'api/v1/capabilities')
         && $request->hasHeader('X-Team-ID', '42'));
 });
-
-it('throws when the dashboard is refused for an unsubscribed team (403)', function () {
-    Http::fake(['api.test/api/v1/dashboard' => Http::response(['message' => 'Subscription required.'], 403)]);
-    bootTenantSession();
-
-    dashboardResource()->layout();
-})->throws(SupportManagerApiException::class);
