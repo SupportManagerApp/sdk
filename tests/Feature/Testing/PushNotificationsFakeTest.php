@@ -67,7 +67,9 @@ it('dismisses the setup prompt without error', function () {
     SupportManager::fake()->seed(DeviceTokenFactory::new()->count(1));
 
     SupportManager::deviceTokens()->dismissPrompt();
-})->throwsNoExceptions();
+
+    expect(SupportManager::deviceTokens()->status()->promptDismissed)->toBeTrue();
+});
 
 it('throws when deleting a token id that is not the user\'s', function () {
     SupportManager::fake()->seed(DeviceTokenFactory::new()->count(1));

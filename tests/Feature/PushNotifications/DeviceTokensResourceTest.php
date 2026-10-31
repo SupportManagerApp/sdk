@@ -17,7 +17,7 @@ function deviceTokens(): DeviceTokensResource
 function deviceTokenObject(string $id = '1', string $token = 'fcm-token-abc'): array
 {
     return [
-        'type' => 'device-tokens',
+        'type' => 'device_tokens',
         'id' => $id,
         'attributes' => [
             'token' => $token,
@@ -49,6 +49,7 @@ it('lists the user device tokens, tenant-scoped', function () {
 it('registers a device token from an enum platform', function () {
     Http::fake(['api.test/api/v1/push-notifications/tokens' => Http::response([
         'data' => deviceTokenObject('5', 'fcm-new'),
+        'success' => true,
     ], 201)]);
     bootTenantSession();
 
@@ -67,6 +68,7 @@ it('registers a device token from an enum platform', function () {
 it('accepts a string platform when registering', function () {
     Http::fake(['api.test/api/v1/push-notifications/tokens' => Http::response([
         'data' => deviceTokenObject('6', 'fcm-android'),
+        'success' => true,
     ], 201)]);
     bootTenantSession();
 
@@ -119,7 +121,7 @@ it('deletes all tokens', function () {
 });
 
 it('dismisses the setup prompt', function () {
-    Http::fake(['api.test/api/v1/push-notifications/prompt/dismiss' => Http::response(['success' => true])]);
+    Http::fake(['api.test/api/v1/push-notifications/prompt/dismiss' => Http::response(['success' => true, 'message' => 'Notification prompt dismissed.'])]);
     bootTenantSession();
 
     deviceTokens()->dismissPrompt();

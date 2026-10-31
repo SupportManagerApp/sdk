@@ -32,7 +32,7 @@ it('returns the identity card via GET user', function () {
 
     expect($user->id)->toBe('1')
         ->and($user->name)->toBe('Ada Lovelace')
-        ->and($user->role)->toBe('employee');
+        ->and($user->role)->toBe('PA');
 });
 
 it('shows the full profile with nested address and emergency contacts', function () {
@@ -52,7 +52,7 @@ it('shows the full profile with nested address and emergency contacts', function
         ->and($profile->emergencyContacts)->toHaveCount(1)
         ->and($profile->emergencyContacts[0])->toBeInstanceOf(EmergencyContact::class)
         ->and($profile->emergencyContacts[0]->name)->toBe('Jane Doe')
-        ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'employee']]);
+        ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'PA']]);
 });
 
 it('leaves nested relations null when seeded without details', function () {
@@ -239,19 +239,21 @@ it('reads and saves tenant-scoped bank details', function () {
     $saved = SupportManager::profile()->saveBankDetails([
         'name_on_account' => 'G Hopper',
         'sort_code' => '00-11-22',
-        'account_number' => '****9999',
+        'account_number' => '87659999',
     ]);
 
     expect($saved)->toBeInstanceOf(BankDetails::class);
     assert($saved instanceof BankDetails);
     expect($saved->nameOnAccount)->toBe('G Hopper')
+        ->and($saved->accountNumber)->toBe('****9999')
         ->and(SupportManager::profile()->bankDetails()?->sortCode)->toBe('00-11-22');
 });
 
 it('lists directory users and finds one by id', function () {
     SupportManager::fake()->seed(
         DirectoryUserFactory::new()->count(2),
-        DirectoryUserFactory::new()->manager(),
+        // The directory is sorted by name, so name the manager to sort last.
+        DirectoryUserFactory::new()->manager()->state(['name' => 'Zara Manager']),
     );
 
     $users = SupportManager::users()->list();
@@ -259,7 +261,7 @@ it('lists directory users and finds one by id', function () {
     expect($users)->toHaveCount(3)
         ->and($users[0])->toBeInstanceOf(DirectoryUser::class)
         ->and($users[0]->name)->toBe('Teammate 1')
-        ->and($users[2]->role)->toBe('manager');
+        ->and($users[2]->role)->toBe('Manager');
 
     $found = SupportManager::users()->find(2);
     expect($found)->toBeInstanceOf(DirectoryUser::class);
