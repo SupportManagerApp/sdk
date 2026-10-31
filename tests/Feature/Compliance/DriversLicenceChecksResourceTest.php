@@ -181,6 +181,6 @@ it('returns the raw check result document download payload response', function (
 
     $response = complianceDriversLicenceChecks()->downloadCheckResultDocument(7);
 
-    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/result.pdf')
-        ->and($response->json('data.filename'))->toBe('result.pdf');
+    expect($response->url)->toBe('https://s3.test/signed/result.pdf')
+        ->and($response->filename)->toBe('result.pdf');
 });

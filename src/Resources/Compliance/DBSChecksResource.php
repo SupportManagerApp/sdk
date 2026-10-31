@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Resources\Compliance;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Compliance\DBSCheck;
+use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -22,7 +23,7 @@ use SupportManager\Sdk\Resources\Resource;
  * ```php
  * SupportManager::dbsChecks()->query()->filter('user_id', 7)->sort('-date_of_issue')->get();
  * SupportManager::dbsChecks()->submit('2026-03-14', '001234567890', $upload->get(), $upload->getClientOriginalName());
- * SupportManager::dbsChecks()->downloadCertificate(42)->json('data.download_url');
+ * SupportManager::dbsChecks()->downloadCertificate(42)->url;
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<DBSCheck>
@@ -66,16 +67,16 @@ final class DBSChecksResource extends Resource
     }
 
     /**
-     * Fetch the download payload for a check's certificate. The platform
-     * returns a plain JSON body — `{data: {download_url, filename, expires_at}}`
-     * — not a JSON:API resource, so the raw {@see Response} is handed back
-     * untouched. Read it via `->json('data.download_url')` (a signed link that
-     * expires after 5 minutes). The platform 404s when no certificate has been
-     * uploaded, and audits every request.
+     * A short-lived link to a check's certificate. The platform answers with
+     * `{data: {download_url, filename, expires_at}}` rather than the file, so
+     * this returns a {@see DownloadLink}; the URL is signed and expires after
+     * 5 minutes. The platform 404s when no certificate has been uploaded
+     * (thrown as a {@see \SupportManager\Sdk\Exceptions\SupportManagerApiException}),
+     * and audits every request.
      */
-    public function downloadCertificate(string|int $id): Response
+    public function downloadCertificate(string|int $id): DownloadLink
     {
-        return $this->get("{$this->path()}/{$id}/certificate");
+        return $this->downloadLink("{$this->path()}/{$id}/certificate");
     }
 
     protected function path(): string
