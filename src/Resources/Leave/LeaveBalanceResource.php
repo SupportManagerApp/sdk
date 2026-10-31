@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Leave;
 
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Leave\LeaveBalance;
+use SupportManager\Sdk\Data\Leave\LeaveCalculation;
 use SupportManager\Sdk\Data\Leave\LeaveYears;
 use SupportManager\Sdk\Data\Leave\OvertimeLog;
 use SupportManager\Sdk\Http\ResourceObject;
@@ -27,7 +28,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveBalance()->forUser(3);
  * SupportManager::leaveBalance()->availableYears();
  * SupportManager::leaveBalance()->overtime(['year' => 2026]);
- * SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
+ * SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days'])->balanceAfterRequest->hours;
  * ```
  *
  * @extends resource<LeaveBalance>
@@ -92,13 +93,20 @@ final class LeaveBalanceResource extends Resource
     }
 
     /**
-     * Calculate the balance impact of a prospective request.
+     * Calculate the balance impact of a prospective request: the hours and
+     * sleeps it needs, the balance for its leave year, and what would remain.
      *
-     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $data  `start_date` and `type` (`Whole Days` or `Custom Timings`), plus optional `end_date`, `start_time`, `end_time` and (privileged) `user_id`.
      */
-    public function calculate(array $data): ?LeaveBalance
+    public function calculate(array $data): ?LeaveCalculation
     {
-        return $this->balanceFromResponse($this->post('leave/balance/calculate', $data));
+        $response = $this->post('leave/balance/calculate', $data);
+
+        $this->throwForErrorResponse($response, 'leave/balance/calculate');
+
+        $body = $response->json('data');
+
+        return is_array($body) ? LeaveCalculation::fromArray($body) : null;
     }
 
     protected function path(): string

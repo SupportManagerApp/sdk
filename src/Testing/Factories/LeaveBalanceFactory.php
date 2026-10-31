@@ -39,6 +39,9 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
     /** @var list<int> */
     private array $lockedYears = [];
 
+    /** @var array{hours: float, sleeps: float} */
+    private array $requirement = ['hours' => 8.0, 'sleeps' => 0.0];
+
     public function path(): string
     {
         return 'leave/balance';
@@ -75,6 +78,19 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
     }
 
     /**
+     * Set what a calculated request needs (one 8-hour day by default). The fake
+     * can't read a working pattern, so this stands in for the platform's
+     * calculation, and is taken off the seeded balance's `remaining`.
+     */
+    public function calculating(float $hours, float $sleeps = 0.0): static
+    {
+        $clone = clone $this;
+        $clone->requirement = ['hours' => $hours, 'sleeps' => $sleeps];
+
+        return $clone;
+    }
+
+    /**
      * Lock a year at year end: it stays browsable and is listed in `locked`.
      */
     public function lockingYear(int $year): static
@@ -88,6 +104,7 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         $lockedYears = $this->lockedYears;
+        $requirement = $this->requirement;
 
         return [
             // Selectable years — registered before `leave/balance/{id}` so
@@ -126,13 +143,34 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
                 return self::balanceForYear($store, $request);
             }),
 
-            // Prospective-request preview: echo the seeded balance back.
-            FakeRoute::post('leave/balance/calculate', static function (RecordStore $store): mixed {
+            // Prospective-request preview: the configured requirement taken off
+            // the seeded balance.
+            FakeRoute::post('leave/balance/calculate', static function (RecordStore $store) use ($requirement): mixed {
                 $record = $store->all('leave/balance')[0] ?? null;
 
-                return $record === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item(null, $record));
+                if ($record === null) {
+                    return Http::response(['message' => 'Not found'], 404);
+                }
+
+                $lines = [];
+                foreach (['hours', 'sleeps'] as $axis) {
+                    $line = is_array($record[$axis] ?? null) ? $record[$axis] : [];
+                    unset($line['percentages']);
+                    $lines[$axis] = $line;
+                }
+
+                return Http::response([
+                    'data' => [
+                        'requirement' => $requirement,
+                        'current_balance' => $lines,
+                        'balance_after_request' => [
+                            'hours' => (float) ($lines['hours']['remaining'] ?? 0) - $requirement['hours'],
+                            'sleeps' => (float) ($lines['sleeps']['remaining'] ?? 0) - $requirement['sleeps'],
+                        ],
+                        'year' => (int) ($record['year'] ?? 2026),
+                    ],
+                    'meta' => ['team_id' => 42],
+                ]);
             }),
         ];
     }
