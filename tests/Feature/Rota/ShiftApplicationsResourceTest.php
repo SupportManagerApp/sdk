@@ -21,10 +21,10 @@ function rotaApplicationPage(): array
             'id' => '12',
             'attributes' => [
                 'status' => 'Pending',
-                'start_time' => '2026-06-06T09:00:00Z',
-                'end_time' => '2026-06-06T17:00:00Z',
+                'start_time' => '09:00',
+                'end_time' => '17:00',
                 'user' => ['id' => 7, 'name' => 'Ada'],
-                'rota_entry' => ['id' => '5', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]],
+                'rota_entry' => ['data' => ['id' => '5', 'type' => 'rota_entries', 'attributes' => ['type' => 'Contracted Hours', 'duration' => 8]]],
             ],
         ]],
         'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],

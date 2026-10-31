@@ -297,8 +297,8 @@ it('reads the flat birthday and anniversary feeds', function () {
         AnniversaryFactory::new()->count(1),
     );
 
-    $birthdays = SupportManager::rotaCalendar()->birthdays();
-    $anniversaries = SupportManager::rotaCalendar()->anniversaries();
+    $birthdays = SupportManager::rotaCalendar()->birthdays(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
+    $anniversaries = SupportManager::rotaCalendar()->anniversaries(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
 
     expect($birthdays)->toHaveCount(1)
         ->and($birthdays[0])->toBeInstanceOf(Birthday::class)

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\NestedResource;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -44,13 +45,10 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
         return [
             'team_id' => 42,
             'status' => 'Pending',
-            'start_time' => '2026-06-06T09:00:00Z',
-            'end_time' => '2026-06-06T17:00:00Z',
+            'start_time' => '09:00',
+            'end_time' => '17:00',
             'user' => ['id' => 7, 'name' => "Applicant {$number}"],
-            'rota_entry' => [
-                'id' => (string) $number,
-                'attributes' => ['type' => 'Contracted Hours', 'duration' => 8.0],
-            ],
+            'rota_entry' => Json::nested('rota-entries', ['id' => (string) $number, 'type' => 'Contracted Hours', 'duration' => 8.0]),
             'reviewed_by' => null,
             'created_at' => '2026-06-06T09:00:00Z',
             'updated_at' => '2026-06-06T09:00:00Z',

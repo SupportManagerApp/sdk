@@ -111,10 +111,10 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
                         'team_id' => 42,
                         'status' => 'Pending',
                         // A later start trims the evening, the first segment.
-                        'start_time' => $position === 0 && $startTime !== null ? $startTime : ($shift['start'] ?? null),
-                        'end_time' => $shift['end'] ?? null,
+                        'start_time' => $position === 0 && $startTime !== null ? $startTime : ShiftFactory::clockTime($shift['start'] ?? null),
+                        'end_time' => ShiftFactory::clockTime($shift['end'] ?? null),
                         'user' => ['id' => 7, 'name' => 'Applicant'],
-                        'rota_entry' => ['id' => (string) $shift['id'], 'attributes' => $shift],
+                        'rota_entry' => Json::nested('rota-entries', $shift),
                         'reviewed_by' => null,
                         'created_at' => '2026-06-06T09:00:00Z',
                         'updated_at' => '2026-06-06T09:00:00Z',
