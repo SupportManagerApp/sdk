@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 use SupportManager\Sdk\Data\Tasks\Task;
 use SupportManager\Sdk\Data\Teams\Team;
@@ -13,9 +13,25 @@ use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Tests\Support\HelperProbeResource;
 
-function probe(): HelperProbeResource
+/**
+ * The base Resource readers, exercised through a probe resource that answers
+ * its own requests from canned responses (see {@see HelperProbeResource}).
+ * Real request building, query strings and the X-Team-ID header are covered
+ * by each module's own resource tests.
+ *
+ * @param  array<string, Response>  $responses  Keyed by path (plus `?query`).
+ */
+function probe(array $responses = []): HelperProbeResource
 {
-    return app(HelperProbeResource::class);
+    return app(HelperProbeResource::class)->respond($responses);
+}
+
+/**
+ * @param  array<string, string>  $headers
+ */
+function canned(string $uri, mixed $body = [], int $status = 200, array $headers = []): Response
+{
+    return HelperProbeResource::response($uri, $body, $status, $headers);
 }
 
 /**
@@ -37,36 +53,32 @@ function probeTeamObject(string $id = '42', string $name = 'Lovelace Household')
 // ── JSON:API bodies ─────────────────────────────────────────────────────────
 
 it('hydrates a JSON:API item through hydrate(), or null when data is empty', function () {
-    Http::fake([
-        'api.test/api/v1/probe/one' => Http::response(['data' => probeTeamObject()]),
-        'api.test/api/v1/probe/none' => Http::response(['data' => null]),
+    $probe = probe([
+        'probe/one' => canned('probe/one', ['data' => probeTeamObject()]),
+        'probe/none' => canned('probe/none', ['data' => null]),
     ]);
-    bootTenantSession();
 
-    expect(probe()->itemFrom('probe/one'))->toBeInstanceOf(Team::class)
-        ->and(probe()->itemFrom('probe/one')?->name)->toBe('Lovelace Household')
-        ->and(probe()->itemFrom('probe/none'))->toBeNull();
+    expect($probe->itemFrom('probe/one'))->toBeInstanceOf(Team::class)
+        ->and($probe->itemFrom('probe/one')?->name)->toBe('Lovelace Household')
+        ->and($probe->itemFrom('probe/none'))->toBeNull();
 });
 
 it('hydrates a JSON:API item into another DTO when given its class', function () {
-    Http::fake(['api.test/api/v1/probe/task' => Http::response(['data' => ['type' => 'tasks', 'id' => '1', 'attributes' => probeTaskRow()]])]);
-    bootTenantSession();
-
-    $task = probe()->itemAsTask('probe/task');
+    $task = probe(['probe/task' => canned('probe/task', ['data' => ['type' => 'tasks', 'id' => '1', 'attributes' => probeTaskRow()]])])
+        ->itemAsTask('probe/task');
 
     expect($task)->toBeInstanceOf(Task::class)
         ->and($task?->key)->toBe('profile.address');
 });
 
 it('hydrates a JSON:API collection through hydrate() or another DTO', function () {
-    Http::fake([
-        'api.test/api/v1/probe/teams' => Http::response(['data' => [probeTeamObject('1', 'A'), probeTeamObject('2', 'B')]]),
-        'api.test/api/v1/probe/tasks' => Http::response(['data' => [['type' => 'tasks', 'id' => '1', 'attributes' => probeTaskRow('a')]]]),
+    $probe = probe([
+        'probe/teams' => canned('probe/teams', ['data' => [probeTeamObject('1', 'A'), probeTeamObject('2', 'B')]]),
+        'probe/tasks' => canned('probe/tasks', ['data' => [['type' => 'tasks', 'id' => '1', 'attributes' => probeTaskRow('a')]]]),
     ]);
-    bootTenantSession();
 
-    $teams = probe()->collectionFrom('probe/teams');
-    $tasks = probe()->collectionAsTasks('probe/tasks');
+    $teams = $probe->collectionFrom('probe/teams');
+    $tasks = $probe->collectionAsTasks('probe/tasks');
 
     expect($teams)->toHaveCount(2)
         ->and($teams[1]->name)->toBe('B')
@@ -76,21 +88,20 @@ it('hydrates a JSON:API collection through hydrate() or another DTO', function (
 });
 
 it('builds a page from a JSON:API collection with its meta, links and page fetcher', function () {
-    Http::fake([
-        'api.test/api/v1/probe/teams?page=2' => Http::response([
-            'data' => [probeTeamObject('2', 'Second')],
-            'meta' => ['current_page' => 2, 'last_page' => 2],
-            'links' => ['next' => null],
-        ]),
-        'api.test/api/v1/probe/teams' => Http::response([
+    $probe = probe([
+        'probe/teams' => canned('probe/teams', [
             'data' => [probeTeamObject('1', 'First')],
             'meta' => ['current_page' => 1, 'last_page' => 2, 'unread_count' => 5],
             'links' => ['next' => 'https://api.test/api/v1/probe/teams?page=2'],
         ]),
+        'probe/teams?page=2' => canned('probe/teams?page=2', [
+            'data' => [probeTeamObject('2', 'Second')],
+            'meta' => ['current_page' => 2, 'last_page' => 2],
+            'links' => ['next' => null],
+        ]),
     ]);
-    bootTenantSession();
 
-    $page = probe()->paginatedFrom('probe/teams', fn (int $number): Paginated => probe()->paginatedFrom('probe/teams', query: ['page' => $number]));
+    $page = $probe->paginatedFrom('probe/teams', fn (int $number): Paginated => $probe->paginatedFrom('probe/teams', query: ['page' => $number]));
     $next = $page->next();
 
     expect($page->items()[0]->name)->toBe('First')
@@ -101,22 +112,19 @@ it('builds a page from a JSON:API collection with its meta, links and page fetch
 });
 
 it('builds an unwalkable page when no page fetcher is given', function () {
-    Http::fake(['api.test/api/v1/probe/teams' => Http::response([
+    $page = probe(['probe/teams' => canned('probe/teams', [
         'data' => [probeTeamObject()],
         'meta' => ['current_page' => 1, 'last_page' => 3],
-    ])]);
-    bootTenantSession();
+    ])])->paginatedFrom('probe/teams');
 
-    expect(probe()->paginatedFrom('probe/teams')->next())->toBeNull();
+    expect($page->next())->toBeNull();
 });
 
 // ── Plain {data} bodies ─────────────────────────────────────────────────────
 
 it('hydrates a plain data object into a DTO', function () {
-    Http::fake(['api.test/api/v1/probe/task' => Http::response(['data' => probeTaskRow(), 'meta' => ['team_id' => 42]])]);
-    bootTenantSession();
-
-    $task = probe()->dataFrom('probe/task');
+    $task = probe(['probe/task' => canned('probe/task', ['data' => probeTaskRow(), 'meta' => ['team_id' => 42]])])
+        ->dataFrom('probe/task');
 
     expect($task)->toBeInstanceOf(Task::class)
         ->and($task?->label)->toBe('Add your address')
@@ -124,10 +132,7 @@ it('hydrates a plain data object into a DTO', function () {
 });
 
 it('returns null from data() when data is missing, null or not an object', function (mixed $body) {
-    Http::fake(['api.test/api/v1/probe/task' => Http::response($body)]);
-    bootTenantSession();
-
-    expect(probe()->dataFrom('probe/task'))->toBeNull();
+    expect(probe(['probe/task' => canned('probe/task', $body)])->dataFrom('probe/task'))->toBeNull();
 })->with([
     'no data member' => [['meta' => []]],
     'null data' => [['data' => null]],
@@ -136,10 +141,8 @@ it('returns null from data() when data is missing, null or not an object', funct
 ]);
 
 it('hydrates each object row of a plain data list, skipping anything else', function () {
-    Http::fake(['api.test/api/v1/probe/tasks' => Http::response(['data' => [probeTaskRow('a'), 'junk', null, probeTaskRow('b')]])]);
-    bootTenantSession();
-
-    $tasks = probe()->dataListFrom('probe/tasks');
+    $tasks = probe(['probe/tasks' => canned('probe/tasks', ['data' => [probeTaskRow('a'), 'junk', null, probeTaskRow('b')]])])
+        ->dataListFrom('probe/tasks');
 
     expect($tasks)->toHaveCount(2)
         ->and(array_keys($tasks))->toBe([0, 1])
@@ -148,27 +151,23 @@ it('hydrates each object row of a plain data list, skipping anything else', func
 });
 
 it('returns an empty list from dataList() when data is missing', function () {
-    Http::fake(['api.test/api/v1/probe/tasks' => Http::response(['meta' => []])]);
-    bootTenantSession();
-
-    expect(probe()->dataListFrom('probe/tasks'))->toBe([]);
+    expect(probe(['probe/tasks' => canned('probe/tasks', ['meta' => []])])->dataListFrom('probe/tasks'))->toBe([]);
 });
 
 it('builds a page from a plain data list with its meta and links', function () {
-    Http::fake([
-        'api.test/api/v1/probe/tasks?page=2' => Http::response([
-            'data' => [probeTaskRow('c')],
-            'meta' => ['current_page' => 2, 'last_page' => 2],
-        ]),
-        'api.test/api/v1/probe/tasks' => Http::response([
+    $probe = probe([
+        'probe/tasks' => canned('probe/tasks', [
             'data' => [probeTaskRow('a'), probeTaskRow('b')],
             'meta' => ['current_page' => 1, 'last_page' => 2, 'team_id' => 42],
             'links' => ['next' => 'https://api.test/api/v1/probe/tasks?page=2'],
         ]),
+        'probe/tasks?page=2' => canned('probe/tasks?page=2', [
+            'data' => [probeTaskRow('c')],
+            'meta' => ['current_page' => 2, 'last_page' => 2],
+        ]),
     ]);
-    bootTenantSession();
 
-    $page = probe()->dataPaginatedFrom('probe/tasks', fn (int $number): Paginated => probe()->dataPaginatedFrom('probe/tasks', query: ['page' => $number]));
+    $page = $probe->dataPaginatedFrom('probe/tasks', fn (int $number): Paginated => $probe->dataPaginatedFrom('probe/tasks', query: ['page' => $number]));
 
     expect($page->items())->toHaveCount(2)
         ->and($page->items()[1]->key)->toBe('b')
@@ -178,10 +177,8 @@ it('builds a page from a plain data list with its meta and links', function () {
 });
 
 it('defaults a plain page\'s meta and links to empty arrays', function () {
-    Http::fake(['api.test/api/v1/probe/tasks' => Http::response(['data' => [probeTaskRow()], 'meta' => 'odd'])]);
-    bootTenantSession();
-
-    $page = probe()->dataPaginatedFrom('probe/tasks');
+    $page = probe(['probe/tasks' => canned('probe/tasks', ['data' => [probeTaskRow()], 'meta' => 'odd'])])
+        ->dataPaginatedFrom('probe/tasks');
 
     expect($page->items())->toHaveCount(1)
         ->and($page->meta())->toBe([])
@@ -190,53 +187,43 @@ it('defaults a plain page\'s meta and links to empty arrays', function () {
 });
 
 it('returns the raw data array, or an empty array when data is not one', function () {
-    Http::fake([
-        'api.test/api/v1/probe/raw' => Http::response(['data' => ['count' => 3, 'my_tasks' => 1]]),
-        'api.test/api/v1/probe/empty' => Http::response(['data' => null]),
+    $probe = probe([
+        'probe/raw' => canned('probe/raw', ['data' => ['count' => 3, 'my_tasks' => 1]]),
+        'probe/empty' => canned('probe/empty', ['data' => null]),
     ]);
-    bootTenantSession();
 
-    expect(probe()->rawFrom('probe/raw'))->toBe(['count' => 3, 'my_tasks' => 1])
-        ->and(probe()->rawFrom('probe/empty'))->toBe([]);
+    expect($probe->rawFrom('probe/raw'))->toBe(['count' => 3, 'my_tasks' => 1])
+        ->and($probe->rawFrom('probe/empty'))->toBe([]);
 });
 
 it('throws a LogicException when the DTO class has no fromArray()', function () {
-    Http::fake(['api.test/api/v1/probe/task' => Http::response(['data' => ['a' => 1]])]);
-    bootTenantSession();
-
-    probe()->dataAsUnhydratable('probe/task');
+    probe(['probe/task' => canned('probe/task', ['data' => ['a' => 1]])])->dataAsUnhydratable('probe/task');
 })->throws(LogicException::class, 'stdClass has no static fromArray()');
 
 // ── Files ───────────────────────────────────────────────────────────────────
 
-it('wraps a file body in a Download, forwarding the query and team header', function () {
-    Http::fake(['api.test/api/v1/probe/file*' => Http::response('%PDF-1.4 bytes', 200, [
+it('wraps a file body in a Download, forwarding the query', function () {
+    $probe = probe(['probe/file?include_gross_pay=1' => canned('probe/file?include_gross_pay=1', '%PDF-1.4 bytes', 200, [
         'Content-Type' => 'application/pdf',
         'Content-Disposition' => "attachment; filename=\"Ada.pdf\"; filename*=UTF-8''Ad%C3%A0.pdf",
     ])]);
-    bootTenantSession();
 
-    $download = probe()->file('probe/file', ['include_gross_pay' => 1]);
+    $download = $probe->file('probe/file', ['include_gross_pay' => 1]);
 
     expect($download)->toBeInstanceOf(Download::class)
         ->and($download->body())->toBe('%PDF-1.4 bytes')
         ->and($download->filename())->toBe('Adà.pdf')
         ->and($download->mimeType())->toBe('application/pdf')
-        ->and($download->size())->toBe(14);
-
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'probe/file?include_gross_pay=1')
-        && $request->hasHeader('X-Team-ID', '42'));
+        ->and($download->size())->toBe(14)
+        ->and($probe->sent)->toBe([['method' => 'GET', 'uri' => 'probe/file?include_gross_pay=1']]);
 });
 
 it('hydrates a download link payload into a DownloadLink', function () {
-    Http::fake(['api.test/api/v1/probe/link' => Http::response(['data' => [
+    $link = probe(['probe/link' => canned('probe/link', ['data' => [
         'download_url' => 'https://s3.test/signed/7.pdf',
         'filename' => 'contract.pdf',
         'expires_at' => '2026-10-31T14:35:00.000000Z',
-    ]])]);
-    bootTenantSession();
-
-    $link = probe()->link('probe/link');
+    ]])])->link('probe/link');
 
     expect($link)->toBeInstanceOf(DownloadLink::class)
         ->and($link->url)->toBe('https://s3.test/signed/7.pdf')
@@ -245,10 +232,7 @@ it('hydrates a download link payload into a DownloadLink', function () {
 });
 
 it('throws when a download link response carries no URL', function (mixed $body) {
-    Http::fake(['api.test/api/v1/probe/link' => Http::response($body)]);
-    bootTenantSession();
-
-    probe()->link('probe/link');
+    probe(['probe/link' => canned('probe/link', $body)])->link('probe/link');
 })->with([
     'no data' => [['message' => 'ok']],
     'no download_url' => [['data' => ['filename' => 'x.pdf']]],
@@ -257,15 +241,11 @@ it('throws when a download link response carries no URL', function (mixed $body)
 // ── Error mapping ───────────────────────────────────────────────────────────
 
 it('maps error responses to typed exceptions in every reader', function (Closure $call, int $status, string $exception, string $message) {
-    Http::fake(['api.test/api/v1/probe/*' => Http::response(
-        $status === 422
-            ? ['message' => 'The year field is invalid.', 'errors' => ['year' => ['The year field is invalid.']]]
-            : ['message' => 'This action is unauthorized.'],
-        $status,
-    )]);
-    bootTenantSession();
+    $probe = probe(['probe/x' => canned('probe/x', $status === 422
+        ? ['message' => 'The year field is invalid.', 'errors' => ['year' => ['The year field is invalid.']]]
+        : ['message' => 'This action is unauthorized.'], $status)]);
 
-    expect(fn () => $call(probe()))->toThrow($exception, $message);
+    expect(fn () => $call($probe))->toThrow($exception, $message);
 })->with([
     'item' => [fn (HelperProbeResource $probe) => $probe->itemFrom('probe/x'), 403, SupportManagerApiException::class, 'This action is unauthorized.'],
     'item as DTO' => [fn (HelperProbeResource $probe) => $probe->itemAsTask('probe/x'), 404, SupportManagerApiException::class, 'This action is unauthorized.'],
@@ -281,11 +261,8 @@ it('maps error responses to typed exceptions in every reader', function (Closure
 ]);
 
 it('keeps the status of a mapped download error', function () {
-    Http::fake(['api.test/api/v1/probe/file' => Http::response(['message' => 'No document uploaded.'], 404)]);
-    bootTenantSession();
-
     try {
-        probe()->file('probe/file');
+        probe(['probe/file' => canned('probe/file', ['message' => 'No document uploaded.'], 404)])->file('probe/file');
         test()->fail('Expected SupportManagerApiException');
     } catch (SupportManagerApiException $e) {
         expect($e->status)->toBe(404)
@@ -295,10 +272,9 @@ it('keeps the status of a mapped download error', function () {
 
 it('labels the error log with the request path when no context is given', function () {
     Log::spy();
-    Http::fake(['api.test/api/v1/probe/broken' => Http::response('<html>oops</html>', 500)]);
-    bootTenantSession();
 
-    expect(fn () => probe()->dataFrom('probe/broken'))->toThrow(SupportManagerApiException::class, 'HTTP 500');
+    expect(fn () => probe(['probe/broken' => canned('probe/broken', '<html>oops</html>', 500)])->dataFrom('probe/broken'))
+        ->toThrow(SupportManagerApiException::class, 'HTTP 500');
 
     Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context): bool => $message === 'SupportManager API error'
         && $context['context'] === '/api/v1/probe/broken'
@@ -306,10 +282,9 @@ it('labels the error log with the request path when no context is given', functi
 });
 
 it('passes a successful no-content response through quietly', function () {
-    Http::fake(['api.test/api/v1/probe/gone' => Http::response('', 204)]);
-    bootTenantSession();
+    $probe = probe(['probe/gone' => canned('probe/gone', '', 204)]);
 
-    probe()->noContent('probe/gone');
+    $probe->noContent('probe/gone');
 
-    Http::assertSent(fn ($request) => $request->method() === 'DELETE');
+    expect($probe->sent)->toBe([['method' => 'DELETE', 'uri' => 'probe/gone']]);
 });
