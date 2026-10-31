@@ -7,14 +7,18 @@ namespace SupportManager\Sdk\Resources\Profile;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
+use SupportManager\Sdk\Data\Profile\UserOption;
 use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
- * The team's user directory (`GET users`, `GET users/{user}`).
+ * The team's user directory (`GET users`, `GET users/{user}`) and colleague
+ * picker options (`GET users/options`).
  *
- * The directory is tenant-scoped: the platform requires `X-Team-ID` on these
+ * The directory itself is for admins and managers only (anyone else gets a
+ * 403); {@see self::options()} is the lighter list every current role can read.
+ * All of it is tenant-scoped: the platform requires `X-Team-ID` on these
  * routes (a 422 "Invalid or missing team" without it). It still hand-rolls
  * {@see self::list()} and {@see self::find()} — rather than the base
  * `query()`/`all()` — for its flat Spatie filter params and null-on-404
@@ -24,6 +28,7 @@ use SupportManager\Sdk\Resources\Resource;
  * ```php
  * SupportManager::users()->list(['search' => 'ada']);
  * SupportManager::users()->find(7);
+ * SupportManager::users()->options();
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<DirectoryUser>
@@ -53,7 +58,29 @@ final class UsersResource extends Resource
     }
 
     /**
+     * Every active member of the current team, ordered by name, for rendering
+     * a colleague picker (`GET users/options`). Not paginated, and unlike the
+     * directory it is open to every role except former PAs.
+     *
+     * @return list<UserOption>
+     */
+    public function options(): array
+    {
+        $response = $this->tenant(
+            fn (PendingRequest $request): Response => $request->get('users/options'),
+        );
+
+        $this->throwForErrorResponse($response, 'users/options');
+
+        return array_map(
+            static fn (ResourceObject $resource): UserOption => UserOption::fromArray($resource->flat()),
+            Document::fromArray($response->json() ?? [])->resources(),
+        );
+    }
+
+    /**
      * A single teammate by id (`GET users/{user}`), or null when not found.
+     * Includes the teammate's mobile number.
      */
     public function find(string|int $id): ?DirectoryUser
     {

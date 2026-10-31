@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
+use SupportManager\Sdk\Data\Profile\UserOption;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Resources\Profile\UsersResource;
 
 function usersResource(): UsersResource
@@ -97,3 +99,32 @@ it('maps a 422 on the directory to a validation exception', function () {
         expect($e->first('filter'))->toBe('The role filter is invalid.');
     }
 });
+
+it('lists colleague picker options with a team header', function () {
+    Http::fake(['api.test/api/v1/users/options' => Http::response([
+        'data' => [
+            ['type' => 'users', 'id' => '5', 'attributes' => ['name' => 'Ada Lovelace', 'avatar' => 'https://cdn.test/ada.png']],
+            ['type' => 'users', 'id' => '6', 'attributes' => ['name' => 'Grace Hopper', 'avatar' => null]],
+        ],
+    ])]);
+    bootTenantSession();
+
+    $options = usersResource()->options();
+
+    expect($options)->toHaveCount(2)
+        ->and($options[0])->toBeInstanceOf(UserOption::class)
+        ->and($options[0]->id)->toBe('5')
+        ->and($options[0]->name)->toBe('Ada Lovelace')
+        ->and($options[0]->avatar)->toBe('https://cdn.test/ada.png')
+        ->and($options[1]->avatar)->toBeNull();
+
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/users/options')
+        && $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('throws when a former PA reads picker options (403)', function () {
+    Http::fake(['api.test/api/v1/users/options' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+    bootTenantSession();
+
+    usersResource()->options();
+})->throws(SupportManagerApiException::class);

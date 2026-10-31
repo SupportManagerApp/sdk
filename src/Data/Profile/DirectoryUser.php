@@ -8,8 +8,8 @@ namespace SupportManager\Sdk\Data\Profile;
  * A teammate as seen in the user directory (`GET users` / `GET users/{user}`).
  *
  * Mirrors the platform's `UserDirectoryResource` / `UserProfileResource`: name,
- * avatar and team role, plus the mobile number when the directory view exposes
- * it (own profile, or an admin/manager viewing a teammate).
+ * avatar and team role, plus the mobile number on the single-user view (the
+ * list never carries it, so it is null there).
  */
 final readonly class DirectoryUser
 {
