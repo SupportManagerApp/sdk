@@ -28,6 +28,9 @@ use Closure;
  * );
  * ```
  *
+ * A tenant-scoped record's `team_id` should come from {@see teamId()} rather
+ * than a literal, so seeded data follows {@see Fake::actingAsTeam()}.
+ *
  * @phpstan-consistent-constructor
  */
 abstract class Factory
@@ -36,6 +39,8 @@ abstract class Factory
     private array $states = [];
 
     private int $count = 1;
+
+    private ?int $teamId = null;
 
     /**
      * The default attributes for a single record. Called once per record, with
@@ -89,6 +94,29 @@ abstract class Factory
     }
 
     /**
+     * Seed the records into a specific team instead of the one the fake is
+     * acting as, e.g. to test what a team switch hides.
+     */
+    public function forTeam(int $teamId): static
+    {
+        $clone = clone $this;
+        $clone->teamId = $teamId;
+
+        return $clone;
+    }
+
+    /**
+     * Bind the team the fake is acting as, unless {@see forTeam()} already
+     * chose one. {@see Fake::seed()} calls this before building records.
+     *
+     * @internal
+     */
+    public function withDefaultTeam(int $teamId): static
+    {
+        return $this->teamId === null ? $this->forTeam($teamId) : $this;
+    }
+
+    /**
      * Build the records as plain attribute arrays.
      *
      * @return list<array<string, mixed>>
@@ -119,5 +147,15 @@ abstract class Factory
     public function makeOne(): array
     {
         return $this->count(1)->make()[0];
+    }
+
+    /**
+     * The team these records belong to: the one given to {@see forTeam()},
+     * else the team the fake was acting as when they were seeded, else
+     * {@see Fake::DEFAULT_TEAM_ID} for a factory used on its own.
+     */
+    protected function teamId(): int
+    {
+        return $this->teamId ?? Fake::DEFAULT_TEAM_ID;
     }
 }
