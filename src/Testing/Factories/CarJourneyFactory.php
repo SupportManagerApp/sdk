@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -41,7 +43,7 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'car-journeys';
+        return 'car_journeys';
     }
 
     public function definition(int $index): array
@@ -99,9 +101,11 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
         $driverName = $this->driverName;
 
         return [
-            // Logging a journey ends any ongoing one, then falls through to the
-            // generic create.
-            FakeRoute::post('car-journeys', static function (RecordStore $store): mixed {
+            // Logging a journey ends any ongoing one. Like the platform's
+            // StoreCarJourneyRequest, the body carries the trip as separate
+            // date and time fields, stored as the resource's `trip_start` /
+            // `trip_end` timestamps.
+            FakeRoute::post('car-journeys', static function (RecordStore $store, array $matches, Request $request): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
                         $store->update('car-journeys', (string) $record['id'], [
@@ -111,24 +115,37 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                return null;
+                $created = $store->append('car-journeys', [
+                    'id' => $store->nextId('car-journeys'),
+                    'comments' => null,
+                    'created_at' => '2026-01-01T09:00:00Z',
+                    'updated_at' => '2026-01-01T09:00:00Z',
+                    'meta' => ['can' => ['update' => true, 'delete' => true]],
+                    ...self::journeyAttributes($request->data()),
+                ]);
+
+                return Http::response(Json::item('car_journeys', $created), 201);
             }),
+
+            // Like the platform's UpdateCarJourneyRequest, an edit resends the
+            // whole trip as date and time fields.
+            FakeRoute::action('PATCH', 'car-journeys/{id}', static fn (array $journey, Request $request): array => self::journeyAttributes($request->data())),
 
             FakeRoute::get('car-journeys/ongoing', static function (RecordStore $store): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
-                        return Http::response(Json::item('car-journeys', $record));
+                        return Http::response(Json::item('car_journeys', $record));
                     }
                 }
 
-                return Http::response(['message' => 'No ongoing journey found.'], 404);
+                return Json::notFound('No ongoing journey found.');
             }),
 
             // Like the platform, starting refuses while another journey is open.
-            FakeRoute::post('car-journeys/start', static function (RecordStore $store) use ($driverName): mixed {
+            FakeRoute::post('car-journeys/start', static function (RecordStore $store, array $matches, Request $request, Fake $fake) use ($driverName): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
-                        return Http::response(['message' => 'A journey is already in progress.', 'meta' => ['team_id' => 42]], 422);
+                        return Json::message('A journey is already in progress.', 422, ['team_id' => $fake->teamId()]);
                     }
                 }
 
@@ -142,20 +159,43 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     'duration_minutes' => null,
                 ]);
 
-                return Http::response(Json::item('car-journeys', $started), 201);
+                return Http::response(Json::item('car_journeys', $started), 201);
             }),
 
-            FakeRoute::patch('car-journeys/{id}/finish', static function (RecordStore $store, array $matches): mixed {
-                $finished = $store->update('car-journeys', $matches[1], [
-                    'is_ongoing' => false,
-                    'trip_end' => '2026-01-01T10:00:00Z',
-                    'duration_minutes' => 60,
-                ]);
-
-                return $finished === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('car-journeys', $finished));
-            }),
+            FakeRoute::action('PATCH', 'car-journeys/{id}/finish', static fn (): array => [
+                'is_ongoing' => false,
+                'trip_end' => '2026-01-01T10:00:00Z',
+                'duration_minutes' => 60,
+            ]),
         ];
+    }
+
+    /**
+     * The stored attributes for a create/update body of separate trip date and
+     * time fields, as the platform's form requests take them.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function journeyAttributes(array $data): array
+    {
+        $attributes = array_intersect_key($data, array_flip(['driver_name', 'comments']));
+
+        if (isset($data['trip_start_date'], $data['trip_start_time'])) {
+            $attributes['trip_start'] = "{$data['trip_start_date']}T{$data['trip_start_time']}:00Z";
+        }
+
+        if (array_key_exists('trip_end_date', $data)) {
+            $tripEnd = isset($data['trip_end_date'], $data['trip_end_time'])
+                ? "{$data['trip_end_date']}T{$data['trip_end_time']}:00Z"
+                : null;
+            $attributes['trip_end'] = $tripEnd;
+            $attributes['is_ongoing'] = $tripEnd === null;
+            $attributes['duration_minutes'] = $tripEnd !== null && isset($attributes['trip_start'])
+                ? intdiv((int) strtotime($tripEnd) - (int) strtotime((string) $attributes['trip_start']), 60)
+                : null;
+        }
+
+        return $attributes;
     }
 }

@@ -47,16 +47,14 @@ it('returns the raw download payload for a seeded document', function () {
 
     $response = SupportManager::documents()->download(1);
 
-    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/1.pdf')
-        ->and($response->json('data.filename'))->toBe('Document 1');
+    expect($response->url)->toBe('https://s3.test/signed/1.pdf')
+        ->and($response->filename)->toBe('Document 1');
 });
 
 it('returns a raw 404 download response for a missing document', function () {
     SupportManager::fake()->seed(DocumentFactory::new()->count(1));
 
-    $response = SupportManager::documents()->download(999);
-
-    expect($response->status())->toBe(404);
+    expect(fn () => SupportManager::documents()->download(999))->toThrow(SupportManagerApiException::class);
 });
 
 // ── Document folders ──────────────────────────────────────────────────────────

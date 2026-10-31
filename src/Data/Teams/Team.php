@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Teams;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A team the authenticated user belongs to, mirroring the platform's
  * `TeamJsonResource`.
@@ -26,11 +28,6 @@ final readonly class Team
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            role: isset($data['role']) ? (string) $data['role'] : null,
-            slug: isset($data['slug']) ? (string) $data['slug'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -18,7 +18,7 @@ beforeEach(function () {
 
 it('lists the developer login accounts with their teams', function () {
     Http::fake([
-        'api.test/api/v1/auth/dev/users' => Http::response([
+        apiUrl('auth/dev/users') => Http::response([
             'data' => [
                 [
                     'id' => 1,
@@ -56,7 +56,7 @@ it('lists the developer login accounts with their teams', function () {
 
 it('logs in as a chosen account without a password', function () {
     Http::fake([
-        'api.test/api/v1/auth/dev/login' => Http::response([
+        apiUrl('auth/dev/login') => Http::response([
             'data' => [
                 'access_token' => 'dev-access',
                 'refresh_token' => 'dev-refresh',

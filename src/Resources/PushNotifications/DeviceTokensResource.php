@@ -8,6 +8,7 @@ use SupportManager\Sdk\Data\PushNotifications\DeviceToken;
 use SupportManager\Sdk\Data\PushNotifications\PushNotificationStatus;
 use SupportManager\Sdk\Enums\PushNotifications\DevicePlatform;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -26,10 +27,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::deviceTokens()->forget($fcmToken);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DeviceToken>
+ * @extends Resource<DeviceToken>
  */
 final class DeviceTokensResource extends Resource
 {
+    /** @use Listable<DeviceToken> */
+    use Listable;
+
     /**
      * Register (or refresh) a device token for the current user and tenant,
      * returning the stored record. Re-registering an existing token moves it to
@@ -49,13 +53,7 @@ final class DeviceTokensResource extends Resource
      */
     public function status(): PushNotificationStatus
     {
-        $response = $this->get("{$this->path()}/status");
-        $this->throwForErrorResponse($response, $this->path());
-
-        /** @var array<string, mixed> $data */
-        $data = $response->json('data', []);
-
-        return PushNotificationStatus::fromArray($data);
+        return PushNotificationStatus::fromArray($this->raw($this->get("{$this->path()}/status")));
     }
 
     /**
@@ -64,7 +62,7 @@ final class DeviceTokensResource extends Resource
      */
     public function forget(string $token): void
     {
-        $this->throwForErrorResponse($this->delete($this->path(), ['token' => $token]), $this->path());
+        $this->throwForErrorResponse($this->delete($this->path(), ['token' => $token]));
     }
 
     /**
@@ -72,7 +70,7 @@ final class DeviceTokensResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"), $this->path());
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     /**
@@ -80,7 +78,7 @@ final class DeviceTokensResource extends Resource
      */
     public function destroyAll(): void
     {
-        $this->throwForErrorResponse($this->delete("{$this->path()}/all"), $this->path());
+        $this->throwForErrorResponse($this->delete("{$this->path()}/all"));
     }
 
     /**
@@ -88,7 +86,7 @@ final class DeviceTokensResource extends Resource
      */
     public function dismissPrompt(): void
     {
-        $this->throwForErrorResponse($this->post('push-notifications/prompt/dismiss'), $this->path());
+        $this->throwForErrorResponse($this->post('push-notifications/prompt/dismiss'));
     }
 
     protected function path(): string

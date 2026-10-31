@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\Appointment;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -29,10 +31,16 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::appointments()->destroy($id);
  * ```
  *
- * @extends resource<Appointment>
+ * @extends Resource<Appointment>
  */
 final class AppointmentsResource extends Resource
 {
+    /** @use Findable<Appointment> */
+    use Findable;
+
+    /** @use Listable<Appointment> */
+    use Listable;
+
     /**
      * Create an appointment, returning the stored record. A timed appointment
      * takes `date` and `start_time` (`H:i`); without an `end_time` it runs for
@@ -67,9 +75,7 @@ final class AppointmentsResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $uri = "{$this->path()}/{$id}";
-
-        $this->throwForErrorResponse($this->delete($uri), $uri);
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     /**

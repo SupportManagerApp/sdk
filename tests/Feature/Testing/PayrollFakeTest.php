@@ -10,7 +10,9 @@ use SupportManager\Sdk\Data\Payroll\PayEnhancement;
 use SupportManager\Sdk\Data\Payroll\PayRun;
 use SupportManager\Sdk\Data\Payroll\Payslip;
 use SupportManager\Sdk\Data\Payroll\Timesheet;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Testing\Factories\AutomaticPayEnhancementSettingsFactory;
 use SupportManager\Sdk\Testing\Factories\EstimatedPayFactory;
 use SupportManager\Sdk\Testing\Factories\P60Factory;
@@ -91,9 +93,9 @@ it('downloads a payslip PDF as a raw response', function () {
 
     $response = SupportManager::payslips()->download(1);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 payslip-bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf');
+        ->and($response->mimeType())->toBe('application/pdf');
 });
 
 // ── P60s (JSON:API: p60s) ───────────────────────────────────────────────────
@@ -128,7 +130,7 @@ it('marks a P60 viewed when it is opened or downloaded', function () {
     SupportManager::p60s()->download(2);
 
     expect(SupportManager::p60s()->all()->items()[1]->viewed)->toBeTrue()
-        ->and(SupportManager::p60s()->download(999)->status())->toBe(404);
+        ->and(fn () => SupportManager::p60s()->download(999))->toThrow(SupportManagerApiException::class);
 });
 
 // ── Timesheets (JSON:API: timesheets) ───────────────────────────────────────
@@ -168,20 +170,20 @@ it('runs the pay-enhancement CRUD lifecycle', function () {
     $found = SupportManager::payEnhancements()->find(1);
     assert($found instanceof PayEnhancement);
 
-    expect(SupportManager::payEnhancements()->all()->total())->toBe(2)
+    expect(SupportManager::payEnhancements()->all()->items())->toHaveCount(2)
         ->and($found->name)->toBe('Enhancement 1');
 
-    $created = SupportManager::payEnhancements()->create(['name' => 'Bank Holiday', 'enhancement_factor' => '1.00']);
+    $created = SupportManager::payEnhancements()->create(['name' => 'Bank Holiday', 'enhancement_factor' => '1']);
     assert($created instanceof PayEnhancement);
     expect($created->name)->toBe('Bank Holiday')
-        ->and(SupportManager::payEnhancements()->all()->total())->toBe(3);
+        ->and(SupportManager::payEnhancements()->all()->items())->toHaveCount(3);
 
     $updated = SupportManager::payEnhancements()->update($created->id, ['name' => 'Renamed']);
     assert($updated instanceof PayEnhancement);
     expect($updated->name)->toBe('Renamed');
 
     SupportManager::payEnhancements()->destroy($created->id);
-    expect(SupportManager::payEnhancements()->all()->total())->toBe(2);
+    expect(SupportManager::payEnhancements()->all()->items())->toHaveCount(2);
 });
 
 // ── Estimated pay (flat singleton) ──────────────────────────────────────────
@@ -196,6 +198,9 @@ it('serves the flat estimated-pay singleton with a typed deductions breakdown', 
     expect($estimate->year)->toBe(2026)
         ->and($estimate->monthLabel)->toBe('June 2026')
         ->and($estimate->hours['total_cost'])->toBe(2250.0)
+        ->and($estimate->hoursBreakdown[0]->type)->toBe('Contracted Hours')
+        ->and($estimate->hoursBreakdown[0]->totalValue)->toBe(150.0)
+        ->and($estimate->sleepsBreakdown[0]->totalCost)->toBe(200.0)
         ->and($estimate->enhancements)->toHaveCount(1)
         ->and($estimate->enhancements[0]['type'])->toBe('Bank Holiday')
         ->and($estimate->grandTotal['total_cost'])->toBe(2570.0)

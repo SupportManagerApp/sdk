@@ -16,16 +16,16 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake push-notification device tokens.
  *
- * The collection (list/register/destroy-by-id) is an ordinary JSON:API resource
- * at `push-notifications/tokens`, so generic CRUD serves it. This factory adds
- * the module's quirks: the FLAT `status()` endpoint (a bare `{data: {...}}`, not
- * a JSON:API document), {@see forget()} (a DELETE on the bare path carrying a
- * `token` in the body), and {@see destroyAll()} (DELETE `/all`, which generic
- * REST would otherwise read as a delete of the id "all").
- *
- * The `prompt/dismiss` POST lives under a different path prefix, so no
- * registration matches it and the fake's empty-collection fallback answers it
- * with a 200 — which is all `dismissPrompt()` needs.
+ * The collection is a JSON:API resource (type `device_tokens`) at
+ * `push-notifications/tokens`; register and destroy-by-id are served by generic
+ * CRUD. This factory adds the module's quirks (DeviceTokensController): the
+ * index is an unpaginated collection carrying `meta.count`; the FLAT
+ * `status()` endpoint (a bare `{data: {...}}`, not a JSON:API document);
+ * forget (a DELETE on the bare path carrying a `token` in the body) and
+ * destroyAll (DELETE `/all`, which generic REST would otherwise read as a
+ * delete of the id "all") answer `{success, message}`; and
+ * `push-notifications/prompt/dismiss` answers `{success, message}` and flips
+ * the status's `prompt_dismissed`.
  *
  * ```php
  * SupportManager::fake()->seed(DeviceTokenFactory::new()->count(2));
@@ -34,6 +34,11 @@ use SupportManager\Sdk\Testing\RecordStore;
  */
 final class DeviceTokenFactory extends Factory implements ProvidesFakeRoutes
 {
+    /**
+     * Where the fake remembers that the setup prompt was dismissed.
+     */
+    private const string PROMPT_PATH = 'push-notifications/prompt';
+
     public function path(): string
     {
         return 'push-notifications/tokens';
@@ -41,7 +46,7 @@ final class DeviceTokenFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'device-tokens';
+        return 'device_tokens';
     }
 
     public function definition(int $index): array
@@ -76,23 +81,35 @@ final class DeviceTokenFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // GET tokens — every token, unpaginated, with a `meta.count`.
+            FakeRoute::get('push-notifications/tokens', static function (RecordStore $store): mixed {
+                $tokens = $store->all('push-notifications/tokens');
+
+                return Http::response(Json::collection('device_tokens', $tokens, ['count' => count($tokens)]));
+            }),
+
             // Flat status payload, derived from the seeded tokens.
-            FakeRoute::get('push-notifications/tokens/status', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+            FakeRoute::flat('push-notifications/tokens/status', static function (RecordStore $store): array {
                 $count = count($store->all('push-notifications/tokens'));
 
-                return Http::response(Json::item(null, [
+                return [
                     'has_tokens' => $count > 0,
                     'token_count' => $count,
-                    'prompt_dismissed' => false,
-                ]));
+                    'prompt_dismissed' => $store->all(self::PROMPT_PATH) !== [],
+                ];
             }),
 
             // Delete every token for the current user — must precede the generic
             // DELETE /{id} so "all" is not treated as an id.
             FakeRoute::delete('push-notifications/tokens/all', static function (RecordStore $store): mixed {
+                $count = count($store->all('push-notifications/tokens'));
                 $store->truncate('push-notifications/tokens');
 
-                return Http::response(['message' => 'ok']);
+                return Http::response([
+                    'success' => true,
+                    'message' => 'All tokens removed.',
+                    'meta' => ['removed_count' => $count],
+                ]);
             }),
 
             // Forget by value: a DELETE on the bare path with a `token` body.
@@ -105,7 +122,14 @@ final class DeviceTokenFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                return Http::response(['message' => 'ok']);
+                return Http::response(['success' => true, 'message' => 'Token removed.']);
+            }),
+
+            // Dismiss the in-app setup prompt (idempotent).
+            FakeRoute::post('push-notifications/prompt/dismiss', static function (RecordStore $store): mixed {
+                $store->put(self::PROMPT_PATH, [['id' => '1', 'dismissed' => true]]);
+
+                return Http::response(['success' => true, 'message' => 'Notification prompt dismissed.']);
             }),
         ];
     }

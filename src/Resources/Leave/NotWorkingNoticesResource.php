@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Leave;
 
 use SupportManager\Sdk\Data\Leave\NotWorkingNotice;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -24,10 +25,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveNotWorkingNotices()->withdraw(12);
  * ```
  *
- * @extends resource<NotWorkingNotice>
+ * @extends Resource<NotWorkingNotice>
  */
 final class NotWorkingNoticesResource extends Resource
 {
+    /** @use Listable<NotWorkingNotice> */
+    use Listable;
+
     /**
      * Record a not-working notice, returning the stored record. It stands
      * straight away and the contractor's shifts in that time are released for
@@ -64,6 +68,6 @@ final class NotWorkingNoticesResource extends Resource
 
     protected function hydrate(ResourceObject $object): NotWorkingNotice
     {
-        return NotWorkingNotice::fromArray($object->flat(), $object->meta);
+        return NotWorkingNotice::fromArray($object->flat());
     }
 }

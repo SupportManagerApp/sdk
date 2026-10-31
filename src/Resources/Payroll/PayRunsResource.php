@@ -15,14 +15,14 @@ use SupportManager\Sdk\Resources\Resource;
  * (unpublished) payslips.
  *
  * The platform returns a flat (non-JSON:API) paginated `data` payload, so this
- * resource hand-rolls {@see self::all()} (and exposes no `query()`/`find()`,
- * which assume the JSON:API resource-object shape).
+ * resource reads it with {@see Resource::dataPaginated()} (and exposes no
+ * `query()`/`find()`, which assume the JSON:API resource-object shape).
  *
  * ```php
  * SupportManager::payRuns()->all();
  * ```
  *
- * @extends resource<PayRun>
+ * @extends Resource<PayRun>
  */
 final class PayRunsResource extends Resource
 {
@@ -43,21 +43,10 @@ final class PayRunsResource extends Resource
      */
     public function page(int $page): Paginated
     {
-        $response = $this->get('payroll/pay-runs', $page > 1 ? ['page' => $page] : []);
-
-        $this->throwForErrorResponse($response, 'payroll/pay-runs');
-
-        $body = $response->json() ?? [];
-        $data = is_array($body['data'] ?? null) ? $body['data'] : [];
-
-        return new Paginated(
-            items: array_values(array_map(
-                static fn (mixed $row): PayRun => PayRun::fromArray(is_array($row) ? $row : []),
-                $data,
-            )),
-            meta: is_array($body['meta'] ?? null) ? $body['meta'] : [],
-            links: is_array($body['links'] ?? null) ? $body['links'] : [],
-            pageFetcher: fn (int $next): Paginated => $this->page($next),
+        return $this->dataPaginated(
+            $this->get($this->path(), $page > 1 ? ['page' => $page] : []),
+            PayRun::class,
+            fn (int $next): Paginated => $this->page($next),
         );
     }
 

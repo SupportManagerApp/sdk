@@ -14,11 +14,12 @@ use SupportManager\Sdk\Resources\Resource;
  * The authenticated employee's own payroll starter declaration — a singleton.
  *
  * The platform exposes `show()` and `update()` returning a flat (non-JSON:API)
- * `data` payload, so this resource hand-rolls both. Employees (personal
- * assistants and managers) can read and save their own; former personal
- * assistants can only read it ({@see StarterDeclaration::$canUpdate} is false);
- * admins, family members and contractors get a 403. Saving also completes the
- * employee's `payroll.payroll_starter` task.
+ * `data` payload whose top-level `meta` carries the permission flags, so this
+ * resource reads both itself. Employees (personal assistants and managers) can
+ * read and save their own; former personal assistants can only read it
+ * ({@see StarterDeclaration::$canUpdate} is false); admins, family members and
+ * contractors get a 403. Saving also completes the employee's
+ * `payroll.payroll_starter` task.
  *
  * ```php
  * SupportManager::starterDeclaration()->show();
@@ -34,7 +35,7 @@ use SupportManager\Sdk\Resources\Resource;
  * ], $upload->get(), $upload->getClientOriginalName());
  * ```
  *
- * @extends resource<StarterDeclaration>
+ * @extends Resource<StarterDeclaration>
  */
 final class StarterDeclarationResource extends Resource
 {
@@ -98,13 +99,18 @@ final class StarterDeclarationResource extends Resource
         return StarterDeclaration::fromArray($object->flat());
     }
 
+    /**
+     * Hydrate the declaration from a plain `{data, meta}` body. Unlike
+     * {@see Resource::data()}, this folds the top-level `meta` (its `can`
+     * flags) in under `meta`, where the DTO's `#[Can]` reads it.
+     */
     private function declarationFromResponse(Response $response): ?StarterDeclaration
     {
-        $this->throwForErrorResponse($response, $this->path());
+        $this->throwForErrorResponse($response);
 
         $data = $response->json('data');
         $meta = $response->json('meta');
 
-        return is_array($data) ? StarterDeclaration::fromArray($data, is_array($meta) ? $meta : []) : null;
+        return is_array($data) ? StarterDeclaration::fromArray([...$data, 'meta' => is_array($meta) ? $meta : []]) : null;
     }
 }

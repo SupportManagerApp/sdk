@@ -5,14 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Household\Chore;
 use SupportManager\Sdk\Enums\Household\ChoreFrequency;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Household\ChoresResource;
-
-function householdChores(): ChoresResource
-{
-    return app(ChoresResource::class);
-}
 
 function householdChore(string $id, array $attributes = []): array
 {
@@ -49,10 +41,9 @@ function householdChorePage(int $page, int $lastPage): array
 }
 
 it('encodes Spatie-style query params on chores', function () {
-    Http::fake(['api.test/api/v1/household/chores*' => Http::response(householdChorePage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['household/chores*' => Http::response(householdChorePage(1, 1))]);
 
-    householdChores()->query()
+    sdk()->chores()->query()
         ->filter('due', true)
         ->sort('-last_completed')
         ->perPage(10)
@@ -69,10 +60,9 @@ it('encodes Spatie-style query params on chores', function () {
 });
 
 it('hydrates chores with the typed frequency enum and pagination', function () {
-    Http::fake(['api.test/api/v1/household/chores*' => Http::response(householdChorePage(1, 2))]);
-    bootTenantSession();
+    fakeApi(['household/chores*' => Http::response(householdChorePage(1, 2))]);
 
-    $page = householdChores()->query()->get();
+    $page = sdk()->chores()->query()->get();
 
     expect($page->items()[0])->toBeInstanceOf(Chore::class)
         ->and($page->items()[0]->frequency)->toBe(ChoreFrequency::Weekly)
@@ -81,60 +71,46 @@ it('hydrates chores with the typed frequency enum and pagination', function () {
         ->and($page->hasMorePages())->toBeTrue();
 });
 
-it('finds a chore by id', function () {
-    Http::fake(['api.test/api/v1/household/chores/7*' => Http::response(['data' => householdChore('7')])]);
-    bootTenantSession();
-
-    expect(householdChores()->find(7)->id)->toBe('7');
-});
-
-it('returns null when finding a missing chore (404)', function () {
-    Http::fake(['api.test/api/v1/household/chores/999*' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
-
-    expect(householdChores()->find(999))->toBeNull();
+it('has no find(), because the platform registers chores without a show route', function () {
+    // apiResource('chores', ...)->except(['show']): GET household/chores/{id} is a 405.
+    expect(method_exists(sdk()->chores(), 'find'))->toBeFalse();
 });
 
 it('creates a chore', function () {
-    Http::fake(['api.test/api/v1/household/chores' => Http::response(['data' => householdChore('5', ['name' => 'Vacuum'])], 201)]);
-    bootTenantSession();
+    fakeApi(['household/chores' => Http::response(['data' => householdChore('5', ['name' => 'Vacuum'])], 201)]);
 
-    expect(householdChores()->create(['name' => 'Vacuum', 'frequency' => 'Weekly'])->name)->toBe('Vacuum');
+    expect(sdk()->chores()->create(['name' => 'Vacuum', 'frequency' => 'Weekly'])->name)->toBe('Vacuum');
     Http::assertSent(fn ($request) => $request->method() === 'POST' && $request['name'] === 'Vacuum');
 });
 
 it('updates a chore', function () {
-    Http::fake(['api.test/api/v1/household/chores/5' => Http::response(['data' => householdChore('5', ['name' => 'Mop'])])]);
-    bootTenantSession();
+    fakeApi(['household/chores/5' => ['data' => householdChore('5', ['name' => 'Mop'])]]);
 
-    expect(householdChores()->update(5, ['name' => 'Mop'])->name)->toBe('Mop');
+    expect(sdk()->chores()->update(5, ['name' => 'Mop'])->name)->toBe('Mop');
     Http::assertSent(fn ($request) => $request->method() === 'PATCH');
 });
 
 it('deletes a chore', function () {
-    Http::fake(['api.test/api/v1/household/chores/5' => Http::response(['message' => 'Chore deleted successfully.'])]);
-    bootTenantSession();
+    fakeApi(['household/chores/5' => ['message' => 'Chore deleted successfully.']]);
 
-    householdChores()->delete(5);
+    sdk()->chores()->destroy(5);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'household/chores/5'));
 });
 
 it('marks a chore complete', function () {
-    Http::fake(['api.test/api/v1/household/chores/5/complete' => Http::response(['data' => householdChore('5', ['last_completed' => '2026-06-06'])])]);
-    bootTenantSession();
+    fakeApi(['household/chores/5/complete' => ['data' => householdChore('5', ['last_completed' => '2026-06-06'])]]);
 
-    expect(householdChores()->complete(5)->lastCompleted)->toBe('2026-06-06');
+    expect(sdk()->chores()->complete(5)->lastCompleted)->toBe('2026-06-06');
     Http::assertSent(fn ($request) => $request->method() === 'PATCH'
         && str_contains($request->url(), '/complete'));
 });
 
 it('snoozes a chore until a date', function () {
-    Http::fake(['api.test/api/v1/household/chores/5/snooze' => Http::response(['data' => householdChore('5', ['snoozed_until' => '2026-06-20', 'is_snoozed' => true])])]);
-    bootTenantSession();
+    fakeApi(['household/chores/5/snooze' => ['data' => householdChore('5', ['snoozed_until' => '2026-06-20', 'is_snoozed' => true])]]);
 
-    $chore = householdChores()->snooze(5, '2026-06-20');
+    $chore = sdk()->chores()->snooze(5, '2026-06-20');
 
     expect($chore->isSnoozed)->toBeTrue()
         ->and($chore->snoozedUntil)->toBe('2026-06-20');
@@ -143,23 +119,8 @@ it('snoozes a chore until a date', function () {
         && $request['snoozed_until'] === '2026-06-20');
 });
 
-it('maps a 422 to a validation exception', function () {
-    Http::fake(['api.test/api/v1/household/chores' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['name' => ['The name field is required.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        householdChores()->create([]);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('name'))->toBe('The name field is required.');
-    }
-});
-
 it('hydrates the wave 2 chore fields and meta.can flags', function () {
-    Http::fake(['api.test/api/v1/household/chores*' => Http::response([
+    fakeApi(['household/chores*' => [
         'data' => [array_merge(householdChore('5', [
             'name' => '  Water Plants ',
             'normalized_name' => 'water plants',
@@ -171,10 +132,9 @@ it('hydrates the wave 2 chore fields and meta.can flags', function () {
             'planned_for' => null,
         ]), ['meta' => ['can' => ['update' => true, 'delete' => false]]])],
         'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $chore = householdChores()->query()->get()->items()[0];
+    $chore = sdk()->chores()->query()->get()->items()[0];
 
     expect($chore->normalizedName)->toBe('water plants')
         ->and($chore->categoryId)->toBe(2)
@@ -190,13 +150,12 @@ it('hydrates the wave 2 chore fields and meta.can flags', function () {
 });
 
 it('decodes a chore without a category or permissions', function () {
-    Http::fake(['api.test/api/v1/household/chores*' => Http::response([
+    fakeApi(['household/chores*' => [
         'data' => [householdChore('5', ['category' => null])],
         'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $chore = householdChores()->query()->get()->items()[0];
+    $chore = sdk()->chores()->query()->get()->items()[0];
 
     expect($chore->categoryId)->toBeNull()
         ->and($chore->categoryName)->toBeNull()
@@ -205,13 +164,12 @@ it('decodes a chore without a category or permissions', function () {
 });
 
 it('completes several chores by id', function () {
-    Http::fake(['api.test/api/v1/household/chores/complete' => Http::response([
+    fakeApi(['household/chores/complete' => [
         'data' => [householdChore('1', ['days_since_completion' => 0]), householdChore('2', ['days_since_completion' => 0])],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $chores = householdChores()->completeMany([1, '2']);
+    $chores = sdk()->chores()->completeMany([1, '2']);
 
     expect($chores)->toHaveCount(2)
         ->and($chores[0])->toBeInstanceOf(Chore::class)
@@ -225,24 +183,22 @@ it('completes several chores by id', function () {
 });
 
 it('completes a chore group by name', function () {
-    Http::fake(['api.test/api/v1/household/chores/complete' => Http::response([
+    fakeApi(['household/chores/complete' => [
         'data' => [householdChore('3')],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    expect(householdChores()->completeGroup('Water plants'))->toHaveCount(1);
+    expect(sdk()->chores()->completeGroup('Water plants'))->toHaveCount(1);
     Http::assertSent(fn ($request) => $request['group'] === 'Water plants' && ! isset($request['chore_ids']));
 });
 
 it('marks several chores not needed today', function () {
-    Http::fake(['api.test/api/v1/household/chores/not-needed' => Http::response([
+    fakeApi(['household/chores/not-needed' => [
         'data' => [householdChore('1', ['snoozed_until' => '2026-06-07', 'is_snoozed' => true])],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $chores = householdChores()->markNotNeeded([1]);
+    $chores = sdk()->chores()->markNotNeeded([1]);
 
     expect($chores[0]->isSnoozed)->toBeTrue()
         ->and($chores[0]->snoozedUntil)->toBe('2026-06-07');
@@ -252,40 +208,10 @@ it('marks several chores not needed today', function () {
 });
 
 it('marks a chore group not needed today', function () {
-    Http::fake(['api.test/api/v1/household/chores/not-needed' => Http::response(['data' => [], 'meta' => ['team_id' => 42]])]);
-    bootTenantSession();
+    fakeApi(['household/chores/not-needed' => ['data' => [], 'meta' => ['team_id' => 42]]]);
 
-    householdChores()->markGroupNotNeeded('Water plants');
+    sdk()->chores()->markGroupNotNeeded('Water plants');
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/household/chores/not-needed')
         && $request['group'] === 'Water plants');
 });
-
-it('maps a 422 on a bulk selection to a validation exception', function () {
-    Http::fake(['api.test/api/v1/household/chores/complete' => Http::response([
-        'message' => 'There are no chores in that group.',
-        'errors' => ['group' => ['There are no chores in that group.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        householdChores()->completeGroup('Nothing');
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('group'))->toBe('There are no chores in that group.');
-    }
-});
-
-it('throws when a bulk selection is refused (403)', function () {
-    Http::fake(['api.test/api/v1/household/chores/not-needed' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
-    bootTenantSession();
-
-    householdChores()->markNotNeeded([1]);
-})->throws(SupportManagerApiException::class);
-
-it('throws when a non-privileged user snoozes beyond tomorrow (403)', function () {
-    Http::fake(['api.test/api/v1/household/chores/5/snooze' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
-    bootTenantSession();
-
-    householdChores()->snooze(5, '2026-07-01');
-})->throws(SupportManagerApiException::class);

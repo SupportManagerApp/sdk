@@ -6,8 +6,8 @@ namespace SupportManager\Sdk\Resources\Leave;
 
 use SupportManager\Sdk\Data\Leave\ManualAdjustment;
 use SupportManager\Sdk\Data\Leave\ManualAdjustmentSummary;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -22,10 +22,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveAdjustments()->mine(['year' => 2026]);
  * ```
  *
- * @extends resource<ManualAdjustment>
+ * @extends Resource<ManualAdjustment>
  */
 final class ManualAdjustmentsResource extends Resource
 {
+    /** @use Listable<ManualAdjustment> */
+    use Listable;
+
     /**
      * The current user's own adjustments for the current leave year or the
      * given one, oldest first, with their totals. Not paginated.
@@ -34,16 +37,9 @@ final class ManualAdjustmentsResource extends Resource
      */
     public function mine(array $query = []): ManualAdjustmentSummary
     {
-        $response = $this->get("{$this->path()}/mine", $query);
+        $page = $this->paginated($this->get("{$this->path()}/mine", $query));
 
-        $this->throwForErrorResponse($response, "{$this->path()}/mine");
-
-        $document = Document::fromArray($response->json() ?? []);
-
-        return ManualAdjustmentSummary::fromArray(
-            array_map($this->hydrate(...), $document->resources()),
-            $document->meta(),
-        );
+        return ManualAdjustmentSummary::fromArray($page->items(), $page->meta());
     }
 
     /**
@@ -74,7 +70,7 @@ final class ManualAdjustmentsResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"), $this->path());
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     protected function path(): string

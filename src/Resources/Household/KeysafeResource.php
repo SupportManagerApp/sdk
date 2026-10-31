@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Household;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\Keysafe;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -13,17 +12,17 @@ use SupportManager\Sdk\Resources\Resource;
  * The team's keysafe — a singleton, not a collection.
  *
  * `show()` and `update()` report whether a code is set and whether the caller
- * may edit it; `reveal()` returns the actual code (and is the only method that
- * populates `Keysafe::$code`). The platform's `KeysafeController` returns a flat
- * `{data: {...}}` body — NOT a JSON:API document with `attributes` — so we parse
- * `data` directly rather than via `item()`.
+ * may edit it; `reveal()` returns the code itself, as a string. The platform's
+ * `KeysafeController` returns a flat
+ * `{data: {...}}` body — NOT a JSON:API document with `attributes` — so it is
+ * read with {@see Resource::data()} rather than `item()`.
  *
  * ```php
- * SupportManager::keysafe()->reveal()->code;
+ * SupportManager::keysafe()->reveal();    // '1234', or null when no code is set
  * SupportManager::keysafe()->update('1234');
  * ```
  *
- * @extends resource<Keysafe>
+ * @extends Resource<Keysafe>
  */
 final class KeysafeResource extends Resource
 {
@@ -32,15 +31,20 @@ final class KeysafeResource extends Resource
      */
     public function show(): ?Keysafe
     {
-        return $this->keysafe($this->get('household/keysafe'));
+        return $this->data($this->get($this->path()), Keysafe::class);
     }
 
     /**
-     * Reveal the keysafe code (audited server-side). `code` is null when unset.
+     * Reveal the keysafe code, or null when none is set. The platform audits
+     * every reveal of a set code. Its body is only `{data: {code}}`, with no
+     * `has_code` or `can_edit`, so this returns the code rather than a
+     * {@see Keysafe}; call {@see self::show()} for those.
      */
-    public function reveal(): ?Keysafe
+    public function reveal(): ?string
     {
-        return $this->keysafe($this->post('household/keysafe/reveal'));
+        $code = $this->raw($this->post("{$this->path()}/reveal"))['code'] ?? null;
+
+        return is_string($code) && $code !== '' ? $code : null;
     }
 
     /**
@@ -49,7 +53,7 @@ final class KeysafeResource extends Resource
      */
     public function update(?string $code): ?Keysafe
     {
-        return $this->keysafe($this->patch('household/keysafe', ['code' => $code]));
+        return $this->data($this->patch($this->path(), ['code' => $code]), Keysafe::class);
     }
 
     protected function path(): string
@@ -60,22 +64,5 @@ final class KeysafeResource extends Resource
     protected function hydrate(ResourceObject $object): Keysafe
     {
         return Keysafe::fromArray($object->flat());
-    }
-
-    /**
-     * Parse the singleton's flat (non-JSON:API) `data` body into a DTO.
-     */
-    private function keysafe(Response $response): ?Keysafe
-    {
-        $this->throwForErrorResponse($response, 'household/keysafe');
-
-        /** @var array<string, mixed> $body */
-        $body = $response->json() ?? [];
-
-        if (! isset($body['data']) || ! is_array($body['data'])) {
-            return null;
-        }
-
-        return Keysafe::fromArray($body['data']);
     }
 }

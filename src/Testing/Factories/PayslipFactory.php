@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -29,6 +31,8 @@ use SupportManager\Sdk\Testing\RecordStore;
  */
 final class PayslipFactory extends Factory implements ProvidesFakeRoutes
 {
+    private const array SHOW_ONLY_KEYS = ['payments', 'deductions', 'period_totals', 'ytd_totals', 'employer'];
+
     public function path(): string
     {
         return 'payroll/payslips';
@@ -44,7 +48,7 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 7,
             'user' => ['id' => 7, 'name' => "Employee {$number}"],
             'process_date' => '2026-06-30T00:00:00Z',
@@ -74,7 +78,7 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
      */
     public function latest(): static
     {
-        return $this->state(['is_latest' => true]);
+        return $this->state(['_latest' => true]);
     }
 
     /**
@@ -101,23 +105,30 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // The platform's index eager-loads only the user, so the line-item
+            // relations and the show-only employer block are absent
+            // (PayslipController::index, PayslipResource::whenLoaded()).
+            FakeRoute::get('payroll/payslips', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $rows = array_map(
+                    static fn (array $record): array => array_diff_key($record, array_flip(self::SHOW_ONLY_KEYS)),
+                    $fake->filter($store->all('payroll/payslips'), $request),
+                );
+
+                return $fake->paginate('payroll/payslips', 'payslips', $rows, $request, ['team_id' => $fake->teamId()]);
+            }),
+
+            // The `_latest` marker is fake bookkeeping, which Json strips.
             FakeRoute::get('payroll/payslips/latest', static function (RecordStore $store): mixed {
                 foreach ($store->all('payroll/payslips') as $record) {
-                    if ($record['is_latest'] ?? false) {
+                    if ($record['_latest'] ?? false) {
                         return Http::response(Json::item('payslips', $record));
                     }
                 }
 
-                return Http::response(['data' => null]);
+                return Http::response(Json::flat(null));
             }),
 
-            FakeRoute::get('payroll/payslips/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->find('payroll/payslips', $matches[1]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                return Http::response('%PDF-1.4 payslip-bytes', 200, ['Content-Type' => 'application/pdf']);
-            }),
+            FakeRoute::download('payroll/payslips/{id}/download', '%PDF-1.4 payslip-bytes'),
         ];
     }
 }

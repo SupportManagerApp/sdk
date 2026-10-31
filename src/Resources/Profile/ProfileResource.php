@@ -14,7 +14,7 @@ use SupportManager\Sdk\Data\Profile\EmploymentSummary;
 use SupportManager\Sdk\Data\Profile\Profile;
 use SupportManager\Sdk\Data\Profile\SuggestedAddress;
 use SupportManager\Sdk\Data\Profile\User;
-use SupportManager\Sdk\Http\Document;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -31,7 +31,9 @@ use SupportManager\Sdk\Resources\Resource;
  * team" without it), so each call goes through the tenant-scoped base helpers
  * ({@see Resource::get()} / {@see Resource::put()} / {@see Resource::tenant()}),
  * which resolve {@see \SupportManager\Sdk\Session\CurrentTeam} and forward the
- * header automatically.
+ * header automatically. Most of the endpoints return a JSON:API resource of
+ * their own type, read with {@see Resource::item()} or
+ * {@see Resource::collection()} given that DTO's class.
  *
  * Former PAs can read their profile, address, emergency contacts, bank details
  * and employment summary, but every write answers 403;
@@ -44,7 +46,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::profile()->saveEmergencyContacts([['name' => 'Jane Doe', ...]]);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Profile>
+ * @extends Resource<Profile>
  */
 final class ProfileResource extends Resource
 {
@@ -53,11 +55,7 @@ final class ProfileResource extends Resource
      */
     public function me(): ?User
     {
-        $response = $this->tenant(fn (PendingRequest $request): Response => $request->get('user'));
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : User::fromArray($resource->flat());
+        return $this->item($this->get('user'), User::class);
     }
 
     /**
@@ -65,9 +63,7 @@ final class ProfileResource extends Resource
      */
     public function show(): ?Profile
     {
-        return $this->item($this->tenant(
-            fn (PendingRequest $request): Response => $request->get('user/profile'),
-        ));
+        return $this->item($this->get('user/profile'));
     }
 
     /**
@@ -81,9 +77,7 @@ final class ProfileResource extends Resource
      */
     public function update(array $data): ?Profile
     {
-        return $this->item($this->tenant(
-            fn (PendingRequest $request): Response => $request->patch('user/profile', $data),
-        ));
+        return $this->item($this->patch('user/profile', $data));
     }
 
     /**
@@ -91,11 +85,7 @@ final class ProfileResource extends Resource
      */
     public function address(): ?Address
     {
-        $response = $this->tenant(fn (PendingRequest $request): Response => $request->get('user/address'));
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : Address::fromArray($resource->flat());
+        return $this->item($this->get('user/address'), Address::class);
     }
 
     /**
@@ -105,13 +95,7 @@ final class ProfileResource extends Resource
      */
     public function saveAddress(array $data): ?Address
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->put('user/address', $data),
-        );
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : Address::fromArray($resource->flat());
+        return $this->item($this->put('user/address', $data), Address::class);
     }
 
     /**
@@ -119,7 +103,7 @@ final class ProfileResource extends Resource
      */
     public function deleteAddress(): void
     {
-        $this->tenant(fn (PendingRequest $request): Response => $request->delete('user/address'));
+        $this->throwForErrorResponse($this->delete('user/address'));
     }
 
     /**
@@ -133,16 +117,7 @@ final class ProfileResource extends Resource
      */
     public function addressSuggestions(string $search): array
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('user/address/suggestions', ['q' => $search]),
-        );
-
-        $this->throwForErrorResponse($response, 'user/address/suggestions');
-
-        /** @var list<array<string, mixed>> $data */
-        $data = $response->json('data', []);
-
-        return array_values(array_map(AddressSuggestion::fromArray(...), $data));
+        return $this->dataList($this->get('user/address/suggestions', ['q' => $search]), AddressSuggestion::class);
     }
 
     /**
@@ -153,19 +128,13 @@ final class ProfileResource extends Resource
      */
     public function addressSuggestion(string $id): ?SuggestedAddress
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('user/address/suggestions/'.rawurlencode($id)),
-        );
+        $response = $this->get('user/address/suggestions/'.rawurlencode($id));
 
         if ($response->status() === 404) {
             return null;
         }
 
-        $this->throwForErrorResponse($response, 'user/address/suggestions/{id}');
-
-        $data = $response->json('data');
-
-        return is_array($data) ? SuggestedAddress::fromArray($data) : null;
+        return $this->data($response, SuggestedAddress::class);
     }
 
     /**
@@ -176,9 +145,7 @@ final class ProfileResource extends Resource
      */
     public function emergencyContacts(): array
     {
-        return $this->emergencyContactsFrom($this->tenant(
-            fn (PendingRequest $request): Response => $request->get('user/emergency-contacts'),
-        ));
+        return $this->collection($this->get('user/emergency-contacts'), EmergencyContact::class);
     }
 
     /**
@@ -195,9 +162,7 @@ final class ProfileResource extends Resource
      */
     public function saveEmergencyContacts(array $contacts): array
     {
-        return $this->emergencyContactsFrom($this->tenant(
-            fn (PendingRequest $request): Response => $request->put('user/emergency-contacts', ['contacts' => $contacts]),
-        ));
+        return $this->collection($this->put('user/emergency-contacts', ['contacts' => $contacts]), EmergencyContact::class);
     }
 
     /**
@@ -210,11 +175,7 @@ final class ProfileResource extends Resource
      */
     public function deleteEmergencyContact(string|int $id): void
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->delete("user/emergency-contacts/{$id}"),
-        );
-
-        $this->throwForErrorResponse($response, "user/emergency-contacts/{$id}");
+        $this->throwForErrorResponse($this->delete("user/emergency-contacts/{$id}"));
     }
 
     /**
@@ -227,24 +188,21 @@ final class ProfileResource extends Resource
      */
     public function employment(): ?EmploymentSummary
     {
-        $response = $this->tenant(fn (PendingRequest $request): Response => $request->get('user/employment'));
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : EmploymentSummary::fromArray($resource->flat());
+        return $this->item($this->get('user/employment'), EmploymentSummary::class);
     }
 
     /**
      * Download an employment confirmation letter as a PDF
      * (`GET user/employment/confirmation-letter`), the same letter as the web
-     * profile's button. Returns the raw binary {@see Response} — the body is the
-     * PDF, not a JSON:API document, so it is intentionally not hydrated into a
-     * DTO. PAs and managers only.
+     * profile's button. The response body is the PDF itself, so it comes back
+     * as a {@see Download} rather than a DTO. PAs and managers only; anyone
+     * else's 403 throws a
+     * {@see \SupportManager\Sdk\Exceptions\SupportManagerApiException}.
      *
      * @param  string|null  $recipientName  Who the letter is addressed to; the platform defaults to "To Whom It May Concern".
      * @param  bool  $includeGrossPay  Include gross pay from the last three finalised payslips.
      */
-    public function employmentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Response
+    public function downloadEmploymentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Download
     {
         $query = ['include_gross_pay' => $includeGrossPay ? 1 : 0];
 
@@ -252,17 +210,31 @@ final class ProfileResource extends Resource
             $query['recipient_name'] = $recipientName;
         }
 
-        return $this->get('user/employment/confirmation-letter', $query);
+        return $this->downloadFile('user/employment/confirmation-letter', $query);
+    }
+
+    /**
+     * @deprecated Use {@see self::downloadEmploymentConfirmationLetter()}; every method that returns a file is named download*.
+     */
+    public function employmentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Download
+    {
+        $this->deprecated(__FUNCTION__, 'downloadEmploymentConfirmationLetter');
+
+        return $this->downloadEmploymentConfirmationLetter($recipientName, $includeGrossPay);
     }
 
     /**
      * Change the user's password (`PUT user/password`).
      *
      * The server confirms the current password, so all three values are required.
+     * A wrong current password, a new one that fails the platform's rules or
+     * matches the current one, or a confirmation that doesn't match is an
+     * {@see \SupportManager\Sdk\Exceptions\ApiValidationException}, e.g. on
+     * `current_password` ("The current password is incorrect.").
      */
     public function changePassword(string $currentPassword, string $password, string $passwordConfirmation): void
     {
-        $this->tenant(fn (PendingRequest $request): Response => $request->put('user/password', [
+        $this->throwForErrorResponse($this->put('user/password', [
             'current_password' => $currentPassword,
             'password' => $password,
             'password_confirmation' => $passwordConfirmation,
@@ -292,13 +264,9 @@ final class ProfileResource extends Resource
      */
     public function uploadAvatar(string $contents, string $filename): ?string
     {
-        $response = $this->tenant(fn (PendingRequest $request): Response => $request
+        $url = $this->raw($this->tenant(fn (PendingRequest $request): Response => $request
             ->attach('avatar', $contents, $filename)
-            ->post('user/avatar'));
-
-        $this->throwForErrorResponse($response, 'user/avatar');
-
-        $url = $response->json('data.avatar_url');
+            ->post('user/avatar')))['avatar_url'] ?? null;
 
         return is_string($url) ? $url : null;
     }
@@ -309,7 +277,7 @@ final class ProfileResource extends Resource
      */
     public function deleteAvatar(): void
     {
-        $this->tenant(fn (PendingRequest $request): Response => $request->delete('user/avatar'));
+        $this->throwForErrorResponse($this->delete('user/avatar'));
     }
 
     /**
@@ -319,11 +287,7 @@ final class ProfileResource extends Resource
      */
     public function bankDetails(): ?BankDetails
     {
-        $response = $this->get('user/bank-details');
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : BankDetails::fromArray($resource->flat());
+        return $this->item($this->get('user/bank-details'), BankDetails::class);
     }
 
     /**
@@ -335,11 +299,7 @@ final class ProfileResource extends Resource
      */
     public function saveBankDetails(array $data): ?BankDetails
     {
-        $response = $this->put('user/bank-details', $data);
-
-        $resource = $this->resourceFrom($response);
-
-        return $resource === null ? null : BankDetails::fromArray($resource->flat());
+        return $this->item($this->put('user/bank-details', $data), BankDetails::class);
     }
 
     protected function path(): string
@@ -350,32 +310,5 @@ final class ProfileResource extends Resource
     protected function hydrate(ResourceObject $object): Profile
     {
         return Profile::fromArray($object->flat());
-    }
-
-    /**
-     * Map error responses, then hydrate a JSON:API collection of emergency
-     * contacts.
-     *
-     * @return list<EmergencyContact>
-     */
-    private function emergencyContactsFrom(Response $response): array
-    {
-        $this->throwForErrorResponse($response, 'user/emergency-contacts');
-
-        return array_map(
-            static fn (ResourceObject $resource): EmergencyContact => EmergencyContact::fromArray($resource->flat()),
-            Document::fromArray($response->json() ?? [])->resources(),
-        );
-    }
-
-    /**
-     * Map error responses, then pull the single JSON:API resource object from the
-     * body (null for an empty `{data: null}` payload).
-     */
-    private function resourceFrom(Response $response): ?ResourceObject
-    {
-        $this->throwForErrorResponse($response, $response->effectiveUri()?->getPath() ?? 'resource');
-
-        return Document::fromArray($response->json() ?? [])->resource();
     }
 }

@@ -37,7 +37,7 @@ final class ManualAdjustmentFactory extends Factory implements ProvidesFakeRoute
 
     public function type(): string
     {
-        return 'manual-adjustments';
+        return 'manual_adjustments';
     }
 
     public function definition(int $index): array
@@ -45,7 +45,7 @@ final class ManualAdjustmentFactory extends Factory implements ProvidesFakeRoute
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => $number,
             'user' => ['id' => $number, 'name' => "User {$number}"],
             'leave_year' => 2026,
@@ -70,8 +70,8 @@ final class ManualAdjustmentFactory extends Factory implements ProvidesFakeRoute
                 ));
                 usort($adjustments, static fn (array $a, array $b): int => strcmp((string) ($a['created_at'] ?? ''), (string) ($b['created_at'] ?? '')));
 
-                return Http::response(Json::collection('manual-adjustments', $adjustments, [
-                    'team_id' => 42,
+                return Http::response(Json::collection('manual_adjustments', $adjustments, [
+                    'team_id' => $fake->teamId(),
                     'year' => $year,
                     'totals' => [
                         'hours_adjustment' => (float) array_sum(array_column($adjustments, 'hours_adjustment')),

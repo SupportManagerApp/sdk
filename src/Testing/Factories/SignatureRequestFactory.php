@@ -121,7 +121,7 @@ final class SignatureRequestFactory extends Factory implements ProvidesFakeRoute
                 $record = $store->find('signing/requests', $matches[1]);
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not Found'], 404);
+                    return Json::notFound('Not Found');
                 }
 
                 if (($record['viewed_at'] ?? null) === null) {
@@ -133,7 +133,7 @@ final class SignatureRequestFactory extends Factory implements ProvidesFakeRoute
 
             FakeRoute::get('signing/requests/{id}/file', static function (RecordStore $store, array $matches): mixed {
                 if ($store->find('signing/requests', $matches[1]) === null) {
-                    return Http::response(['message' => 'Not Found'], 404);
+                    return Json::notFound('Not Found');
                 }
 
                 return Http::response('%PDF-1.4 signing-bytes', 200, ['Content-Type' => 'application/pdf']);
@@ -143,11 +143,11 @@ final class SignatureRequestFactory extends Factory implements ProvidesFakeRoute
                 $record = $store->find('signing/requests', $matches[1]);
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not Found'], 404);
+                    return Json::notFound('Not Found');
                 }
 
                 if (! self::can($record, 'sign')) {
-                    return Http::response(['message' => 'This action is unauthorized.'], 403);
+                    return Json::forbidden();
                 }
 
                 $values = $request->data();
@@ -168,24 +168,24 @@ final class SignatureRequestFactory extends Factory implements ProvidesFakeRoute
                 $record = $store->find('signing/requests', $matches[1]);
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not Found'], 404);
+                    return Json::notFound('Not Found');
                 }
 
                 if (! self::can($record, 'sign')) {
-                    return Http::response(['message' => 'This action is unauthorized.'], 403);
+                    return Json::forbidden();
                 }
 
                 if (! array_key_exists('agrees_to_sign_electronically', $request->data())) {
-                    return self::invalid('agrees_to_sign_electronically', 'The agrees to sign electronically field is required.');
+                    return Json::validation(['agrees_to_sign_electronically' => 'The agrees to sign electronically field is required.']);
                 }
 
                 if ($request->data()['agrees_to_sign_electronically'] !== true) {
-                    return self::invalid('consent', 'Agree to sign electronically to finish signing.');
+                    return Json::validation(['consent' => 'Agree to sign electronically to finish signing.']);
                 }
 
                 foreach (self::fields($record) as $field) {
                     if (($field['is_mine'] ?? false) && ($field['is_required'] ?? false) && ($field['value'] ?? null) === null) {
-                        return self::invalid((string) $field['id'], 'Please fill in this field.');
+                        return Json::validation([(string) $field['id'] => 'Please fill in this field.']);
                     }
                 }
 
@@ -206,17 +206,17 @@ final class SignatureRequestFactory extends Factory implements ProvidesFakeRoute
                 $record = $store->find('signing/requests', $matches[1]);
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not Found'], 404);
+                    return Json::notFound('Not Found');
                 }
 
                 if (! self::can($record, 'download_signed')) {
-                    return Http::response(['message' => 'This action is unauthorized.'], 403);
+                    return Json::forbidden();
                 }
 
                 /** @var array{name?: string} $document */
                 $document = $record['document'] ?? [];
 
-                return Http::response(Json::item(null, [
+                return Http::response(Json::flat([
                     'download_url' => 'https://s3.test/signing/signed/'.$matches[1].'.pdf',
                     'filename' => ($document['name'] ?? 'Document').' (signed).pdf',
                     'expires_at' => '2026-10-31T10:05:00.000000Z',
@@ -269,13 +269,5 @@ final class SignatureRequestFactory extends Factory implements ProvidesFakeRoute
         $meta = $record['meta'] ?? [];
 
         return $meta['can'][$ability] ?? false;
-    }
-
-    /**
-     * A 422 keyed by a single field, as the platform's validator emits it.
-     */
-    private static function invalid(string $field, string $message): mixed
-    {
-        return Http::response(['message' => $message, 'errors' => [$field => [$message]]], 422);
     }
 }

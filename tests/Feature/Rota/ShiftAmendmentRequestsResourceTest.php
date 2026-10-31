@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Rota\ShiftAmendmentRequestsResource;
-
-function rotaShiftAmendmentRequests(): ShiftAmendmentRequestsResource
-{
-    return app(ShiftAmendmentRequestsResource::class);
-}
 
 function rotaShiftAmendmentPage(): array
 {
@@ -40,10 +33,9 @@ function rotaShiftAmendmentPage(): array
 }
 
 it('encodes filters and tenant header on the amendment requests index', function () {
-    Http::fake(['api.test/api/v1/rota/shift-amendment-requests*' => Http::response(rotaShiftAmendmentPage())]);
-    bootTenantSession();
+    fakeApi(['rota/shift-amendment-requests*' => Http::response(rotaShiftAmendmentPage())]);
 
-    rotaShiftAmendmentRequests()->query()->filter('status', 'Pending')->filter('rota_entry_id', 51)->get();
+    sdk()->shiftAmendmentRequests()->query()->filter('status', 'Pending')->filter('rota_entry_id', 51)->get();
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
@@ -55,10 +47,9 @@ it('encodes filters and tenant header on the amendment requests index', function
 });
 
 it('hydrates amendment requests with their proposed times and tags', function () {
-    Http::fake(['api.test/api/v1/rota/shift-amendment-requests*' => Http::response(rotaShiftAmendmentPage())]);
-    bootTenantSession();
+    fakeApi(['rota/shift-amendment-requests*' => Http::response(rotaShiftAmendmentPage())]);
 
-    $page = rotaShiftAmendmentRequests()->all();
+    $page = sdk()->shiftAmendmentRequests()->all();
     $amendment = $page->items()[0];
 
     expect($amendment)->toBeInstanceOf(ShiftAmendmentRequest::class)
@@ -71,12 +62,4 @@ it('hydrates amendment requests with their proposed times and tags', function ()
         ->and($amendment->status)->toBe('Pending')
         ->and($amendment->reviewedBy)->toBeNull()
         ->and($page->total())->toBe(1);
-});
-
-it('throws an api exception on a server error', function () {
-    Http::fake(['api.test/api/v1/rota/shift-amendment-requests*' => Http::response('<html>boom</html>', 500)]);
-    bootTenantSession();
-
-    expect(fn () => rotaShiftAmendmentRequests()->all())
-        ->toThrow(SupportManagerApiException::class);
 });

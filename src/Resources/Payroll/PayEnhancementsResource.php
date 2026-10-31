@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Payroll;
 
 use SupportManager\Sdk\Data\Payroll\PayEnhancement;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -19,10 +21,16 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::payEnhancements()->create(['name' => 'Sunday', 'enhancement_factor' => '0.50']);
  * ```
  *
- * @extends resource<PayEnhancement>
+ * @extends Resource<PayEnhancement>
  */
 final class PayEnhancementsResource extends Resource
 {
+    /** @use Findable<PayEnhancement> */
+    use Findable;
+
+    /** @use Listable<PayEnhancement> */
+    use Listable;
+
     /**
      * Create a pay enhancement, returning the created record.
      *
@@ -48,9 +56,7 @@ final class PayEnhancementsResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $uri = "payroll/pay-enhancements/{$id}";
-
-        $this->throwForErrorResponse($this->delete($uri), $uri);
+        $this->throwForErrorResponse($this->delete("payroll/pay-enhancements/{$id}"));
     }
 
     protected function path(): string

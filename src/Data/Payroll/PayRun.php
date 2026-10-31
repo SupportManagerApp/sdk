@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A pay run — a month's worth of payslips rolled up into one summary row.
  * Mirrors the platform's `PayRunResource`.
@@ -31,15 +33,6 @@ final readonly class PayRun
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            monthKey: (string) ($data['month_key'] ?? ''),
-            monthLabel: isset($data['month_label']) ? (string) $data['month_label'] : null,
-            processDate: isset($data['process_date']) ? (string) $data['process_date'] : null,
-            payslipCount: (int) ($data['payslip_count'] ?? 0),
-            publishedCount: (int) ($data['published_count'] ?? 0),
-            status: (string) ($data['status'] ?? ''),
-            totalGross: (float) ($data['total_gross'] ?? 0),
-            totalNet: (float) ($data['total_net'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,29 +4,32 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Household;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\ShoppingListItem;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
  * The shared household shopping list.
  *
- * The collection (`query()`, `find()`, `all()`) plus writes — `create()`,
- * `update()`, `delete()` — and the `togglePurchased()` action that flips an
- * item's needs-purchasing flag. The platform exposes no `show` route, so single
- * items come from the collection rather than a by-id GET.
+ * The collection (`query()`, `all()`) plus writes — `create()`,
+ * `update()`, `destroy()` — and the `togglePurchased()` action that flips an
+ * item's needs-purchasing flag. The platform exposes no `show` route, so there is
+ * no `find()`: single items come from the collection.
  *
  * ```php
  * SupportManager::shoppingList()->query()->filter('needs_purchasing', true)->get();
  * SupportManager::shoppingList()->togglePurchased(7);
  * ```
  *
- * @extends resource<ShoppingListItem>
+ * @extends Resource<ShoppingListItem>
  */
 final class ShoppingListItemsResource extends Resource
 {
+    /** @use Listable<ShoppingListItem> */
+    use Listable;
+
     /**
      * Add an item to the shopping list.
      *
@@ -48,18 +51,28 @@ final class ShoppingListItemsResource extends Resource
     }
 
     /**
-     * Remove an item from the list. The base helper's signature is preserved for
-     * LSP, but callers pass just the id: `->delete(5)`.
+     * Remove an item from the list (`DELETE household/shopping-list/{id}`).
+     */
+    public function destroy(string|int $id): void
+    {
+        $this->throwForErrorResponse(parent::delete("{$this->path()}/{$id}"));
+    }
+
+    /**
+     * Overrides the base `delete()` request helper, and returns its response,
+     * only so that existing callers of `->delete($id)` keep working.
+     *
+     * @deprecated Use {@see self::destroy()}, the name every resource gives a DELETE of one record.
      *
      * @param  array<string, mixed>  $data
      */
     public function delete(string|int $id, array $data = []): Response
     {
-        $uri = "household/shopping-list/{$id}";
+        $this->deprecated(__FUNCTION__, 'destroy');
 
-        $response = $this->tenant(fn (PendingRequest $request) => $request->delete($uri, $data));
+        $response = parent::delete("{$this->path()}/{$id}", $data);
 
-        $this->throwForErrorResponse($response, $uri);
+        $this->throwForErrorResponse($response);
 
         return $response;
     }

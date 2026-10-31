@@ -1,0 +1,85 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Regenerate tests/Contract/openapi.yaml from a local SupportManager platform
+ * checkout, so the contract tests run against the platform's current spec.
+ *
+ *   composer sync-openapi -- /path/to/Platform
+ *   SUPPORTMANAGER_PLATFORM_PATH=/path/to/Platform composer sync-openapi
+ *
+ * The platform's OpenApiMergerService merges its per-module YAMLs into one
+ * self-contained document. The output gets a header naming the platform commit
+ * it came from. Run the suite afterwards: CoverageTest lists any new endpoint
+ * the SDK does not wrap yet, and the validator flags any drift in the fixtures.
+ */
+
+$root = dirname(__DIR__);
+$target = $root.'/tests/Contract/openapi.yaml';
+
+$platform = $argv[1] ?? (getenv('SUPPORTMANAGER_PLATFORM_PATH') ?: null);
+
+if ($platform === null || $platform === '') {
+    fwrite(STDERR, "Usage: composer sync-openapi -- <platform-path>\n");
+    fwrite(STDERR, "   or: SUPPORTMANAGER_PLATFORM_PATH=<platform-path> composer sync-openapi\n");
+    exit(1);
+}
+
+$platform = realpath($platform);
+
+if ($platform === false || ! is_file($platform.'/artisan')) {
+    fwrite(STDERR, "No platform checkout (artisan) found at the given path.\n");
+    exit(1);
+}
+
+$tmp = tempnam(sys_get_temp_dir(), 'openapi-');
+
+if ($tmp === false) {
+    fwrite(STDERR, "Could not create a temporary file.\n");
+    exit(1);
+}
+
+$code = sprintf(
+    'file_put_contents(%s, (new \SupportManager\App\Tools\ApiDocs\Services\OpenApiMergerService)->generateYaml());',
+    var_export($tmp, true),
+);
+
+$command = sprintf(
+    'cd %s && %s artisan tinker --execute %s',
+    escapeshellarg($platform),
+    escapeshellarg(PHP_BINARY),
+    escapeshellarg($code),
+);
+
+passthru($command, $status);
+
+$yaml = is_file($tmp) ? (string) file_get_contents($tmp) : '';
+@unlink($tmp);
+
+if ($status !== 0 || ! str_starts_with(mb_ltrim($yaml), 'openapi:')) {
+    fwrite(STDERR, "The platform did not produce an OpenAPI document (exit {$status}).\n");
+    exit(1);
+}
+
+$git = static fn (string $args): string => mb_trim((string) shell_exec(
+    'git -C '.escapeshellarg($platform).' '.$args.' 2>/dev/null',
+));
+
+$commit = $git('rev-parse --short=9 HEAD') ?: 'unknown';
+$dirty = $git('status --porcelain -- src') !== '' ? ' (with uncommitted changes)' : '';
+
+$header = <<<YAML
+# Vendored copy of the SupportManager platform's merged OpenAPI spec, used only
+# by the SDK's contract tests (tests/Contract). Do not edit by hand: regenerate
+# with `composer sync-openapi -- <platform-path>`.
+#
+# platform-commit: {$commit}{$dirty}
+
+YAML;
+
+file_put_contents($target, $header.$yaml);
+
+fwrite(STDOUT, "Wrote tests/Contract/openapi.yaml from platform commit {$commit}{$dirty}.\n");
+fwrite(STDOUT, "Now run `vendor/bin/pest` to check the fixtures and the coverage report.\n");

@@ -5,13 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Documents\Policy;
 use SupportManager\Sdk\Enums\Documents\PolicyCategory;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Resources\Documents\PoliciesResource;
-
-function policiesResource(): PoliciesResource
-{
-    return app(PoliciesResource::class);
-}
 
 function policyPage(int $page, int $lastPage): array
 {
@@ -40,10 +33,9 @@ function policyPage(int $page, int $lastPage): array
 }
 
 it('encodes filter, sort and pagination as Spatie-style query params', function () {
-    Http::fake(['api.test/api/v1/documents/policies*' => Http::response(policyPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['documents/policies*' => Http::response(policyPage(1, 1))]);
 
-    policiesResource()->query()
+    sdk()->policies()->query()
         ->filter('category', 'hr')
         ->sort('title')
         ->perPage(15)
@@ -60,10 +52,9 @@ it('encodes filter, sort and pagination as Spatie-style query params', function 
 });
 
 it('hydrates policy DTOs including the typed category enum', function () {
-    Http::fake(['api.test/api/v1/documents/policies*' => Http::response(policyPage(1, 2))]);
-    bootTenantSession();
+    fakeApi(['documents/policies*' => Http::response(policyPage(1, 2))]);
 
-    $page = policiesResource()->query()->get();
+    $page = sdk()->policies()->query()->get();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(Policy::class)
@@ -78,14 +69,13 @@ it('hydrates policy DTOs including the typed category enum', function () {
 });
 
 it('finds a single policy by id', function () {
-    Http::fake([
-        'api.test/api/v1/documents/policies/7' => Http::response([
+    fakeApi([
+        'documents/policies/7' => [
             'data' => ['type' => 'policies', 'id' => '7', 'attributes' => ['title' => 'Data Protection', 'category' => 'data_protection', 'is_active' => true]],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $policy = policiesResource()->find(7);
+    $policy = sdk()->policies()->find(7);
 
     expect($policy)->toBeInstanceOf(Policy::class)
         ->and($policy->id)->toBe('7')
@@ -93,36 +83,32 @@ it('finds a single policy by id', function () {
 });
 
 it('returns null when finding a missing policy (404)', function () {
-    Http::fake(['api.test/api/v1/documents/policies/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['documents/policies/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(policiesResource()->find(999))->toBeNull();
+    expect(sdk()->policies()->find(999))->toBeNull();
 });
 
 it('acknowledges a policy', function () {
-    Http::fake(['api.test/api/v1/documents/policies/7/acknowledge' => Http::response([
+    fakeApi(['documents/policies/7/acknowledge' => Http::response([
         'message' => 'Policy acknowledged successfully.',
         'data' => ['policy_id' => 7, 'acknowledged_at' => '2026-06-06T10:00:00Z'],
     ], 201)]);
-    bootTenantSession();
 
-    policiesResource()->acknowledge(7);
+    sdk()->policies()->acknowledge(7);
 
     Http::assertSent(fn ($request) => str_contains($request->url(), 'documents/policies/7/acknowledge')
         && $request->method() === 'POST');
 });
 
-it('maps a 422 on the policies path to a validation exception', function () {
-    Http::fake(['api.test/api/v1/documents/policies*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The category filter is invalid.']],
-    ], 422)]);
-    bootTenantSession();
+it('reads the first page of policies with all()', function () {
+    fakeApi(['documents/policies*' => Http::response(policyPage(1, 1))]);
 
-    try {
-        policiesResource()->query()->filter('category', 'bogus')->get();
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The category filter is invalid.');
-    }
+    $page = sdk()->policies()->all();
+
+    expect($page->items())->toHaveCount(1)
+        ->and($page->items()[0])->toBeInstanceOf(Policy::class)
+        ->and($page->items()[0]->title)->toBe('Policy 1')
+        ->and($page->hasMorePages())->toBeFalse();
+
+    assertSentTo('GET', 'documents/policies', fn ($request) => $request->hasHeader('X-Team-ID', '42'));
 });

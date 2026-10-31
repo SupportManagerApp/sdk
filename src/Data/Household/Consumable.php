@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A household consumable (wipes, gloves, …) with its size variants and their
  * stock levels. Mirrors the platform's `ConsumableResource` attributes.
@@ -16,6 +19,7 @@ final readonly class Consumable
     public function __construct(
         public string $id,
         public string $name,
+        #[ListOf(ConsumableVariant::class)]
         public array $variants,
         public ?string $createdAt,
         public ?string $updatedAt,
@@ -26,17 +30,6 @@ final readonly class Consumable
      */
     public static function fromArray(array $data): self
     {
-        $variants = is_array($data['variants'] ?? null) ? $data['variants'] : [];
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            variants: array_values(array_map(
-                ConsumableVariant::fromArray(...),
-                array_filter($variants, is_array(...)),
-            )),
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

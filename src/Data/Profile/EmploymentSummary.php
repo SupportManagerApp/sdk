@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The figures on the Employment tab of the web profile, as returned by
  * `GET user/employment`.
@@ -34,15 +36,6 @@ final readonly class EmploymentSummary
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            startDate: isset($data['start_date']) ? (string) $data['start_date'] : null,
-            leavingDate: isset($data['leaving_date']) ? (string) $data['leaving_date'] : null,
-            employmentLength: (string) ($data['employment_length'] ?? ''),
-            contractType: (string) ($data['contract_type'] ?? ''),
-            currentRateOfPay: is_array($data['current_rate_of_pay'] ?? null) ? RateOfPay::fromArray($data['current_rate_of_pay']) : null,
-            workingPattern: is_array($data['working_pattern'] ?? null) ? WorkingPattern::fromArray($data['working_pattern']) : null,
-            contractedAnnualSalary: isset($data['contracted_annual_salary']) ? (float) $data['contracted_annual_salary'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

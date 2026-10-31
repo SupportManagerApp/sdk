@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A single bank holiday for the team's configured region.
  *
@@ -23,10 +25,6 @@ final readonly class BankHoliday
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            date: (string) ($data['date'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            region: isset($data['region']) ? (string) $data['region'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

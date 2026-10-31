@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Leave;
 
 use SupportManager\Sdk\Data\Leave\LeaveEntitlement;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -19,10 +20,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveEntitlements()->query()->filter('user_id', 3)->get();
  * ```
  *
- * @extends resource<LeaveEntitlement>
+ * @extends Resource<LeaveEntitlement>
  */
 final class LeaveEntitlementsResource extends Resource
 {
+    /** @use Listable<LeaveEntitlement> */
+    use Listable;
+
     protected function path(): string
     {
         return 'leave/entitlements';

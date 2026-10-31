@@ -12,8 +12,8 @@ use SupportManager\Sdk\Resources\Resource;
  * Estimated pay for a month — a single (non-collection) projection.
  *
  * The platform exposes only a singleton `show()` here, returning a flat
- * (non-JSON:API) `data` payload, so this resource hand-rolls `show()` rather
- * than using the collection machinery. Pass `year`, `month`, and (for
+ * (non-JSON:API) `data` payload, so `show()` reads it with
+ * {@see Resource::data()} rather than the collection machinery. Pass `year`, `month`, and (for
  * privileged callers) `user_id` to target a specific projection; all default
  * server-side to the current month and authenticated user. A `user_id` outside
  * the current team is a 422; family members and contractors get a 403.
@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::estimatedPay()->show(['year' => 2026, 'month' => 6]);
  * ```
  *
- * @extends resource<EstimatedPay>
+ * @extends Resource<EstimatedPay>
  */
 final class EstimatedPayResource extends Resource
 {
@@ -33,13 +33,7 @@ final class EstimatedPayResource extends Resource
      */
     public function show(array $query = []): ?EstimatedPay
     {
-        $response = $this->get('payroll/estimated-pay', $query);
-
-        $this->throwForErrorResponse($response, 'payroll/estimated-pay');
-
-        $data = $response->json('data');
-
-        return is_array($data) ? EstimatedPay::fromArray($data) : null;
+        return $this->data($this->get($this->path(), $query), EstimatedPay::class);
     }
 
     protected function path(): string

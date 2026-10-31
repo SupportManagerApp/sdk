@@ -11,6 +11,14 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
+        </testsuite>
+        <!-- Last: its coverage and stale-allowlist checks read what the
+             Unit and Feature suites recorded in this process. -->
+        <testsuite name="Contract">
+            <directory>tests/Contract</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
@@ -18,6 +26,9 @@
         </include>
     </source>
     <php>
+        <!-- The suite already peaks near PHP's default 128M, and the arch
+             tests parse every src/ file on top of that. -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>

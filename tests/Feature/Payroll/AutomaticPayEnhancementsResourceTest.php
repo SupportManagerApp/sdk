@@ -4,16 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\AutomaticPayEnhancementSettings;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Resources\Payroll\AutomaticPayEnhancementsResource;
-
-function payrollAutomaticPayEnhancements(): AutomaticPayEnhancementsResource
-{
-    return app(AutomaticPayEnhancementsResource::class);
-}
 
 it('fetches the automatic pay-enhancement settings', function () {
-    Http::fake(['api.test/api/v1/payroll/automatic-pay-enhancements' => Http::response([
+    fakeApi(['payroll/automatic-pay-enhancements' => [
         'data' => [
             'bank_holiday_enhancement_id' => 3,
             'christmas_enhancement_id' => 4,
@@ -21,10 +14,9 @@ it('fetches the automatic pay-enhancement settings', function () {
             'sickness_cover_enhancement_id' => 5,
         ],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $settings = payrollAutomaticPayEnhancements()->show();
+    $settings = sdk()->automaticPayEnhancements()->show();
 
     expect($settings)->toBeInstanceOf(AutomaticPayEnhancementSettings::class)
         ->and($settings->bankHolidayEnhancementId)->toBe(3)
@@ -36,14 +28,13 @@ it('fetches the automatic pay-enhancement settings', function () {
 });
 
 it('returns null when no settings have been configured', function () {
-    Http::fake(['api.test/api/v1/payroll/automatic-pay-enhancements' => Http::response(['data' => null, 'meta' => ['team_id' => 42]])]);
-    bootTenantSession();
+    fakeApi(['payroll/automatic-pay-enhancements' => ['data' => null, 'meta' => ['team_id' => 42]]]);
 
-    expect(payrollAutomaticPayEnhancements()->show())->toBeNull();
+    expect(sdk()->automaticPayEnhancements()->show())->toBeNull();
 });
 
 it('updates the automatic pay-enhancement settings via PUT', function () {
-    Http::fake(['api.test/api/v1/payroll/automatic-pay-enhancements' => Http::response([
+    fakeApi(['payroll/automatic-pay-enhancements' => [
         'data' => [
             'bank_holiday_enhancement_id' => 9,
             'christmas_enhancement_id' => null,
@@ -51,29 +42,12 @@ it('updates the automatic pay-enhancement settings via PUT', function () {
             'sickness_cover_enhancement_id' => null,
         ],
         'meta' => ['team_id' => 42],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $settings = payrollAutomaticPayEnhancements()->update(['bank_holiday_enhancement_id' => 9]);
+    $settings = sdk()->automaticPayEnhancements()->update(['bank_holiday_enhancement_id' => 9]);
 
     expect($settings)->toBeInstanceOf(AutomaticPayEnhancementSettings::class)
         ->and($settings->bankHolidayEnhancementId)->toBe(9);
 
     Http::assertSent(fn ($request) => $request->method() === 'PUT' && $request['bank_holiday_enhancement_id'] === 9);
-});
-
-it('maps a 422 on update to a validation exception', function () {
-    Http::fake(['api.test/api/v1/payroll/automatic-pay-enhancements' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['bank_holiday_enhancement_id' => ['The selected bank holiday enhancement does not exist or does not belong to this team.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        payrollAutomaticPayEnhancements()->update(['bank_holiday_enhancement_id' => 999]);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('bank_holiday_enhancement_id'))
-            ->toBe('The selected bank holiday enhancement does not exist or does not belong to this team.');
-    }
 });

@@ -6,13 +6,15 @@ namespace SupportManager\Sdk\Testing\Concerns;
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * The fake-route plumbing the three compliance factories share: decoding a
- * (possibly multipart) self-submission, finding and saving the authenticated
- * user's own record, and answering a document download.
+ * (possibly multipart) self-submission, and finding and saving the
+ * authenticated user's own record. Their document downloads are
+ * {@see \SupportManager\Sdk\Testing\FakeRoute::downloadLink()}s.
  *
  * The fake has no notion of "the current user", so the user's own record is
  * the one whose `meta.can.update` is true — the platform sets that flag only for
@@ -71,7 +73,7 @@ trait FakesComplianceRecords
      * @param  array<string, mixed>|null  $own
      * @param  array<string, mixed>  $attributes
      */
-    private static function saveOwnRecord(RecordStore $store, string $path, string $type, ?array $own, array $attributes): mixed
+    private static function saveOwnRecord(RecordStore $store, Fake $fake, string $path, string $type, ?array $own, array $attributes): mixed
     {
         if ($own !== null) {
             $saved = $store->update($path, (string) $own['id'], $attributes) ?? $own;
@@ -81,7 +83,7 @@ trait FakesComplianceRecords
 
         $saved = $store->append($path, [
             'id' => $store->nextId($path),
-            'team_id' => 42,
+            'team_id' => $fake->teamId(),
             ...$attributes,
             'created_at' => '2026-01-01T09:00:00Z',
             'updated_at' => '2026-01-01T09:00:00Z',
@@ -89,23 +91,5 @@ trait FakesComplianceRecords
         ]);
 
         return Http::response(Json::item($type, $saved), 201);
-    }
-
-    /**
-     * The flat `{data: {download_url, filename, expires_at}}` payload for a
-     * stored document, or the platform's 404 when the record or its document
-     * is missing.
-     */
-    private static function downloadPayload(mixed $filename, string $key): mixed
-    {
-        if (! is_string($filename) || $filename === '') {
-            return Http::response(['message' => 'Not found'], 404);
-        }
-
-        return Http::response(Json::item(null, [
-            'download_url' => "https://s3.test/signed/{$key}/".rawurlencode($filename),
-            'filename' => $filename,
-            'expires_at' => '2026-01-01T09:05:00Z',
-        ]));
     }
 }

@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Testing\Factories;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -43,8 +44,20 @@ final class EstimatedPayFactory extends Factory implements ProvidesFakeRoutes
             'year' => 2026,
             'month' => 6,
             'month_label' => 'June 2026',
-            'hours' => ['total_value' => 150.0, 'total_cost' => 2250.0],
-            'sleeps' => ['total_value' => 4.0, 'total_cost' => 200.0],
+            'hours' => [
+                'total_value' => 150.0,
+                'total_cost' => 2250.0,
+                'breakdown' => [
+                    ['type' => 'Contracted Hours', 'total_payroll_value' => 150.0, 'total_cost' => 2250.0],
+                ],
+            ],
+            'sleeps' => [
+                'total_value' => 4.0,
+                'total_cost' => 200.0,
+                'breakdown' => [
+                    ['type' => 'Contracted Sleeping Night', 'total_payroll_value' => 4.0, 'total_cost' => 200.0],
+                ],
+            ],
             'enhancements' => [
                 ['type' => 'Bank Holiday', 'total_value' => 8.0, 'total_cost' => 120.0],
             ],
@@ -101,15 +114,14 @@ final class EstimatedPayFactory extends Factory implements ProvidesFakeRoutes
         return [
             // Singleton show with month navigation: pick the projection matching
             // ?year=&month=, else fall back to the first seeded record.
-            FakeRoute::get('payroll/estimated-pay', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::get('payroll/estimated-pay', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $records = $store->all('payroll/estimated-pay');
 
                 if ($records === []) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
-                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
-
+                $query = $fake->query($request);
                 $match = null;
 
                 $year = $query['year'] ?? null;

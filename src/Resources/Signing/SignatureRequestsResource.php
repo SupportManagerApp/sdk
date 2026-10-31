@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Signing;
 
-use Illuminate\Http\Client\Response;
-use Override;
 use SupportManager\Sdk\Data\Signing\SignatureRequest;
 use SupportManager\Sdk\Enums\Signing\SignatureRequestStatus;
-use SupportManager\Sdk\Http\Document;
+use SupportManager\Sdk\Http\Download;
+use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -18,8 +18,8 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * `all()` lists the user's own requests (the inbox by default, or the ones
  * they have signed); `find()` fetches one with its fields and consent
- * statement (and marks it viewed). The signing flow is `file()` for the
- * original PDF, `saveValues()` as the user fills fields in, then `sign()`;
+ * statement (and marks it viewed). The signing flow is `downloadOriginal()`
+ * for the original PDF, `saveValues()` as the user fills fields in, then `sign()`;
  * `downloadSigned()` gets a short-lived link to the completed copy. Preparing
  * and sending documents is web-only. The platform 404s every endpoint while
  * the team has E-signing switched off.
@@ -29,13 +29,16 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::signatureRequests()->find(12)?->myFields();
  * SupportManager::signatureRequests()->saveValues(12, ['6f1c…' => 'data:image/png;base64,…']);
  * SupportManager::signatureRequests()->sign(12, agreesToSignElectronically: true);
- * SupportManager::signatureRequests()->downloadSigned(12)->json('data.download_url');
+ * SupportManager::signatureRequests()->downloadSigned(12)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<SignatureRequest>
+ * @extends Resource<SignatureRequest>
  */
 final class SignatureRequestsResource extends Resource
 {
+    /** @use Findable<SignatureRequest> */
+    use Findable;
+
     /**
      * The current user's signature requests: still awaiting their signature
      * (oldest first, the default) or already signed (most recent first). The
@@ -44,26 +47,29 @@ final class SignatureRequestsResource extends Resource
      *
      * @return Paginated<SignatureRequest>
      */
-    #[Override]
     public function all(?SignatureRequestStatus $status = null): Paginated
     {
-        $response = $this->get($this->path(), $status === null ? [] : ['status' => $status->value]);
-        $items = $this->collection($response);
-
-        return new Paginated(
-            items: $items,
-            meta: Document::fromArray($response->json() ?? [])->meta(),
-        );
+        return $this->paginated($this->get($this->path(), $status === null ? [] : ['status' => $status->value]));
     }
 
     /**
-     * Download the original document, as sent, without anything filled in.
-     * Returns the raw binary {@see Response} — the body is the PDF, not a
-     * JSON:API document — so the host draws the fields over it.
+     * Download the original document, as sent, without anything filled in, so
+     * the host can draw the fields over it. The response body is the PDF
+     * itself, so it comes back as a {@see Download}; an error response throws.
      */
-    public function file(string|int $id): Response
+    public function downloadOriginal(string|int $id): Download
     {
-        return $this->get("{$this->path()}/{$id}/file");
+        return $this->downloadFile("{$this->path()}/{$id}/file");
+    }
+
+    /**
+     * @deprecated Use {@see self::downloadOriginal()}; every method that returns a file is named download*.
+     */
+    public function file(string|int $id): Download
+    {
+        $this->deprecated(__FUNCTION__, 'downloadOriginal');
+
+        return $this->downloadOriginal($id);
     }
 
     /**
@@ -78,9 +84,7 @@ final class SignatureRequestsResource extends Resource
      */
     public function saveValues(string|int $id, array $values): void
     {
-        $uri = "{$this->path()}/{$id}/values";
-
-        $this->throwForErrorResponse($this->put($uri, $values), $uri);
+        $this->throwForErrorResponse($this->put("{$this->path()}/{$id}/values", $values));
     }
 
     /**
@@ -96,15 +100,15 @@ final class SignatureRequestsResource extends Resource
     }
 
     /**
-     * Fetch the download payload for the signed copy, with its signing
-     * certificate. The platform returns a plain JSON body —
-     * `{data: {download_url, filename, expires_at}}` — not a JSON:API resource,
-     * so the raw {@see Response} is handed back untouched. Read it via
-     * `->json('data.download_url')` (the URL expires after five minutes).
+     * A short-lived link to the signed copy, with its signing certificate. The
+     * platform answers with `{data: {download_url, filename, expires_at}}`
+     * rather than the file, so this returns a {@see DownloadLink}; the URL
+     * expires after five minutes. Before the document is complete the platform
+     * answers 403, which throws.
      */
-    public function downloadSigned(string|int $id): Response
+    public function downloadSigned(string|int $id): DownloadLink
     {
-        return $this->get("{$this->path()}/{$id}/signed");
+        return $this->downloadLink("{$this->path()}/{$id}/signed");
     }
 
     protected function path(): string
@@ -114,6 +118,6 @@ final class SignatureRequestsResource extends Resource
 
     protected function hydrate(ResourceObject $object): SignatureRequest
     {
-        return SignatureRequest::fromArray($object->flat(), $object->meta);
+        return SignatureRequest::fromArray($object->flat());
     }
 }

@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Household;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\Chore;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
  * Household chores.
  *
- * The collection (`query()`, `find()`, `all()`) plus writes — `create()`,
- * `update()`, `delete()`, limited to admins and managers — and the lifecycle
+ * The collection (`query()`, `all()`; there is no `find()`, as the platform
+ * registers chores without a `show` route) plus writes — `create()`,
+ * `update()`, `destroy()`, limited to admins and managers — and the lifecycle
  * actions any team member may use: `complete()` (records who did it and when),
  * `snooze()` (hides it until a given date), and their bulk forms
  * `completeMany()`/`completeGroup()` and `markNotNeeded()`/
@@ -32,10 +33,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::chores()->markNotNeeded([7, 8]);
  * ```
  *
- * @extends resource<Chore>
+ * @extends Resource<Chore>
  */
 final class ChoresResource extends Resource
 {
+    /** @use Listable<Chore> */
+    use Listable;
+
     /**
      * Create a new chore.
      *
@@ -57,18 +61,28 @@ final class ChoresResource extends Resource
     }
 
     /**
-     * Delete a chore. The base helper's signature is preserved for LSP, but
-     * callers pass just the id: `->delete(5)`.
+     * Delete a chore (`DELETE household/chores/{id}`).
+     */
+    public function destroy(string|int $id): void
+    {
+        $this->throwForErrorResponse(parent::delete("{$this->path()}/{$id}"));
+    }
+
+    /**
+     * Overrides the base `delete()` request helper, and returns its response,
+     * only so that existing callers of `->delete($id)` keep working.
+     *
+     * @deprecated Use {@see self::destroy()}, the name every resource gives a DELETE of one record.
      *
      * @param  array<string, mixed>  $data
      */
     public function delete(string|int $id, array $data = []): Response
     {
-        $uri = "household/chores/{$id}";
+        $this->deprecated(__FUNCTION__, 'destroy');
 
-        $response = $this->tenant(fn (PendingRequest $request) => $request->delete($uri, $data));
+        $response = parent::delete("{$this->path()}/{$id}", $data);
 
-        $this->throwForErrorResponse($response, $uri);
+        $this->throwForErrorResponse($response);
 
         return $response;
     }

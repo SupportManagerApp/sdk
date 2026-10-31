@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\P45;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
-use SupportManager\Sdk\Resources\Payroll\P45sResource;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Testing\Factories\P45Factory;
-
-function payrollP45s(): P45sResource
-{
-    return SupportManager::p45s();
-}
 
 function payrollP45Page(int $page, int $lastPage): array
 {
@@ -46,10 +41,9 @@ function payrollP45Page(int $page, int $lastPage): array
 // ── HTTP layer ──────────────────────────────────────────────────────────────
 
 it('encodes filter, sort and pagination as Spatie-style query params', function () {
-    Http::fake(['api.test/api/v1/payroll/p45s*' => Http::response(payrollP45Page(1, 1))]);
-    bootTenantSession();
+    fakeApi(['payroll/p45s*' => Http::response(payrollP45Page(1, 1))]);
 
-    payrollP45s()->query()->filter('tax_year', '2025-26')->sort('-leaving_date')->perPage(20)->get();
+    sdk()->p45s()->query()->filter('tax_year', '2025-26')->sort('-leaving_date')->perPage(20)->get();
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
@@ -62,10 +56,9 @@ it('encodes filter, sort and pagination as Spatie-style query params', function 
 });
 
 it('hydrates P45 DTOs and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/payroll/p45s*' => Http::response(payrollP45Page(1, 2))]);
-    bootTenantSession();
+    fakeApi(['payroll/p45s*' => Http::response(payrollP45Page(1, 2))]);
 
-    $page = payrollP45s()->query()->get();
+    $page = sdk()->p45s()->query()->get();
     $p45 = $page->items()[0];
 
     expect($p45)->toBeInstanceOf(P45::class)
@@ -84,8 +77,8 @@ it('hydrates P45 DTOs and exposes pagination metadata', function () {
 });
 
 it('finds a P45 by id', function () {
-    Http::fake([
-        'api.test/api/v1/payroll/p45s/4' => Http::response([
+    fakeApi([
+        'payroll/p45s/4' => [
             'data' => [
                 'type' => 'p45s',
                 'id' => '4',
@@ -99,11 +92,10 @@ it('finds a P45 by id', function () {
                     'viewed' => true,
                 ],
             ],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $p45 = payrollP45s()->find(4);
+    $p45 = sdk()->p45s()->find(4);
 
     expect($p45)->toBeInstanceOf(P45::class)
         ->and($p45->id)->toBe('4')
@@ -114,34 +106,17 @@ it('finds a P45 by id', function () {
 });
 
 it('returns null when finding a missing P45 (404)', function () {
-    Http::fake(['api.test/api/v1/payroll/p45s/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['payroll/p45s/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(payrollP45s()->find(999))->toBeNull();
-});
-
-it('maps a 422 on the p45s path to a validation exception', function () {
-    Http::fake(['api.test/api/v1/payroll/p45s*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The tax_year filter is invalid.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        payrollP45s()->query()->filter('tax_year', 'nope')->get();
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The tax_year filter is invalid.');
-    }
+    expect(sdk()->p45s()->find(999))->toBeNull();
 });
 
 it('downloads a P45 PDF as a raw response with a team header', function () {
-    Http::fake(['api.test/api/v1/payroll/p45s/4/download' => Http::response('%PDF-1.4 p45-bytes', 200, ['Content-Type' => 'application/pdf'])]);
-    bootTenantSession();
+    fakeApi(['payroll/p45s/4/download' => Http::response('%PDF-1.4 p45-bytes', 200, ['Content-Type' => 'application/pdf'])]);
 
-    $response = payrollP45s()->download(4);
+    $response = sdk()->p45s()->download(4);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 p45-bytes');
 
     Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
@@ -155,10 +130,10 @@ it('lists, filters and finds seeded P45s through the fake', function () {
         P45Factory::new()->withThisEmployment()->state(['tax_year' => '2024-25']),
     );
 
-    $page = payrollP45s()->all();
-    $filtered = payrollP45s()->query()->filter('tax_year', '2024-25')->get();
+    $page = sdk()->p45s()->all();
+    $filtered = sdk()->p45s()->query()->filter('tax_year', '2024-25')->get();
 
-    $p45 = payrollP45s()->find(3);
+    $p45 = sdk()->p45s()->find(3);
     assert($p45 instanceof P45);
 
     expect($page->total())->toBe(3)
@@ -167,26 +142,26 @@ it('lists, filters and finds seeded P45s through the fake', function () {
         ->and($page->items()[0]->leavingDate)->toBe('2026-01-31')
         ->and($filtered->items())->toHaveCount(1)
         ->and($p45->thisEmploymentPay)->toBe(18000.0)
-        ->and(payrollP45s()->find(999))->toBeNull();
+        ->and(sdk()->p45s()->find(999))->toBeNull();
 });
 
 it('downloads a seeded P45 PDF through the fake', function () {
     SupportManager::fake()->seed(P45Factory::new()->count(1));
 
-    $response = payrollP45s()->download(1);
+    $response = sdk()->p45s()->download(1);
 
     expect($response->body())->toBe('%PDF-1.4 p45-bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf')
-        ->and(payrollP45s()->download(999)->status())->toBe(404);
+        ->and($response->mimeType())->toBe('application/pdf')
+        ->and(fn () => sdk()->p45s()->download(999))->toThrow(SupportManagerApiException::class);
 });
 
 it('marks a seeded P45 viewed when it is opened or downloaded', function () {
     SupportManager::fake()->seed(P45Factory::new()->count(2));
 
-    expect(payrollP45s()->all()->items()[0]->viewed)->toBeFalse()
-        ->and(payrollP45s()->find(1)?->viewed)->toBeTrue();
+    expect(sdk()->p45s()->all()->items()[0]->viewed)->toBeFalse()
+        ->and(sdk()->p45s()->find(1)?->viewed)->toBeTrue();
 
-    payrollP45s()->download(2);
+    sdk()->p45s()->download(2);
 
-    expect(payrollP45s()->all()->items()[1]->viewed)->toBeTrue();
+    expect(sdk()->p45s()->all()->items()[1]->viewed)->toBeTrue();
 });

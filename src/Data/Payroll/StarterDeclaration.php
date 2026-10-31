@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The authenticated employee's payroll starter declaration: their NI number,
  * whether they brought a P45 or filled in the new starter checklist, the P45
@@ -35,35 +38,15 @@ final readonly class StarterDeclaration
         public ?string $taxCode,
         public bool $week1Month1,
         public ?string $updatedAt,
+        #[Can('update')]
         public bool $canUpdate,
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data  The response `data` block.
-     * @param  array<string, mixed>  $meta  The response `meta` block.
+     * @param  array<string, mixed>  $data  The response `data` block, with the response `meta` under a `meta` key.
      */
-    public static function fromArray(array $data, array $meta = []): self
+    public static function fromArray(array $data): self
     {
-        /** @var array<string, mixed> $can */
-        $can = is_array($meta['can'] ?? null) ? $meta['can'] : [];
-
-        return new self(
-            niNumber: isset($data['ni_number']) ? (string) $data['ni_number'] : null,
-            taxFormType: isset($data['tax_form_type']) ? (string) $data['tax_form_type'] : null,
-            starterDeclarationCircumstances: isset($data['starter_declaration_circumstances']) ? (string) $data['starter_declaration_circumstances'] : null,
-            leavingDate: isset($data['leaving_date']) ? (string) $data['leaving_date'] : null,
-            totalPayToDate: isset($data['total_pay_to_date']) ? (float) $data['total_pay_to_date'] : null,
-            totalTaxToDate: isset($data['total_tax_to_date']) ? (float) $data['total_tax_to_date'] : null,
-            finalPayPeriodType: isset($data['final_pay_period_type']) ? (string) $data['final_pay_period_type'] : null,
-            finalPayPeriodNumber: isset($data['final_pay_period_number']) ? (int) $data['final_pay_period_number'] : null,
-            taxFormUrl: isset($data['tax_form_url']) ? (string) $data['tax_form_url'] : null,
-            nationalInsuranceLetter: isset($data['national_insurance_letter']) ? (string) $data['national_insurance_letter'] : null,
-            studentLoanPlan: isset($data['student_loan_plan']) ? (string) $data['student_loan_plan'] : null,
-            postgraduateLoan: (bool) ($data['postgraduate_loan'] ?? false),
-            taxCode: isset($data['tax_code']) ? (string) $data['tax_code'] : null,
-            week1Month1: (bool) ($data['week1_month1'] ?? false),
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            canUpdate: (bool) ($can['update'] ?? false),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

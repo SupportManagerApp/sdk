@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A single line on a payslip — a payment, a deduction, or a total row.
  *
@@ -17,6 +20,8 @@ final readonly class PayslipLine
 {
     public function __construct(
         public string $description,
+        // Payments expose `total`; total rows expose `amount`.
+        #[From('total', 'amount')]
         public float $total,
         public ?float $hours = null,
         public ?float $rate = null,
@@ -27,14 +32,6 @@ final readonly class PayslipLine
      */
     public static function fromArray(array $data): self
     {
-        // Payments expose `total`; total rows expose `amount`.
-        $total = $data['total'] ?? $data['amount'] ?? 0;
-
-        return new self(
-            description: (string) ($data['description'] ?? ''),
-            total: (float) $total,
-            hours: isset($data['hours']) ? (float) $data['hours'] : null,
-            rate: isset($data['rate']) ? (float) $data['rate'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

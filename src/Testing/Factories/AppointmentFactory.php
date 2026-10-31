@@ -9,6 +9,7 @@ use DateTimeZone;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -67,7 +68,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'title' => "Appointment {$number}",
             'location' => 'HQ',
             'notes' => null,
@@ -97,13 +98,13 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
      */
     public function upcoming(): static
     {
-        return $this->state(['is_upcoming' => true]);
+        return $this->state(['_upcoming' => true]);
     }
 
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::post('rota/appointments', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('rota/appointments', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $input = $request->data();
                 $isAllDay = (bool) ($input['is_all_day'] ?? false);
                 $required = $isAllDay ? ['title', 'date'] : ['title', 'date', 'start_time'];
@@ -113,10 +114,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
                 ));
 
                 if ($missing !== []) {
-                    return Http::response([
-                        'message' => 'The information provided was invalid.',
-                        'errors' => array_fill_keys($missing, ['This field is required.']),
-                    ], 422);
+                    return Json::validation(array_fill_keys($missing, 'This field is required.'), Json::INVALID);
                 }
 
                 [$start, $end] = self::span($input, $isAllDay);
@@ -124,7 +122,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
 
                 $appointment = $store->append('rota/appointments', [
                     'id' => $store->nextId('rota/appointments'),
-                    'team_id' => 42,
+                    'team_id' => $fake->teamId(),
                     'title' => (string) $input['title'],
                     'location' => $input['location'] ?? null,
                     'notes' => $input['notes'] ?? null,
@@ -147,7 +145,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
                 $appointment = $store->find('rota/appointments', $matches[1]);
 
                 if ($appointment === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 $input = $request->data();
@@ -167,7 +165,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
                 }
 
                 if ($errors !== []) {
-                    return Http::response(['message' => 'The information provided was invalid.', 'errors' => $errors], 422);
+                    return Json::validation($errors, Json::INVALID);
                 }
 
                 $changes = array_intersect_key($input, array_flip(['title', 'location', 'notes', 'viewer_ids', 'is_virtual', 'is_private']));
@@ -185,14 +183,10 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(Json::item('appointments', $store->update('rota/appointments', $matches[1], $changes) ?? $appointment));
             }),
 
-            FakeRoute::get('rota/appointments/upcoming', static function (RecordStore $store): mixed {
-                $records = array_values(array_filter(
-                    $store->all('rota/appointments'),
-                    static fn (array $r): bool => (bool) ($r['is_upcoming'] ?? false),
-                ));
-
-                return Http::response(Json::collection('appointments', $records));
-            }),
+            FakeRoute::collection('rota/appointments/upcoming', static fn (RecordStore $store): array => array_values(array_filter(
+                $store->all('rota/appointments'),
+                static fn (array $r): bool => (bool) ($r['_upcoming'] ?? false),
+            ))),
         ];
     }
 

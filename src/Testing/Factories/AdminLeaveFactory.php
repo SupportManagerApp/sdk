@@ -52,8 +52,6 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
             'pending' => [
                 [
                     'id' => 7,
-                    'team_id' => 42,
-                    'user_id' => 3,
                     'user' => ['id' => 3, 'name' => 'Ada'],
                     'start_date' => '2026-07-01',
                     'end_date' => '2026-07-05',
@@ -63,20 +61,25 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
                     'hours' => 30.0,
                     'sleeps' => 0.0,
                     'requester_comments' => 'Trip',
-                    'approver_comments' => null,
+                    'user_balance' => ['total_entitlement' => 224.0, 'used' => 16.0, 'pending' => 30.0, 'remaining' => 178.0],
+                    'created_at' => '2026-06-01T10:00:00.000000Z',
                 ],
             ],
             'balances' => [
                 [
                     'user' => ['id' => 3, 'name' => 'Ada'],
                     'leave_year' => 2026,
+                    'entitlement' => ['id' => 6, 'hours_holiday' => 224.0, 'sleeping_nights_holiday' => 10.0],
+                    'adjustments_total' => ['hours' => 0.0, 'sleeps' => 0.0],
+                    'used' => ['hours' => 16.0, 'sleeps' => 2.0],
+                    'pending' => ['hours' => 8.0, 'sleeps' => 3.0],
                     'remaining' => ['hours' => 200.0, 'sleeps' => 5.0],
                 ],
             ],
             'adjustments' => [
                 [
                     'id' => '5',
-                    'team_id' => 42,
+                    'team_id' => $this->teamId(),
                     'user_id' => 3,
                     'user' => ['id' => 3, 'name' => 'Ada'],
                     'leave_year' => 2026,
@@ -88,7 +91,7 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
             'entitlements' => [
                 [
                     'id' => '6',
-                    'team_id' => 42,
+                    'team_id' => $this->teamId(),
                     'user_id' => 3,
                     'user' => ['id' => 3, 'name' => 'Ada'],
                     'hours_holiday' => 224.0,
@@ -112,7 +115,7 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
                 /** @var list<array<string, mixed>> $pending */
                 $pending = self::bag($store)['pending'] ?? [];
 
-                return Http::response(['data' => array_values($pending), 'meta' => ['current_page' => 1, 'total' => count($pending)]]);
+                return Http::response(Json::flat(array_values($pending), ['current_page' => 1, 'total' => count($pending)]));
             }),
 
             FakeRoute::post('leave/admin/requests/bulk-approve', static function (RecordStore $store, array $matches, Request $request): mixed {
@@ -127,64 +130,83 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(['message' => count((array) $ids).' request(s) rejected successfully', 'rejected_count' => count((array) $ids)]);
             }),
 
-            FakeRoute::get('leave/admin/balances/{id}', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::get('leave/admin/balances/{id}', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 /** @var list<array<string, mixed>> $balances */
                 $balances = self::bag($store)['balances'] ?? [];
+
+                $match = $balances[0] ?? null;
 
                 foreach ($balances as $balance) {
                     $user = is_array($balance['user'] ?? null) ? $balance['user'] : [];
 
                     if ((string) ($user['id'] ?? '') === $matches[1]) {
-                        return Http::response(['data' => $balance]);
+                        $match = $balance;
+                        break;
                     }
                 }
 
-                return Http::response(['data' => $balances[0] ?? null]);
+                if ($match === null) {
+                    return Json::notFound('User not found in this team');
+                }
+
+                return Http::response(Json::flat(self::balanceDetail($match), ['team_id' => $fake->teamId()]));
             }),
 
             FakeRoute::get('leave/admin/balances', static function (RecordStore $store): mixed {
                 /** @var list<array<string, mixed>> $balances */
                 $balances = self::bag($store)['balances'] ?? [];
 
-                return Http::response(['data' => array_values($balances), 'meta' => ['current_page' => 1, 'total' => count($balances)]]);
+                return Http::response(Json::flat(array_values($balances), ['current_page' => 1, 'total' => count($balances)]));
             }),
 
             FakeRoute::get('leave/admin/adjustments', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 /** @var list<array<string, mixed>> $adjustments */
                 $adjustments = self::bag($store)['adjustments'] ?? [];
 
-                return $fake->paginate('leave/admin/adjustments', 'manual-adjustments', array_values($adjustments), $request);
+                return $fake->paginate('leave/admin/adjustments', 'manual_adjustments', array_values($adjustments), $request);
             }),
 
             FakeRoute::get('leave/admin/entitlements', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 /** @var list<array<string, mixed>> $entitlements */
                 $entitlements = self::bag($store)['entitlements'] ?? [];
 
-                return $fake->paginate('leave/admin/entitlements', 'leave-entitlements', array_values($entitlements), $request);
+                return $fake->paginate('leave/admin/entitlements', 'leave_entitlements', array_values($entitlements), $request);
             }),
 
-            FakeRoute::post('leave/admin/entitlements', static function (RecordStore $store, array $matches, Request $request): mixed {
-                $record = $request->data();
-                $record['id'] = (string) ($record['id'] ?? '99');
+            FakeRoute::post('leave/admin/entitlements', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $record = self::entitlementFromInput($request->data(), '99', $fake);
 
                 self::appendKind($store, 'entitlements', $record);
 
-                return Http::response(Json::item('leave-entitlements', $record), 201);
+                return Http::response(Json::item('leave_entitlements', $record), 201);
             }),
 
-            FakeRoute::put('leave/admin/entitlements/{id}', static function (RecordStore $store, array $matches, Request $request): mixed {
-                $record = [...$request->data(), 'id' => $matches[1]];
+            FakeRoute::put('leave/admin/entitlements/{id}', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                /** @var list<array<string, mixed>> $entitlements */
+                $entitlements = self::bag($store)['entitlements'] ?? [];
+                $stored = array_values(array_filter($entitlements, static fn (array $e): bool => (string) ($e['id'] ?? '') === $matches[1]))[0] ?? [];
 
-                return Http::response(Json::item('leave-entitlements', $record));
+                // UpdateEntitlementRequest changes only the fields it is sent.
+                $record = [...$stored, ...array_filter(
+                    self::entitlementFromInput($request->data(), $matches[1], $fake),
+                    static fn (mixed $value, string $key): bool => $key === 'id' || array_key_exists(match ($key) {
+                        'effective_from' => 'leave_year_start',
+                        'effective_until' => 'leave_year_end',
+                        default => $key,
+                    }, $request->data()),
+                    ARRAY_FILTER_USE_BOTH,
+                )];
+
+                return Http::response(Json::item('leave_entitlements', $record));
             }),
 
-            FakeRoute::delete('leave/admin/entitlements/{id}', static fn (): mixed => Http::response(['message' => 'Deleted'])),
+            FakeRoute::delete('leave/admin/entitlements/{id}', static fn (): mixed => Json::message('Deleted')),
 
             FakeRoute::get('leave/admin/summary', static function (RecordStore $store): mixed {
                 /** @var array<string, mixed> $summary */
                 $summary = self::bag($store)['summary'] ?? [];
 
-                return Http::response(['data' => $summary]);
+                return Http::response(Json::flat($summary));
             }),
         ];
     }
@@ -197,6 +219,72 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
     private static function bag(RecordStore $store): array
     {
         return $store->all(self::PATH)[0] ?? [];
+    }
+
+    /**
+     * The entitlement record the platform stores from a create/update payload:
+     * it takes `leave_year_start`/`leave_year_end` as input and reports them as
+     * `effective_from`/`effective_until` (AdminEntitlementController).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    private static function entitlementFromInput(array $input, string $id, Fake $fake): array
+    {
+        return [
+            'id' => $id,
+            'team_id' => $fake->teamId(),
+            'user_id' => $input['user_id'] ?? null,
+            'working_pattern_id' => $input['working_pattern_id'] ?? null,
+            'effective_from' => $input['leave_year_start'] ?? null,
+            'effective_until' => $input['leave_year_end'] ?? null,
+            'hours_holiday' => (float) ($input['hours_holiday'] ?? 0),
+            'sleeping_nights_holiday' => (float) ($input['sleeping_nights_holiday'] ?? 0),
+        ];
+    }
+
+    /**
+     * The per-user breakdown `leave/admin/balances/{user}` serves, derived from
+     * a team-balance row: the entitlement, the year's summary lines, and (empty)
+     * adjustment and request lists.
+     *
+     * @param  array<string, mixed>  $balance
+     * @return array<string, mixed>
+     */
+    private static function balanceDetail(array $balance): array
+    {
+        $entitlement = is_array($balance['entitlement'] ?? null) ? $balance['entitlement'] : null;
+        $summary = [];
+
+        foreach (['hours', 'sleeps'] as $axis) {
+            $total = (float) ($entitlement[$axis === 'hours' ? 'hours_holiday' : 'sleeping_nights_holiday'] ?? 0);
+            $approved = (float) ($balance['used'][$axis] ?? 0);
+            $pending = (float) ($balance['pending'][$axis] ?? 0);
+            $remaining = (float) ($balance['remaining'][$axis] ?? 0);
+            $share = static fn (float $value): float => $total === 0.0 ? 0.0 : round($value / $total * 100, 2);
+
+            $summary[$axis] = [
+                'entitlement' => $total,
+                'pending' => $pending,
+                'approved' => $approved,
+                'remaining' => $remaining,
+                'percentages' => ['approved' => $share($approved), 'pending' => $share($pending), 'remaining' => $share($remaining)],
+            ];
+        }
+
+        return [
+            'user' => $balance['user'] ?? null,
+            'leave_year' => $balance['leave_year'] ?? null,
+            'entitlement' => $entitlement === null ? null : [
+                ...$entitlement,
+                'effective_from' => '2026-01-01',
+                'effective_until' => null,
+            ],
+            'adjustments' => [],
+            'summary' => $summary,
+            'approved_requests' => [],
+            'pending_requests' => [],
+        ];
     }
 
     /**

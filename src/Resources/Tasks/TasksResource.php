@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Tasks;
 
-use Illuminate\Http\Client\Response;
-use Override;
 use SupportManager\Sdk\Data\Tasks\EmployeeTaskProgress;
 use SupportManager\Sdk\Data\Tasks\Task;
 use SupportManager\Sdk\Data\Tasks\TaskCount;
@@ -25,8 +23,9 @@ use SupportManager\Sdk\Resources\Resource;
  * task by its key.
  *
  * These endpoints return plain `{data, meta}` payloads (not JSON:API resource
- * objects), so they are parsed straight from `data` rather than through the
- * fluent {@see query()} builder.
+ * objects), so they are read with the base class's plain-body helpers
+ * ({@see Resource::data()} and friends) rather than through the fluent
+ * `query()` builder, which this resource does not have.
  *
  * ```php
  * SupportManager::tasks()->all()->items();
@@ -34,7 +33,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::tasks()->complete('payroll.bank_details');
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Task>
+ * @extends Resource<Task>
  */
 final class TasksResource extends Resource
 {
@@ -45,7 +44,6 @@ final class TasksResource extends Resource
      *
      * @return Paginated<Task>
      */
-    #[Override]
     public function all(?bool $completed = null, ?TaskCompletionRole $role = null): Paginated
     {
         $query = [];
@@ -58,13 +56,7 @@ final class TasksResource extends Resource
             $query['completion_role'] = $role->value;
         }
 
-        $response = $this->get($this->path(), $query);
-        $this->throwForErrorResponse($response, $this->path());
-
-        return new Paginated(
-            items: $this->tasksFrom($response),
-            meta: $this->metaFrom($response),
-        );
+        return $this->dataPaginated($this->get($this->path(), $query), Task::class);
     }
 
     /**
@@ -72,7 +64,7 @@ final class TasksResource extends Resource
      */
     public function count(): TaskCount
     {
-        return TaskCount::fromArray($this->data("{$this->path()}/count"));
+        return TaskCount::fromArray($this->raw($this->get("{$this->path()}/count")));
     }
 
     /**
@@ -80,7 +72,7 @@ final class TasksResource extends Resource
      */
     public function progress(): TaskProgress
     {
-        return TaskProgress::fromArray($this->data("{$this->path()}/progress"));
+        return TaskProgress::fromArray($this->raw($this->get("{$this->path()}/progress")));
     }
 
     /**
@@ -90,7 +82,7 @@ final class TasksResource extends Resource
      */
     public function managerInbox(): array
     {
-        return $this->employeeProgressFrom("{$this->path()}/manager-inbox");
+        return $this->dataList($this->get("{$this->path()}/manager-inbox"), EmployeeTaskProgress::class);
     }
 
     /**
@@ -100,7 +92,7 @@ final class TasksResource extends Resource
      */
     public function teamProgress(): array
     {
-        return $this->employeeProgressFrom("{$this->path()}/team-progress");
+        return $this->dataList($this->get("{$this->path()}/team-progress"), EmployeeTaskProgress::class);
     }
 
     /**
@@ -116,14 +108,9 @@ final class TasksResource extends Resource
      */
     public function complete(string $taskKey, string|int|null $userId = null): ?Task
     {
-        $response = $this->post("{$this->path()}/{$taskKey}/complete", array_filter([
+        return $this->data($this->post("{$this->path()}/{$taskKey}/complete", array_filter([
             'user_id' => $userId,
-        ], static fn (mixed $value): bool => $value !== null));
-        $this->throwForErrorResponse($response, $this->path());
-
-        $data = $response->json('data');
-
-        return is_array($data) ? Task::fromArray($data) : null;
+        ], static fn (mixed $value): bool => $value !== null)), Task::class);
     }
 
     protected function path(): string
@@ -134,57 +121,5 @@ final class TasksResource extends Resource
     protected function hydrate(ResourceObject $object): Task
     {
         return Task::fromArray($object->flat());
-    }
-
-    /**
-     * GET a flat `{data, meta}` endpoint and return its `data` object.
-     *
-     * @return array<string, mixed>
-     */
-    private function data(string $uri): array
-    {
-        $response = $this->get($uri);
-        $this->throwForErrorResponse($response, $uri);
-
-        /** @var array<string, mixed> $data */
-        $data = $response->json('data', []);
-
-        return $data;
-    }
-
-    /**
-     * @return list<Task>
-     */
-    private function tasksFrom(Response $response): array
-    {
-        /** @var list<array<string, mixed>> $data */
-        $data = $response->json('data', []);
-
-        return array_values(array_map(Task::fromArray(...), $data));
-    }
-
-    /**
-     * @return list<EmployeeTaskProgress>
-     */
-    private function employeeProgressFrom(string $uri): array
-    {
-        $response = $this->get($uri);
-        $this->throwForErrorResponse($response, $uri);
-
-        /** @var list<array<string, mixed>> $data */
-        $data = $response->json('data', []);
-
-        return array_values(array_map(EmployeeTaskProgress::fromArray(...), $data));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function metaFrom(Response $response): array
-    {
-        /** @var array<string, mixed> $meta */
-        $meta = $response->json('meta', []);
-
-        return $meta;
     }
 }

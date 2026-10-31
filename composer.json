@@ -16,6 +16,7 @@
         "larastan/larastan": "^3.0",
         "laravel/boost": "^2.4",
         "laravel/pint": "^1.27",
+        "league/openapi-psr7-validator": "^0.24",
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0"
     },
@@ -41,7 +42,16 @@
     },
     "scripts": {
         "analyse": "phpstan analyse --memory-limit=1G",
+        "coverage:api": [
+            "@putenv API_COVERAGE_REPORT=1",
+            "pest --compact"
+        ],
+        "sync-openapi": "@php bin/sync-openapi",
         "test": "pest"
+    },
+    "scripts-descriptions": {
+        "coverage:api": "Run the suite and list the spec operations the SDK does not call.",
+        "sync-openapi": "Regenerate tests/Contract/openapi.yaml from a platform checkout (path argument or SUPPORTMANAGER_PLATFORM_PATH)."
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

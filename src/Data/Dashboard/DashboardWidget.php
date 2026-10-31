@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Defaults;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A widget's placement on the dashboard — no content, just where it goes.
  *
@@ -16,6 +19,7 @@ final readonly class DashboardWidget
 {
     public function __construct(
         public string $key,
+        #[Defaults('full')]
         public string $width,
         public int $priority,
     ) {}
@@ -25,11 +29,7 @@ final readonly class DashboardWidget
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            key: (string) ($data['key'] ?? ''),
-            width: (string) ($data['width'] ?? 'full'),
-            priority: (int) ($data['priority'] ?? 0),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 
     /**

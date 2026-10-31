@@ -49,7 +49,7 @@ it('finds a request with its fields, marking it viewed, and returns null for a m
 it('serves the original PDF', function () {
     SupportManager::fake()->seed(SignatureRequestFactory::new());
 
-    expect(SupportManager::signatureRequests()->file(1)->body())->toStartWith('%PDF');
+    expect(SupportManager::signatureRequests()->downloadOriginal(1)->body())->toStartWith('%PDF');
 });
 
 it('saves values, signs, and then serves the signed copy', function () {
@@ -64,7 +64,7 @@ it('saves values, signs, and then serves the signed copy', function () {
         ->and($signed?->canSign)->toBeFalse()
         ->and($signed?->fields[0]->value)->toBe('data:image/png;base64,AAA')
         ->and(SupportManager::signatureRequests()->all()->items())->toBe([])
-        ->and(SupportManager::signatureRequests()->downloadSigned(1)->json('data.filename'))->toBe('Document 1 (signed).pdf');
+        ->and(SupportManager::signatureRequests()->downloadSigned(1)->filename)->toBe('Document 1 (signed).pdf');
 });
 
 it('refuses to sign while a required field is empty', function () {
@@ -98,5 +98,5 @@ it('forbids saving values on a request already signed', function () {
 it('returns a raw 403 for the signed copy before the document is complete', function () {
     SupportManager::fake()->seed(SignatureRequestFactory::new());
 
-    expect(SupportManager::signatureRequests()->downloadSigned(1)->status())->toBe(403);
+    expect(fn () => SupportManager::signatureRequests()->downloadSigned(1))->toThrow(SupportManagerApiException::class);
 });

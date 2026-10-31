@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Tasks;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One employee's task standing, mirroring the platform's
  * `EmployeeTaskProgressResource`.
@@ -19,10 +23,14 @@ final readonly class EmployeeTaskProgress
      * @param  list<Task>  $pendingTasks
      */
     public function __construct(
+        #[From('user.id')]
         public int $userId,
+        #[From('user.name')]
         public string $userName,
         public ?int $percentage,
+        #[ListOf(Task::class)]
         public array $incompleteTasks,
+        #[ListOf(Task::class)]
         public array $pendingTasks,
     ) {}
 
@@ -31,30 +39,6 @@ final readonly class EmployeeTaskProgress
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed} $user */
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-
-        return new self(
-            userId: (int) ($user['id'] ?? 0),
-            userName: (string) ($user['name'] ?? ''),
-            percentage: isset($data['percentage']) ? (int) $data['percentage'] : null,
-            incompleteTasks: self::tasks($data['incomplete_tasks'] ?? []),
-            pendingTasks: self::tasks($data['pending_tasks'] ?? []),
-        );
-    }
-
-    /**
-     * @return list<Task>
-     */
-    private static function tasks(mixed $tasks): array
-    {
-        if (! is_array($tasks)) {
-            return [];
-        }
-
-        return array_values(array_map(
-            static fn (mixed $task): Task => Task::fromArray(is_array($task) ? $task : []),
-            $tasks,
-        ));
+        return Hydrator::hydrate(self::class, $data);
     }
 }

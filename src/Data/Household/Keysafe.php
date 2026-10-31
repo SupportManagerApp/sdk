@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
- * The team's keysafe state. Mirrors the platform's `KeysafeController` payload:
- * `show()`/`update()` return whether a code is set and whether the current user
- * may edit it, while `reveal()` returns the actual `code` (only the latter ever
- * populates `code`).
+ * The team's keysafe state, from the platform's `KeysafeController` show and
+ * update: whether a code is set and whether the current user may edit it.
+ *
+ * `code` is always null here, because neither body carries the code: read it
+ * with `SupportManager::keysafe()->reveal()`, which returns it as a string.
+ * The parameter stays so positional constructors keep working.
  */
 final readonly class Keysafe
 {
@@ -23,10 +27,6 @@ final readonly class Keysafe
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            hasCode: (bool) ($data['has_code'] ?? false),
-            canEdit: (bool) ($data['can_edit'] ?? false),
-            code: isset($data['code']) ? (string) $data['code'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Accidents;
 
 use SupportManager\Sdk\Data\Accidents\AccidentReport;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -31,10 +33,16 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::accidents()->recordSubjectDeclaration(7, 'Alex Visitor');
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<AccidentReport>
+ * @extends Resource<AccidentReport>
  */
 final class AccidentsResource extends Resource
 {
+    /** @use Findable<AccidentReport> */
+    use Findable;
+
+    /** @use Listable<AccidentReport> */
+    use Listable;
+
     /**
      * Record an accident, returning the stored report.
      *
@@ -73,6 +81,6 @@ final class AccidentsResource extends Resource
 
     protected function hydrate(ResourceObject $object): AccidentReport
     {
-        return AccidentReport::fromArray($object->flat(), $object->meta);
+        return AccidentReport::fromArray($object->flat());
     }
 }

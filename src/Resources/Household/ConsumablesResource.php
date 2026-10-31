@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Household;
 
 use SupportManager\Sdk\Data\Household\Consumable;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -21,10 +22,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::consumables()->adjustStock($variantId, -1);
  * ```
  *
- * @extends resource<Consumable>
+ * @extends Resource<Consumable>
  */
 final class ConsumablesResource extends Resource
 {
+    /** @use Listable<Consumable> */
+    use Listable;
+
     /**
      * Add one to (`1`) or take one from (`-1`) a variant's stock, returning the
      * whole consumable so the caller can redraw it. Stock never drops below zero

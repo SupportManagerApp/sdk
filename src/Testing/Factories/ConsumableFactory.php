@@ -87,10 +87,7 @@ final class ConsumableFactory extends Factory implements ProvidesFakeRoutes
                 $adjustment = $request->data()['adjustment'] ?? null;
 
                 if (! in_array($adjustment, [1, -1], true)) {
-                    return Http::response([
-                        'message' => 'The selected adjustment is invalid.',
-                        'errors' => ['adjustment' => ['The selected adjustment is invalid.']],
-                    ], 422);
+                    return Json::validation(['adjustment' => 'The selected adjustment is invalid.']);
                 }
 
                 foreach ($store->all('household/consumables') as $consumable) {
@@ -113,7 +110,7 @@ final class ConsumableFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                return Http::response(['message' => 'Not found'], 404);
+                return Json::notFound();
             }),
         ];
     }

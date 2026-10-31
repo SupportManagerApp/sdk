@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One axis of a leave balance (hours or sleeping-nights): the entitlement and
  * how much is pending, approved, and remaining.
@@ -29,12 +31,6 @@ final readonly class LeaveBalanceLine
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            entitlement: (float) ($data['entitlement'] ?? 0),
-            pending: (float) ($data['pending'] ?? 0),
-            approved: (float) ($data['approved'] ?? 0),
-            remaining: (float) ($data['remaining'] ?? 0),
-            percentages: is_array($data['percentages'] ?? null) ? $data['percentages'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

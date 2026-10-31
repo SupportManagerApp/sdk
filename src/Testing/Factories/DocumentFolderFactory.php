@@ -14,7 +14,7 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake document folders.
  *
- * A read-only JSON:API collection (`document-folders`); the generic GET list
+ * A read-only JSON:API collection (`document_folders`); the generic GET list
  * comes for free from the resource path. This factory answers the single-folder
  * route itself so `find()` carries `ancestors` — the seeded parent chain, root
  * first — as the platform's breadcrumb lookup does. States cover nesting
@@ -35,7 +35,7 @@ final class DocumentFolderFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'document-folders';
+        return 'document_folders';
     }
 
     public function definition(int $index): array
@@ -45,7 +45,7 @@ final class DocumentFolderFactory extends Factory implements ProvidesFakeRoutes
         return [
             'name' => "Folder {$number}",
             'description' => 'Team files',
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'scope' => 'team',
             'user_id' => null,
             'parent_id' => null,
@@ -79,10 +79,10 @@ final class DocumentFolderFactory extends Factory implements ProvidesFakeRoutes
                 $folder = $store->find('documents/document-folders', $matches[1]);
 
                 if ($folder === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
-                return Http::response(Json::item('document-folders', [
+                return Http::response(Json::item('document_folders', [
                     ...$folder,
                     'ancestors' => self::ancestors($store, $folder),
                 ]));

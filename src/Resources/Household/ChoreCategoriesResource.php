@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Household;
 
 use SupportManager\Sdk\Data\Household\ChoreCategory;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -19,10 +20,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::choreCategories()->query()->sort('name')->get();
  * ```
  *
- * @extends resource<ChoreCategory>
+ * @extends Resource<ChoreCategory>
  */
 final class ChoreCategoriesResource extends Resource
 {
+    /** @use Listable<ChoreCategory> */
+    use Listable;
+
     protected function path(): string
     {
         return 'household/chore-categories';

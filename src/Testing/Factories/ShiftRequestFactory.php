@@ -9,6 +9,7 @@ use DateTimeZone;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -31,7 +32,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  *     ShiftRequestFactory::new()->approved(),
  * );
  * SupportManager::shiftRequests()->create(['date' => '2026-11-20', 'start_time' => '09:00', 'end_time' => '17:00', 'type' => 'Overtime Hours']);
- * SupportManager::shiftRequests()->cancel(1);
+ * SupportManager::shiftRequests()->destroy(1);
  * ```
  */
 final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes
@@ -54,7 +55,7 @@ final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes
     public function definition(int $index): array
     {
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 7,
             'start' => '2026-11-20T09:00:00+00:00',
             'end' => '2026-11-20T17:00:00+00:00',
@@ -102,7 +103,7 @@ final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::post('rota/shift-requests', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('rota/shift-requests', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $input = $request->data();
                 $errors = [];
 
@@ -117,7 +118,7 @@ final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes
                 }
 
                 if ($errors !== []) {
-                    return Http::response(['message' => 'The information provided was invalid.', 'errors' => $errors], 422);
+                    return Json::validation($errors, Json::INVALID);
                 }
 
                 $type = (string) $input['type'];
@@ -137,7 +138,7 @@ final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes
 
                 $shiftRequest = $store->append('rota/shift-requests', [
                     'id' => $store->nextId('rota/shift-requests'),
-                    'team_id' => 42,
+                    'team_id' => $fake->teamId(),
                     'user_id' => 7,
                     'start' => $start->format(DATE_ATOM),
                     'end' => $end->format(DATE_ATOM),
@@ -157,20 +158,20 @@ final class ShiftRequestFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(Json::item('shift_requests', $shiftRequest), 201);
             }),
 
-            FakeRoute::delete('rota/shift-requests/{id}', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::delete('rota/shift-requests/{id}', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $shiftRequest = $store->find('rota/shift-requests', $matches[1]);
 
                 if ($shiftRequest === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 if (($shiftRequest['status'] ?? null) !== 'Pending') {
-                    return Http::response(['message' => 'This action is unauthorized.'], 403);
+                    return Json::forbidden();
                 }
 
                 $store->delete('rota/shift-requests', $matches[1]);
 
-                return Http::response(['message' => 'Shift request deleted.', 'meta' => ['team_id' => 42]]);
+                return Json::message('Shift request deleted.', meta: ['team_id' => $fake->teamId()]);
             }),
         ];
     }

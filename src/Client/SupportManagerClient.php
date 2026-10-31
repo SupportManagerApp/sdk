@@ -70,16 +70,21 @@ final class SupportManagerClient
     /**
      * Authenticate via a social provider's access token (Google, Microsoft, Apple).
      *
+     * As with {@see self::login()}, pass a previously issued $deviceToken (from
+     * {@see self::verifyDevice()}) to identify this device as trusted and skip
+     * the verification step. It goes out as the `X-Device-Token` header, which
+     * the platform's social login checks just as the password login does.
+     *
      * @throws DeviceVerificationRequiredException when the device is untrusted (403)
      * @throws ApiValidationException when the provider/token is invalid (422)
      * @throws SupportManagerApiException on any other failure
      */
-    public function loginWithProvider(string $provider, string $providerToken, ?string $deviceName = null): AuthTokens
+    public function loginWithProvider(string $provider, string $providerToken, ?string $deviceName = null, ?string $deviceToken = null): AuthTokens
     {
         $data = $this->postJson("auth/social/{$provider}", [
             'token' => $providerToken,
             'device_name' => $deviceName ?? $this->defaultDeviceName,
-        ]);
+        ], $deviceToken !== null ? ['X-Device-Token' => $deviceToken] : []);
 
         return AuthTokens::fromArray($data['data']);
     }
@@ -306,7 +311,7 @@ final class SupportManagerClient
 
     /**
      * A pre-configured request for tenant-scoped module endpoints, e.g.
-     * `$client->authenticated($token, $teamId)->get('payroll/...')`. The path
+     * `$client->authenticated($token, $teamId)->get('payroll/payslips')`. The path
      * is relative to /api/v1.
      */
     public function authenticated(string $accessToken, ?int $teamId = null): PendingRequest

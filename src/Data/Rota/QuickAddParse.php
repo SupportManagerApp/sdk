@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Rota\QuickAddStatus;
 
 /**
@@ -32,16 +33,7 @@ final readonly class QuickAddParse
      */
     public static function fromArray(array $data): self
     {
-        /** @var array<string, mixed>|null $result */
-        $result = is_array($data['result'] ?? null) ? $data['result'] : null;
-
-        return new self(
-            token: isset($data['token']) ? (string) $data['token'] : null,
-            status: isset($data['status']) ? QuickAddStatus::tryFrom((string) $data['status']) : null,
-            expiresIn: isset($data['expires_in']) ? (int) $data['expires_in'] : null,
-            result: $result === null ? null : QuickAddParseResult::fromArray($result),
-            hint: isset($data['hint']) ? (string) $data['hint'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 
     /**

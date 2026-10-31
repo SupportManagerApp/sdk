@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The address of the caller's iCalendar feed of the team appointments they can
  * see, for subscribing in a calendar app.
@@ -23,8 +25,6 @@ final readonly class CalendarFeed
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            url: isset($data['url']) ? (string) $data['url'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

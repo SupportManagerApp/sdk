@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Profile;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
 use SupportManager\Sdk\Data\Profile\UserOption;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -19,11 +17,10 @@ use SupportManager\Sdk\Resources\Resource;
  * The directory itself is for admins and managers only (anyone else gets a
  * 403); {@see self::options()} is the lighter list every current role can read.
  * All of it is tenant-scoped: the platform requires `X-Team-ID` on these
- * routes (a 422 "Invalid or missing team" without it). It still hand-rolls
- * {@see self::list()} and {@see self::find()} — rather than the base
- * `query()`/`all()` — for its flat Spatie filter params and null-on-404
- * lookup, but routes them through the tenant-scoped {@see Resource::tenant()}
- * helper so each carries the current team's id.
+ * routes (a 422 "Invalid or missing team" without it). Besides the usual
+ * `query()`/`all()`, it hand-rolls {@see self::list()}, for raw Spatie query
+ * params, and {@see self::find()}, for a null-on-404 lookup, routing both
+ * through the tenant-scoped base helpers so each carries the current team's id.
  *
  * ```php
  * SupportManager::users()->list(['search' => 'ada']);
@@ -31,10 +28,13 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::users()->options();
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DirectoryUser>
+ * @extends Resource<DirectoryUser>
  */
 final class UsersResource extends Resource
 {
+    /** @use Listable<DirectoryUser> */
+    use Listable;
+
     /**
      * The directory, optionally filtered (`filter[search]`, `filter[role]`),
      * sorted (`sort=name,-created_at`) or paginated (`per_page`).
@@ -45,16 +45,7 @@ final class UsersResource extends Resource
      */
     public function list(array $filters = []): array
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('users', $filters),
-        );
-
-        $this->throwForErrorResponse($response, 'users');
-
-        return array_map(
-            $this->hydrate(...),
-            Document::fromArray($response->json() ?? [])->resources(),
-        );
+        return $this->collection($this->get($this->path(), $filters));
     }
 
     /**
@@ -66,16 +57,7 @@ final class UsersResource extends Resource
      */
     public function options(): array
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get('users/options'),
-        );
-
-        $this->throwForErrorResponse($response, 'users/options');
-
-        return array_map(
-            static fn (ResourceObject $resource): UserOption => UserOption::fromArray($resource->flat()),
-            Document::fromArray($response->json() ?? [])->resources(),
-        );
+        return $this->collection($this->get("{$this->path()}/options"), UserOption::class);
     }
 
     /**
@@ -84,19 +66,13 @@ final class UsersResource extends Resource
      */
     public function find(string|int $id): ?DirectoryUser
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->get("users/{$id}"),
-        );
+        $response = $this->get("{$this->path()}/{$id}");
 
         if ($response->status() === 404) {
             return null;
         }
 
-        $this->throwForErrorResponse($response, "users/{$id}");
-
-        $resource = Document::fromArray($response->json() ?? [])->resource();
-
-        return $resource === null ? null : $this->hydrate($resource);
+        return $this->item($response);
     }
 
     protected function path(): string

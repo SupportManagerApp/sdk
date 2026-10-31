@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Compliance;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Compliance\DriversLicenceCheck;
+use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -20,13 +22,19 @@ use SupportManager\Sdk\Resources\Resource;
  * ```php
  * SupportManager::driversLicenceChecks()->query()->filter('user_id', 7)->get();
  * SupportManager::driversLicenceChecks()->submit('HARBO801234AB9CD', 'Xy7Kp2Qm', declarationAccepted: true);
- * SupportManager::driversLicenceChecks()->downloadCheckResultDocument(42)->json('data.download_url');
+ * SupportManager::driversLicenceChecks()->downloadCheckResultDocument(42)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DriversLicenceCheck>
+ * @extends Resource<DriversLicenceCheck>
  */
 final class DriversLicenceChecksResource extends Resource
 {
+    /** @use Findable<DriversLicenceCheck> */
+    use Findable;
+
+    /** @use Listable<DriversLicenceCheck> */
+    use Listable;
+
     /**
      * Create or replace the authenticated user's own driving licence details
      * for the current team, returning the stored record. Saving also completes
@@ -48,16 +56,16 @@ final class DriversLicenceChecksResource extends Resource
     }
 
     /**
-     * Fetch the download payload for a check's result document. The platform
-     * returns a plain JSON body — `{data: {download_url, filename, expires_at}}`
-     * — not a JSON:API resource, so the raw {@see Response} is handed back
-     * untouched. Read it via `->json('data.download_url')` (a signed link that
-     * expires after 5 minutes). The platform 404s when no document has been
-     * uploaded, and audits every request.
+     * A short-lived link to a check's result document. The platform answers
+     * with `{data: {download_url, filename, expires_at}}` rather than the file,
+     * so this returns a {@see DownloadLink}; the URL is signed and expires
+     * after 5 minutes. The platform 404s when no document has been uploaded
+     * (thrown as a {@see \SupportManager\Sdk\Exceptions\SupportManagerApiException}),
+     * and audits every request.
      */
-    public function downloadCheckResultDocument(string|int $id): Response
+    public function downloadCheckResultDocument(string|int $id): DownloadLink
     {
-        return $this->get("{$this->path()}/{$id}/check-result-document");
+        return $this->downloadLink("{$this->path()}/{$id}/check-result-document");
     }
 
     protected function path(): string

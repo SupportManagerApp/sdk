@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\CastWith;
+use SupportManager\Sdk\Data\Hydration\Casts\EmptyStringAsNull;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The address fields for a chosen suggestion, from
  * `GET user/address/suggestions/{id}`.
@@ -17,9 +21,12 @@ final readonly class SuggestedAddress
 {
     public function __construct(
         public string $addressLineOne,
+        #[CastWith(EmptyStringAsNull::class)]
         public ?string $addressLineTwo,
+        #[CastWith(EmptyStringAsNull::class)]
         public ?string $addressLineThree,
         public string $town,
+        #[CastWith(EmptyStringAsNull::class)]
         public ?string $county,
         public string $postcode,
     ) {}
@@ -29,14 +36,7 @@ final readonly class SuggestedAddress
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            addressLineOne: (string) ($data['address_line_one'] ?? ''),
-            addressLineTwo: self::optional($data['address_line_two'] ?? null),
-            addressLineThree: self::optional($data['address_line_three'] ?? null),
-            town: (string) ($data['town'] ?? ''),
-            county: self::optional($data['county'] ?? null),
-            postcode: (string) ($data['postcode'] ?? ''),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 
     /**
@@ -54,13 +54,5 @@ final readonly class SuggestedAddress
             'county' => $this->county,
             'postcode' => $this->postcode,
         ];
-    }
-
-    /**
-     * The lookup sends unused lines as empty strings; treat those as absent.
-     */
-    private static function optional(mixed $value): ?string
-    {
-        return $value === null || $value === '' ? null : (string) $value;
     }
 }

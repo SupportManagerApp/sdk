@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A teammate as seen in the user directory (`GET users` / `GET users/{user}`).
  *
@@ -26,12 +28,6 @@ final readonly class DirectoryUser
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            avatar: isset($data['avatar']) ? (string) $data['avatar'] : null,
-            role: isset($data['role']) ? (string) $data['role'] : null,
-            mobileNumber: isset($data['mobile_number']) ? (string) $data['mobile_number'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Profile;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The user's current rate of pay, nested in {@see EmploymentSummary}.
  */
@@ -20,10 +22,6 @@ final readonly class RateOfPay
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            hourlyRate: (float) ($data['hourly_rate'] ?? 0),
-            sleepingNightRate: (float) ($data['sleeping_night_rate'] ?? 0),
-            startDate: isset($data['start_date']) ? (string) $data['start_date'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

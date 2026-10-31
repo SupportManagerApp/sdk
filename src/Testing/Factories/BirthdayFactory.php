@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
-use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -19,7 +17,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * ```php
  * SupportManager::fake()->seed(BirthdayFactory::new()->count(2));
- * SupportManager::rotaCalendar()->birthdays();
+ * SupportManager::rotaCalendar()->birthdays('2026-06-01', '2026-06-30');
  * ```
  */
 final class BirthdayFactory extends Factory implements ProvidesFakeRoutes
@@ -43,9 +41,7 @@ final class BirthdayFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('rota/birthdays', static fn (RecordStore $store): mixed => Http::response(
-                Json::collection(null, $store->all('rota/birthdays')),
-            )),
+            FakeRoute::collection('rota/birthdays', static fn (RecordStore $store): array => $store->all('rota/birthdays')),
         ];
     }
 }

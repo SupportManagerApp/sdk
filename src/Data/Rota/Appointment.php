@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Rota;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A one-off calendar appointment, separate from regular shifts.
  *
@@ -28,12 +32,15 @@ final readonly class Appointment
         public bool $isAllDay,
         public bool $isPrivate,
         public ?int $createdBy,
+        #[ListOf('int')]
         public ?array $viewerIds,
         public ?string $start,
         public ?string $end,
         public ?string $createdAt,
         public ?string $updatedAt,
+        #[Can('update')]
         public bool $canUpdate = false,
+        #[Can('delete')]
         public bool $canDelete = false,
     ) {}
 
@@ -42,31 +49,6 @@ final readonly class Appointment
      */
     public static function fromArray(array $data): self
     {
-        /** @var array<string, mixed> $meta */
-        $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
-
-        /** @var array<string, mixed> $can */
-        $can = is_array($meta['can'] ?? null) ? $meta['can'] : [];
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            title: isset($data['title']) ? (string) $data['title'] : null,
-            location: isset($data['location']) ? (string) $data['location'] : null,
-            notes: isset($data['notes']) ? (string) $data['notes'] : null,
-            isVirtual: (bool) ($data['is_virtual'] ?? false),
-            isAllDay: (bool) ($data['is_all_day'] ?? false),
-            isPrivate: (bool) ($data['is_private'] ?? false),
-            createdBy: isset($data['created_by']) ? (int) $data['created_by'] : null,
-            viewerIds: is_array($data['viewer_ids'] ?? null)
-                ? array_values(array_map(static fn (mixed $id): int => (int) $id, $data['viewer_ids']))
-                : null,
-            start: isset($data['start']) ? (string) $data['start'] : null,
-            end: isset($data['end']) ? (string) $data['end'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            canUpdate: (bool) ($can['update'] ?? false),
-            canDelete: (bool) ($can['delete'] ?? false),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

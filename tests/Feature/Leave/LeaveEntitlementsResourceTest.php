@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Leave\LeaveEntitlement;
-use SupportManager\Sdk\Resources\Leave\LeaveEntitlementsResource;
-
-function leaveEntitlements(): LeaveEntitlementsResource
-{
-    return app(LeaveEntitlementsResource::class);
-}
 
 function leaveEntitlementPage(int $page, int $lastPage): array
 {
@@ -33,10 +27,9 @@ function leaveEntitlementPage(int $page, int $lastPage): array
 }
 
 it('queries entitlements with filters and hydrates DTOs', function () {
-    Http::fake(['api.test/api/v1/leave/entitlements*' => Http::response(leaveEntitlementPage(1, 1))]);
-    bootTenantSession();
+    fakeApi(['leave/entitlements*' => Http::response(leaveEntitlementPage(1, 1))]);
 
-    $page = leaveEntitlements()->query()->filter('user_id', 3)->sort('-effective_from')->get();
+    $page = sdk()->leaveEntitlements()->query()->filter('user_id', 3)->sort('-effective_from')->get();
 
     expect($page->items()[0])->toBeInstanceOf(LeaveEntitlement::class)
         ->and($page->items()[0]->hoursHoliday)->toBe(224.0)
@@ -53,10 +46,9 @@ it('queries entitlements with filters and hydrates DTOs', function () {
 });
 
 it('paginates entitlements', function () {
-    Http::fake(['api.test/api/v1/leave/entitlements*' => Http::response(leaveEntitlementPage(1, 2))]);
-    bootTenantSession();
+    fakeApi(['leave/entitlements*' => Http::response(leaveEntitlementPage(1, 2))]);
 
-    $page = leaveEntitlements()->all();
+    $page = sdk()->leaveEntitlements()->all();
 
     expect($page->currentPage())->toBe(1)
         ->and($page->lastPage())->toBe(2)

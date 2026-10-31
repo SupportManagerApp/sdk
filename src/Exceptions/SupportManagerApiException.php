@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SupportManager\Sdk\Exceptions;
 
 use RuntimeException;

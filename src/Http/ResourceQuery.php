@@ -15,10 +15,17 @@ use SupportManager\Sdk\Concerns\MapsApiErrors;
 /**
  * A fluent, immutable query against a tenant-scoped collection endpoint.
  *
- * The builder mirrors the platform's Spatie QueryBuilder grammar one-to-one:
- * `filter()` → `filter[key]=value`, `sort()` → `sort=-a,b`, `include()` →
- * `include=user`, plus `page`/`per_page` pagination. Each builder method returns
- * a new instance, so a base query can be safely branched and reused.
+ * The builder mirrors the platform's Spatie QueryBuilder grammar:
+ * `filter()` → `filter[key]=value` and `sort()` → `sort=-a,b`, plus
+ * `page`/`per_page` pagination. Each builder method returns a new instance, so
+ * a base query can be safely branched and reused. (`include()` is deprecated:
+ * no platform endpoint allows includes, so it sends nothing.)
+ *
+ * Every terminal method (`get()`, `collect()`, `lazy()`, `first()`) reads
+ * `GET {path}` and nothing else, and {@see Paginated::next()} re-runs the same
+ * query with another `page`, so a query can only reach the collection route
+ * that `Listable` is checked against. A single record by id is not a query:
+ * that is `Findable::find()`, on the resources whose platform has the route.
  *
  * Terminal methods run the request through {@see AuthenticatedApi::tenant()} —
  * inheriting current-team scoping and transparent token renewal — decode the
@@ -36,9 +43,6 @@ final class ResourceQuery
 
     /** @var list<string> */
     private array $sorts = [];
-
-    /** @var list<string> */
-    private array $includes = [];
 
     private ?int $page = null;
 
@@ -82,17 +86,26 @@ final class ResourceQuery
     }
 
     /**
-     * Request related resources be side-loaded into the document's `included`
-     * member, e.g. `->include('user')`.
+     * Does nothing, and raises an `E_USER_DEPRECATED`.
+     *
+     * No platform controller calls Spatie's `allowedIncludes()`, so no
+     * endpoint side-loads related resources: the platform ignored `include`,
+     * and the spec does not document it. The query is returned unchanged and
+     * nothing is sent, so a call keeps working until it is removed. Read
+     * related data from the attributes each DTO already carries.
+     *
+     * @deprecated No platform endpoint supports includes; remove the call. It will be removed in a future release.
      *
      * @return self<T>
      */
     public function include(string ...$relations): self
     {
-        $clone = clone $this;
-        $clone->includes = array_merge($clone->includes, array_values($relations));
+        trigger_error(
+            sprintf('%s::include() is deprecated and does nothing: no SupportManager endpoint supports includes.', self::class),
+            E_USER_DEPRECATED,
+        );
 
-        return $clone;
+        return clone $this;
     }
 
     /**
@@ -132,10 +145,6 @@ final class ResourceQuery
 
         if ($this->sorts !== []) {
             $params['sort'] = implode(',', $this->sorts);
-        }
-
-        if ($this->includes !== []) {
-            $params['include'] = implode(',', $this->includes);
         }
 
         if ($this->page !== null) {
@@ -225,25 +234,6 @@ final class ResourceQuery
     }
 
     /**
-     * Fetch a single resource by id from `{path}/{id}`, or null on a 404.
-     *
-     * @return T|null
-     */
-    public function find(string|int $id): mixed
-    {
-        $uri = $this->path.'/'.$id;
-        $response = $this->send($uri, fn ($request) => $request->get($uri), allowStatuses: [404]);
-
-        if ($response->status() === 404) {
-            return null;
-        }
-
-        $resource = Document::fromArray($response->json() ?? [])->resource();
-
-        return $resource === null ? null : ($this->hydrator)($resource);
-    }
-
-    /**
      * @param  array<string, mixed>  $params
      */
     private function fetch(array $params): Document
@@ -259,9 +249,8 @@ final class ResourceQuery
      * authentication calls do.
      *
      * @param  Closure(\Illuminate\Http\Client\PendingRequest): Response  $callback
-     * @param  list<int>  $allowStatuses
      */
-    private function send(string $uri, Closure $callback, array $allowStatuses = []): Response
+    private function send(string $uri, Closure $callback): Response
     {
         try {
             $response = $this->api->tenant($callback);
@@ -269,7 +258,7 @@ final class ResourceQuery
             throw $this->throwForConnectionFailure($e, $uri);
         }
 
-        $this->throwForErrorResponse($response, $uri, $allowStatuses);
+        $this->throwForErrorResponse($response, $uri);
 
         return $response;
     }

@@ -23,7 +23,7 @@ it('lists seeded tasks from a plain {data, meta} payload', function () {
 
     expect($page->items())->toHaveCount(3)
         ->and($page->items()[0])->toBeInstanceOf(Task::class)
-        ->and($page->items()[0]->key)->toBe('task_1')
+        ->and($page->items()[0]->key)->toBe('task_a')
         ->and($page->items()[0]->completionRole)->toBe(TaskCompletionRole::SelfOnly)
         ->and($page->items()[0]->priority)->toBe(10)
         ->and($page->meta()['team_id'])->toBe(42);
@@ -32,8 +32,8 @@ it('lists seeded tasks from a plain {data, meta} payload', function () {
 it('filters tasks by completion status and role', function () {
     SupportManager::fake()->seed(
         TaskFactory::new()->count(2),
-        TaskFactory::new()->completed()->state(['key' => 'done_1']),
-        TaskFactory::new()->managerOnly()->state(['key' => 'mgr_1']),
+        TaskFactory::new()->completed()->state(['key' => 'done_task']),
+        TaskFactory::new()->managerOnly()->state(['key' => 'manager_task']),
     );
 
     expect(SupportManager::tasks()->all(completed: true)->items())->toHaveCount(1)
@@ -44,8 +44,8 @@ it('filters tasks by completion status and role', function () {
 it('derives the badge count and progress from seeded tasks', function () {
     SupportManager::fake()->seed(
         TaskFactory::new()->count(3),
-        TaskFactory::new()->completed()->state(['key' => 'done_1']),
-        TaskFactory::new()->managerOnly()->state(['key' => 'mgr_1']),
+        TaskFactory::new()->completed()->state(['key' => 'done_task']),
+        TaskFactory::new()->managerOnly()->state(['key' => 'manager_task']),
     );
 
     $count = SupportManager::tasks()->count();
@@ -64,10 +64,10 @@ it('derives the badge count and progress from seeded tasks', function () {
 it('completes a task by key, flipping its state', function () {
     SupportManager::fake()->seed(TaskFactory::new()->count(2));
 
-    $task = SupportManager::tasks()->complete('task_1');
+    $task = SupportManager::tasks()->complete('task_a');
 
     expect($task)->toBeInstanceOf(Task::class)
-        ->and($task?->key)->toBe('task_1')
+        ->and($task?->key)->toBe('task_a')
         ->and($task?->completed)->toBeTrue()
         ->and(SupportManager::tasks()->progress()->completed)->toBe(1);
 });
@@ -83,12 +83,12 @@ it('reads the manager inbox and team progress per employee', function () {
         ->and($inbox[0])->toBeInstanceOf(EmployeeTaskProgress::class)
         ->and($inbox[0]->userId)->toBe(1)
         ->and($inbox[0]->userName)->toBe('Employee 1')
-        ->and($inbox[0]->pendingTasks[0]->key)->toBe('task_1');
+        ->and($inbox[0]->pendingTasks[0]->key)->toBe('task_a');
 
     $team = SupportManager::tasks()->teamProgress();
     expect($team)->toHaveCount(2)
         ->and($team[0]->percentage)->toBe(50)
-        ->and($team[0]->incompleteTasks[0]->key)->toBe('task_1');
+        ->and($team[0]->incompleteTasks[0]->key)->toBe('task_a');
 });
 
 it('returns an empty page and 100% progress when nothing is seeded', function () {

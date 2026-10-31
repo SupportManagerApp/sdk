@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * An estimated-pay projection for a single month. Mirrors the platform's
  * `EstimatedPayResource`.
@@ -12,6 +16,10 @@ namespace SupportManager\Sdk\Data\Payroll;
  * are split between the worked-hours/sleeps totals, any enhancement rows, the
  * grand total, and — when a full net-pay estimate is available — the
  * gross/net/deductions breakdown (otherwise those fields are null).
+ *
+ * `hours` and `sleeps` carry only their totals; the per-type rows the
+ * platform sends with them (`hours.breakdown`, `sleeps.breakdown`) are
+ * {@see self::$hoursBreakdown} and {@see self::$sleepsBreakdown}.
  *
  * @phpstan-type Money array{total_value: float, total_cost: float}
  */
@@ -22,6 +30,8 @@ final readonly class EstimatedPay
      * @param  Money  $sleeps
      * @param  list<array{type: string, total_value: float, total_cost: float}>  $enhancements
      * @param  Money  $grandTotal
+     * @param  list<EstimatedPayBreakdownLine>  $hoursBreakdown  `hours.breakdown`: the hours total by entry type.
+     * @param  list<EstimatedPayBreakdownLine>  $sleepsBreakdown  `sleeps.breakdown`: the sleeping-nights total by entry type.
      */
     public function __construct(
         public int $year,
@@ -35,6 +45,12 @@ final readonly class EstimatedPay
         public ?float $netPay,
         public ?float $deductionsTotal,
         public ?EstimatedPayDeductions $deductions,
+        #[From('hours.breakdown')]
+        #[ListOf(EstimatedPayBreakdownLine::class)]
+        public array $hoursBreakdown = [],
+        #[From('sleeps.breakdown')]
+        #[ListOf(EstimatedPayBreakdownLine::class)]
+        public array $sleepsBreakdown = [],
     ) {}
 
     /**
@@ -42,19 +58,12 @@ final readonly class EstimatedPay
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            year: (int) ($data['year'] ?? 0),
-            month: (int) ($data['month'] ?? 0),
-            monthLabel: isset($data['month_label']) ? (string) $data['month_label'] : null,
-            hours: self::money($data['hours'] ?? null),
-            sleeps: self::money($data['sleeps'] ?? null),
-            enhancements: self::enhancements($data['enhancements'] ?? null),
-            grandTotal: self::money($data['grand_total'] ?? null),
-            grossPay: isset($data['gross_pay']) ? (float) $data['gross_pay'] : null,
-            netPay: isset($data['net_pay']) ? (float) $data['net_pay'] : null,
-            deductionsTotal: isset($data['deductions_total']) ? (float) $data['deductions_total'] : null,
-            deductions: is_array($data['deductions'] ?? null) ? EstimatedPayDeductions::fromArray($data['deductions']) : null,
-        );
+        return Hydrator::hydrate(self::class, $data, [
+            'hours' => self::money($data['hours'] ?? null),
+            'sleeps' => self::money($data['sleeps'] ?? null),
+            'enhancements' => self::enhancements($data['enhancements'] ?? null),
+            'grandTotal' => self::money($data['grand_total'] ?? null),
+        ]);
     }
 
     /**

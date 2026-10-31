@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Leave;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A user's leave balance for a leave year, split into hours and
  * sleeping-nights axes.
@@ -28,16 +30,6 @@ final readonly class LeaveBalance
      */
     public static function fromArray(array $data): self
     {
-        /** @var array<string, mixed> $hours */
-        $hours = is_array($data['hours'] ?? null) ? $data['hours'] : [];
-        /** @var array<string, mixed> $sleeps */
-        $sleeps = is_array($data['sleeps'] ?? null) ? $data['sleeps'] : [];
-
-        return new self(
-            year: isset($data['year']) ? (int) $data['year'] : null,
-            hours: LeaveBalanceLine::fromArray($hours),
-            sleeps: LeaveBalanceLine::fromArray($sleeps),
-            breakdown: is_array($data['breakdown'] ?? null) ? LeaveEntitlementBreakdown::fromArray($data['breakdown']) : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

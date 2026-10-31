@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Attributes\Defaults;
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
 use SupportManager\Sdk\Enums\Household\ChoreFrequency;
 
 /**
@@ -26,12 +30,16 @@ final readonly class Chore
         public string $name,
         public ?string $description,
         public ChoreFrequency $frequency,
+        #[From('frequency_label', 'frequency')]
+        #[Defaults(ChoreFrequency::Daily->value)]
         public string $frequencyLabel,
         public ?int $customFrequencyDays,
         public ?string $lastCompleted,
         public ?string $snoozedUntil,
         public bool $isSnoozed,
+        #[From('completed_by.id')]
         public ?int $completedById,
+        #[From('completed_by.name')]
         public ?string $completedByName,
         public ?int $daysSinceCompletion,
         public bool $isOverdue,
@@ -40,15 +48,23 @@ final readonly class Chore
         public ?string $createdAt,
         public ?string $updatedAt,
         public ?string $normalizedName = null,
+        #[From('category.id')]
         public ?int $categoryId = null,
+        #[From('category.name')]
         public ?string $categoryName = null,
+        #[From('category.color')]
         public ?string $categoryColor = null,
+        #[From('category.icon')]
         public ?string $categoryIcon = null,
         public ?string $snoozedAt = null,
+        #[From('snoozed_by.id')]
         public ?int $snoozedById = null,
+        #[From('snoozed_by.name')]
         public ?string $snoozedByName = null,
         public ?string $plannedFor = null,
+        #[Can('update')]
         public bool $canUpdate = false,
+        #[Can('delete')]
         public bool $canDelete = false,
     ) {}
 
@@ -57,49 +73,9 @@ final readonly class Chore
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed} $completedBy */
-        $completedBy = is_array($data['completed_by'] ?? null) ? $data['completed_by'] : [];
-
-        /** @var array{id?: mixed, name?: mixed} $snoozedBy */
-        $snoozedBy = is_array($data['snoozed_by'] ?? null) ? $data['snoozed_by'] : [];
-
-        /** @var array{id?: mixed, name?: mixed, color?: mixed, icon?: mixed} $category */
-        $category = is_array($data['category'] ?? null) ? $data['category'] : [];
-
-        /** @var array{update?: mixed, delete?: mixed} $can */
-        $can = is_array($data['meta']['can'] ?? null) ? $data['meta']['can'] : [];
-
-        $frequency = (string) ($data['frequency'] ?? ChoreFrequency::Daily->value);
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            description: isset($data['description']) ? (string) $data['description'] : null,
-            frequency: ChoreFrequency::tryFrom($frequency) ?? ChoreFrequency::Daily,
-            frequencyLabel: (string) ($data['frequency_label'] ?? $frequency),
-            customFrequencyDays: isset($data['custom_frequency_days']) ? (int) $data['custom_frequency_days'] : null,
-            lastCompleted: isset($data['last_completed']) ? (string) $data['last_completed'] : null,
-            snoozedUntil: isset($data['snoozed_until']) ? (string) $data['snoozed_until'] : null,
-            isSnoozed: (bool) ($data['is_snoozed'] ?? false),
-            completedById: isset($completedBy['id']) ? (int) $completedBy['id'] : null,
-            completedByName: isset($completedBy['name']) ? (string) $completedBy['name'] : null,
-            daysSinceCompletion: isset($data['days_since_completion']) ? (int) $data['days_since_completion'] : null,
-            isOverdue: (bool) ($data['is_overdue'] ?? false),
-            shouldHighlight: (bool) ($data['should_highlight'] ?? false),
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            normalizedName: isset($data['normalized_name']) ? (string) $data['normalized_name'] : null,
-            categoryId: isset($category['id']) ? (int) $category['id'] : null,
-            categoryName: isset($category['name']) ? (string) $category['name'] : null,
-            categoryColor: isset($category['color']) ? (string) $category['color'] : null,
-            categoryIcon: isset($category['icon']) ? (string) $category['icon'] : null,
-            snoozedAt: isset($data['snoozed_at']) ? (string) $data['snoozed_at'] : null,
-            snoozedById: isset($snoozedBy['id']) ? (int) $snoozedBy['id'] : null,
-            snoozedByName: isset($snoozedBy['name']) ? (string) $snoozedBy['name'] : null,
-            plannedFor: isset($data['planned_for']) ? (string) $data['planned_for'] : null,
-            canUpdate: (bool) ($can['update'] ?? false),
-            canDelete: (bool) ($can['delete'] ?? false),
-        );
+        // An unknown frequency reads as daily rather than failing the whole chore.
+        return Hydrator::hydrate(self::class, $data, [
+            'frequency' => ChoreFrequency::tryFrom((string) ($data['frequency'] ?? '')) ?? ChoreFrequency::Daily,
+        ]);
     }
 }

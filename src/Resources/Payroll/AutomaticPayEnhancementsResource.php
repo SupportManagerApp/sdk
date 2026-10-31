@@ -13,7 +13,7 @@ use SupportManager\Sdk\Resources\Resource;
  * scenarios (bank holiday, Christmas, holiday/sickness cover) to enhancements.
  *
  * The platform exposes a singleton `show()` and `update()` returning a flat
- * (non-JSON:API) `data` payload, so this resource hand-rolls both. `show()`
+ * (non-JSON:API) `data` payload, read with {@see Resource::data()}. `show()`
  * returns null when the team has not configured any settings yet.
  *
  * ```php
@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::automaticPayEnhancements()->update(['bank_holiday_enhancement_id' => 3]);
  * ```
  *
- * @extends resource<AutomaticPayEnhancementSettings>
+ * @extends Resource<AutomaticPayEnhancementSettings>
  */
 final class AutomaticPayEnhancementsResource extends Resource
 {
@@ -30,13 +30,7 @@ final class AutomaticPayEnhancementsResource extends Resource
      */
     public function show(): ?AutomaticPayEnhancementSettings
     {
-        $response = $this->get('payroll/automatic-pay-enhancements');
-
-        $this->throwForErrorResponse($response, 'payroll/automatic-pay-enhancements');
-
-        $data = $response->json('data');
-
-        return is_array($data) ? AutomaticPayEnhancementSettings::fromArray($data) : null;
+        return $this->data($this->get($this->path()), AutomaticPayEnhancementSettings::class);
     }
 
     /**
@@ -46,13 +40,7 @@ final class AutomaticPayEnhancementsResource extends Resource
      */
     public function update(array $attributes): ?AutomaticPayEnhancementSettings
     {
-        $response = $this->put('payroll/automatic-pay-enhancements', $attributes);
-
-        $this->throwForErrorResponse($response, 'payroll/automatic-pay-enhancements');
-
-        $data = $response->json('data');
-
-        return is_array($data) ? AutomaticPayEnhancementSettings::fromArray($data) : null;
+        return $this->data($this->put($this->path(), $attributes), AutomaticPayEnhancementSettings::class);
     }
 
     protected function path(): string

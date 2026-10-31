@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Dashboard;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One area of the web navigation (e.g. `pay`) with the pages in it that are
  * about the user themselves. Team-wide pages are left out, and areas with no
@@ -18,6 +21,7 @@ final readonly class NavigationArea
         public string $key,
         public string $label,
         public ?string $icon,
+        #[ListOf(NavigationItem::class)]
         public array $items,
     ) {}
 
@@ -26,16 +30,6 @@ final readonly class NavigationArea
      */
     public static function fromArray(array $data): self
     {
-        $items = is_array($data['items'] ?? null) ? $data['items'] : [];
-
-        return new self(
-            key: (string) ($data['key'] ?? ''),
-            label: (string) ($data['label'] ?? ''),
-            icon: isset($data['icon']) ? (string) $data['icon'] : null,
-            items: array_values(array_map(
-                static fn (mixed $item): NavigationItem => NavigationItem::fromArray(is_array($item) ? $item : []),
-                $items,
-            )),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

@@ -23,7 +23,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  * ```php
  * SupportManager::fake()->seed(KeysafeFactory::new()->withCode('4321'));
  * SupportManager::keysafe()->show()->hasCode;    // true
- * SupportManager::keysafe()->reveal()->code;     // '4321'
+ * SupportManager::keysafe()->reveal();           // '4321'
  * ```
  */
 final class KeysafeFactory extends Factory implements ProvidesFakeRoutes
@@ -61,15 +61,12 @@ final class KeysafeFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('household/keysafe', static fn (RecordStore $store): mixed => Http::response(
-                Json::item(null, self::masked($store)),
-            )),
+            FakeRoute::flat('household/keysafe', static fn (RecordStore $store): array => self::masked($store)),
 
-            FakeRoute::post('household/keysafe/reveal', static function (RecordStore $store): mixed {
-                $record = $store->all('household/keysafe')[0] ?? ['has_code' => false, 'can_edit' => true, 'code' => null];
-
-                return Http::response(Json::item(null, $record));
-            }),
+            // The platform's reveal answers only the code (KeysafeController::reveal).
+            FakeRoute::flat('household/keysafe/reveal', static fn (RecordStore $store): array => [
+                'code' => $store->all('household/keysafe')[0]['code'] ?? null,
+            ], teamMeta: true, method: 'POST'),
 
             FakeRoute::patch('household/keysafe', static function (RecordStore $store, array $matches, Request $request): mixed {
                 $code = $request->data()['code'] ?? null;
@@ -81,7 +78,7 @@ final class KeysafeFactory extends Factory implements ProvidesFakeRoutes
                     'code' => $code,
                 ]]);
 
-                return Http::response(Json::item(null, self::masked($store)));
+                return Http::response(Json::flat(self::masked($store)));
             }),
         ];
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Rota;
 
-use Illuminate\Http\Client\Response;
+use DateTimeInterface;
 use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
@@ -17,51 +17,57 @@ use SupportManager\Sdk\Resources\Resource;
  * a date range, plus the address of the caller's iCalendar subscription feed.
  *
  * Unlike the rest of the module these endpoints return flat `{data: ...}`
- * bodies rather than JSON:API resource objects, so each reads the raw `data`
- * directly. Every date feed requires a `filter[start_date]` and
- * `filter[end_date]` (`Y-m-d`).
+ * bodies rather than JSON:API resource objects, so each reads `data` with
+ * {@see Resource::dataList()} or {@see Resource::raw()}. Every date feed takes
+ * the range as two required arguments, a `Y-m-d` string or a
+ * `DateTimeInterface` each, both inclusive; the platform 422s without them, or
+ * when `$to` is before `$from`.
  *
  * ```php
- * SupportManager::rotaCalendar()->bankHolidays(['filter' => ['start_date' => '2026-01-01', 'end_date' => '2026-12-31']]);
+ * SupportManager::rotaCalendar()->bankHolidays('2026-01-01', '2026-12-31');
+ * SupportManager::rotaCalendar()->birthdays(now()->startOfMonth(), now()->endOfMonth());
  * SupportManager::rotaCalendar()->feed()->url;
  * SupportManager::rotaCalendar()->regenerateFeed();
  * ```
  *
- * @extends resource<BankHoliday>
+ * @extends Resource<BankHoliday>
  */
 final class CalendarResource extends Resource
 {
     /**
      * Bank holidays for the team's region within the requested range.
      *
-     * @param  array<string, mixed>  $query  Requires `filter[start_date]` and `filter[end_date]`.
+     * @param  string|DateTimeInterface  $from  The first day, `Y-m-d` if a string.
+     * @param  string|DateTimeInterface  $to  The last day, on or after `$from`.
      * @return list<BankHoliday>
      */
-    public function bankHolidays(array $query = []): array
+    public function bankHolidays(string|DateTimeInterface $from, string|DateTimeInterface $to): array
     {
-        return $this->rows($this->get('rota/bank-holidays', $query), BankHoliday::fromArray(...));
+        return $this->dataList($this->get('rota/bank-holidays', self::range($from, $to)), BankHoliday::class);
     }
 
     /**
      * Team member birthdays within the requested range.
      *
-     * @param  array<string, mixed>  $query  Requires `filter[start_date]` and `filter[end_date]`.
+     * @param  string|DateTimeInterface  $from  The first day, `Y-m-d` if a string.
+     * @param  string|DateTimeInterface  $to  The last day, on or after `$from`.
      * @return list<Birthday>
      */
-    public function birthdays(array $query = []): array
+    public function birthdays(string|DateTimeInterface $from, string|DateTimeInterface $to): array
     {
-        return $this->rows($this->get('rota/birthdays', $query), Birthday::fromArray(...));
+        return $this->dataList($this->get('rota/birthdays', self::range($from, $to)), Birthday::class);
     }
 
     /**
      * Team member work anniversaries within the requested range.
      *
-     * @param  array<string, mixed>  $query  Requires `filter[start_date]` and `filter[end_date]`.
+     * @param  string|DateTimeInterface  $from  The first day, `Y-m-d` if a string.
+     * @param  string|DateTimeInterface  $to  The last day, on or after `$from`.
      * @return list<Anniversary>
      */
-    public function anniversaries(array $query = []): array
+    public function anniversaries(string|DateTimeInterface $from, string|DateTimeInterface $to): array
     {
-        return $this->rows($this->get('rota/anniversaries', $query), Anniversary::fromArray(...));
+        return $this->dataList($this->get('rota/anniversaries', self::range($from, $to)), Anniversary::class);
     }
 
     /**
@@ -70,7 +76,7 @@ final class CalendarResource extends Resource
      */
     public function feed(): CalendarFeed
     {
-        return $this->calendarFeed($this->get('rota/calendar-feed'), 'rota/calendar-feed');
+        return CalendarFeed::fromArray($this->raw($this->get('rota/calendar-feed')));
     }
 
     /**
@@ -79,7 +85,7 @@ final class CalendarResource extends Resource
      */
     public function regenerateFeed(): CalendarFeed
     {
-        return $this->calendarFeed($this->post('rota/calendar-feed/token'), 'rota/calendar-feed/token');
+        return CalendarFeed::fromArray($this->raw($this->post('rota/calendar-feed/token')));
     }
 
     protected function path(): string
@@ -93,42 +99,15 @@ final class CalendarResource extends Resource
     }
 
     /**
-     * Parse the calendar-feed endpoints' flat `{data: {url}}` body.
-     */
-    private function calendarFeed(Response $response, string $context): CalendarFeed
-    {
-        $this->throwForErrorResponse($response, $context);
-
-        /** @var array<string, mixed> $data */
-        $data = is_array($response->json('data')) ? $response->json('data') : [];
-
-        return CalendarFeed::fromArray($data);
-    }
-
-    /**
-     * Hydrate a flat calendar feed's `data` rows into DTOs.
+     * The `filter[start_date]`/`filter[end_date]` pair every date feed requires.
      *
-     * @template TRow
-     *
-     * @param  callable(array<string, mixed>): TRow  $into
-     * @return list<TRow>
+     * @return array{filter: array{start_date: string, end_date: string}}
      */
-    private function rows(Response $response, callable $into): array
+    private static function range(string|DateTimeInterface $from, string|DateTimeInterface $to): array
     {
-        $this->throwForErrorResponse($response, $response->effectiveUri()?->getPath() ?? 'rota/calendar');
-
-        /** @var array<array-key, mixed> $data */
-        $data = $response->json('data') ?? [];
-
-        $rows = [];
-
-        foreach ($data as $row) {
-            if (is_array($row)) {
-                /** @var array<string, mixed> $row */
-                $rows[] = $into($row);
-            }
-        }
-
-        return $rows;
+        return ['filter' => [
+            'start_date' => $from instanceof DateTimeInterface ? $from->format('Y-m-d') : $from,
+            'end_date' => $to instanceof DateTimeInterface ? $to->format('Y-m-d') : $to,
+        ]];
     }
 }

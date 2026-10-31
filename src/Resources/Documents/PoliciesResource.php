@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Documents;
 
 use SupportManager\Sdk\Data\Documents\Policy;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -21,10 +23,16 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::policies()->acknowledge(7);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Policy>
+ * @extends Resource<Policy>
  */
 final class PoliciesResource extends Resource
 {
+    /** @use Findable<Policy> */
+    use Findable;
+
+    /** @use Listable<Policy> */
+    use Listable;
+
     /**
      * Record that the current user has acknowledged a policy. The platform
      * responds with an acknowledgement receipt (not a Policy), so nothing is
@@ -32,9 +40,7 @@ final class PoliciesResource extends Resource
      */
     public function acknowledge(string|int $id): void
     {
-        $response = $this->post("documents/policies/{$id}/acknowledge");
-
-        $this->throwForErrorResponse($response, "documents/policies/{$id}/acknowledge");
+        $this->throwForErrorResponse($this->post("documents/policies/{$id}/acknowledge"));
     }
 
     protected function path(): string

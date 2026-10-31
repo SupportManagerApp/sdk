@@ -7,8 +7,9 @@ namespace SupportManager\Sdk\Resources\Rota;
 use SupportManager\Sdk\Data\Rota\Shift;
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -33,10 +34,16 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shifts()->requestAmendment($shiftId, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']);
  * ```
  *
- * @extends resource<Shift>
+ * @extends Resource<Shift>
  */
 final class ShiftsResource extends Resource
 {
+    /** @use Findable<Shift> */
+    use Findable;
+
+    /** @use Listable<Shift> */
+    use Listable;
+
     /**
      * Create a shift, returning the stored rota entry. The platform creates it
      * as published overtime (a sleeping night when `is_sleeping_night` is set);
@@ -94,14 +101,7 @@ final class ShiftsResource extends Resource
      */
     public function apply(string|int $id, array $payload = []): array
     {
-        $response = $this->post("rota/shifts/{$id}/apply", $payload);
-
-        $this->throwForErrorResponse($response, "rota/shifts/{$id}/apply");
-
-        return array_map(
-            static fn (ResourceObject $object): ShiftApplication => ShiftApplication::fromArray($object->flat()),
-            Document::fromArray($response->json() ?? [])->resources(),
-        );
+        return $this->collection($this->post("{$this->path()}/{$id}/apply", $payload), ShiftApplication::class);
     }
 
     /**
@@ -115,14 +115,7 @@ final class ShiftsResource extends Resource
      */
     public function requestAmendment(string|int $id, array $data): ?ShiftAmendmentRequest
     {
-        $uri = "rota/shifts/{$id}/amendment-requests";
-        $response = $this->post($uri, $data);
-
-        $this->throwForErrorResponse($response, $uri);
-
-        $resource = Document::fromArray($response->json() ?? [])->resource();
-
-        return $resource === null ? null : ShiftAmendmentRequest::fromArray($resource->flat());
+        return $this->item($this->post("{$this->path()}/{$id}/amendment-requests", $data), ShiftAmendmentRequest::class);
     }
 
     protected function path(): string

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\CarJourneys;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\Can;
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A single trip record — start/end times, driver, and the user it belongs to.
  *
@@ -23,11 +27,15 @@ final readonly class CarJourney
         public bool $isOngoing,
         public ?int $durationMinutes,
         public ?string $comments,
+        #[From('user.id')]
         public ?int $userId,
+        #[From('user.name')]
         public ?string $userName,
         public ?string $createdAt,
         public ?string $updatedAt,
+        #[Can('update')]
         public bool $canUpdate = false,
+        #[Can('delete')]
         public bool $canDelete = false,
     ) {}
 
@@ -36,26 +44,6 @@ final readonly class CarJourney
      */
     public static function fromArray(array $data): self
     {
-        /** @var array{id?: mixed, name?: mixed} $user */
-        $user = is_array($data['user'] ?? null) ? $data['user'] : [];
-
-        /** @var array{update?: mixed, delete?: mixed} $can */
-        $can = is_array($data['meta']['can'] ?? null) ? $data['meta']['can'] : [];
-
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            driverName: (string) ($data['driver_name'] ?? ''),
-            tripStart: (string) ($data['trip_start'] ?? ''),
-            tripEnd: isset($data['trip_end']) ? (string) $data['trip_end'] : null,
-            isOngoing: (bool) ($data['is_ongoing'] ?? false),
-            durationMinutes: isset($data['duration_minutes']) ? (int) $data['duration_minutes'] : null,
-            comments: isset($data['comments']) ? (string) $data['comments'] : null,
-            userId: isset($user['id']) ? (int) $user['id'] : null,
-            userName: isset($user['name']) ? (string) $user['name'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-            canUpdate: (bool) ($can['update'] ?? false),
-            canDelete: (bool) ($can['delete'] ?? false),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

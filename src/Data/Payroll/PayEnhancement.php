@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * A pay enhancement — a named rate multiplier (e.g. time-and-a-half) applied to
  * worked hours. Mirrors the platform's `PayEnhancementResource`.
@@ -28,14 +30,6 @@ final readonly class PayEnhancement
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (string) ($data['id'] ?? ''),
-            name: (string) ($data['name'] ?? ''),
-            description: isset($data['description']) ? (string) $data['description'] : null,
-            enhancementFactor: isset($data['enhancement_factor']) ? (string) $data['enhancement_factor'] : null,
-            enhancementFactorLabel: isset($data['enhancement_factor_label']) ? (string) $data['enhancement_factor_label'] : null,
-            createdAt: isset($data['created_at']) ? (string) $data['created_at'] : null,
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }
