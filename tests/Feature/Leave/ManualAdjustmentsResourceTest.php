@@ -52,7 +52,7 @@ it('creates an adjustment', function () {
     ], 201)]);
     bootTenantSession();
 
-    $adjustment = leaveAdjustments()->create(['user_id' => 3, 'leave_year' => 2026, 'hours_adjustment' => 2.0, 'reason' => 'Bonus']);
+    $adjustment = leaveAdjustments()->create(['user_id' => 3, 'leave_year' => 2026, 'hours_adjustment' => 2.0, 'sleeps_adjustment' => 0.0, 'reason' => 'Bonus']);
 
     expect($adjustment->id)->toBe('9')
         ->and($adjustment->reason)->toBe('Bonus');
@@ -89,7 +89,7 @@ it('updates an adjustment', function () {
     ])]);
     bootTenantSession();
 
-    $adjustment = leaveAdjustments()->update(9, ['hours_adjustment' => 3.5, 'reason' => 'Corrected']);
+    $adjustment = leaveAdjustments()->update(9, ['user_id' => 3, 'leave_year' => 2026, 'hours_adjustment' => 3.5, 'sleeps_adjustment' => 0.0, 'reason' => 'Corrected']);
 
     expect($adjustment->hoursAdjustment)->toBe(3.5)
         ->and($adjustment->reason)->toBe('Corrected');

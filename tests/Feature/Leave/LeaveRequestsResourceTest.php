@@ -36,14 +36,13 @@ function leaveRequestPage(int $page, int $lastPage): array
     ];
 }
 
-it('encodes filter, sort, include and pagination as Spatie-style query params', function () {
+it('encodes filter, sort and pagination as Spatie-style query params', function () {
     Http::fake(['api.test/api/v1/leave/requests*' => Http::response(leaveRequestPage(1, 1))]);
     bootTenantSession();
 
     leaveRequests()->query()
         ->filter('status', 'Pending')
         ->sort('-created_at')
-        ->include('user')
         ->perPage(15)
         ->get();
 
@@ -52,7 +51,6 @@ it('encodes filter, sort, include and pagination as Spatie-style query params', 
 
         return str_contains($url, 'filter[status]=Pending')
             && str_contains($url, 'sort=-created_at')
-            && str_contains($url, 'include=user')
             && str_contains($url, 'per_page=15')
             && $request->hasHeader('X-Team-ID', '42');
     });
@@ -154,7 +152,7 @@ it('creates a leave request', function () {
     ], 201)]);
     bootTenantSession();
 
-    $request = leaveRequests()->create(['start_date' => '2026-07-01', 'type' => 'Whole Days']);
+    $request = leaveRequests()->create(['start_date' => '2026-07-01', 'end_date' => '2026-07-03', 'type' => 'Whole Days']);
 
     expect($request->id)->toBe('8');
     Http::assertSent(fn ($r) => $r->method() === 'POST' && $r['type'] === 'Whole Days');

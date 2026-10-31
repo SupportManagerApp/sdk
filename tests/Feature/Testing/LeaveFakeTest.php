@@ -123,7 +123,7 @@ it('lists and mutates manual adjustments', function () {
         ->and($page->items()[0]->hoursAdjustment)->toBe(5.0)
         ->and($page->items()[0]->leaveYear)->toBe(2026);
 
-    $created = SupportManager::leaveAdjustments()->create(['user_id' => 9, 'reason' => 'Bonus']);
+    $created = SupportManager::leaveAdjustments()->create(['user_id' => 9, 'leave_year' => 2026, 'hours_adjustment' => 7.5, 'sleeps_adjustment' => 0.0, 'reason' => 'Bonus']);
     expect($created)->toBeInstanceOf(ManualAdjustment::class)
         ->and($created?->reason)->toBe('Bonus')
         ->and(SupportManager::leaveAdjustments()->all()->total())->toBe(3);
@@ -172,8 +172,8 @@ it('serves the flat leave balance for the current and another user', function ()
     expect($balance)->toBeInstanceOf(LeaveBalance::class)
         ->and($balance?->year)->toBe(2026)
         ->and($balance?->hours->remaining)->toBe(200.0)
-        ->and($balance?->hours->percentages)->toBe(['used' => 7])
-        ->and($balance?->sleeps->percentages)->toBeNull();
+        ->and($balance?->hours->percentages)->toBe(['approved' => 7.14, 'pending' => 3.57, 'remaining' => 89.29])
+        ->and($balance?->sleeps->percentages)->toEqual(['approved' => 20.0, 'pending' => 10.0, 'remaining' => 70.0]);
 
     expect(SupportManager::leaveBalance()->forUser(3)?->hours->approved)->toBe(16.0);
 });
@@ -182,7 +182,7 @@ it('serves a distinct balance per leave year for year navigation', function () {
     SupportManager::fake()->seed(
         LeaveBalanceFactory::new()->forYear(2026),
         LeaveBalanceFactory::new()->forYear(2025)->state([
-            'hours' => ['entitlement' => 224.0, 'pending' => 0.0, 'approved' => 224.0, 'remaining' => 0.0, 'percentages' => ['used' => 100]],
+            'hours' => ['entitlement' => 224.0, 'pending' => 0.0, 'approved' => 224.0, 'remaining' => 0.0, 'percentages' => ['approved' => 100.0, 'pending' => 0.0, 'remaining' => 0.0]],
         ]),
     );
 
@@ -390,7 +390,7 @@ it('lists admin adjustments and entitlements registers as DTOs', function () {
 it('creates, updates and deletes an admin entitlement', function () {
     SupportManager::fake()->seed(AdminLeaveFactory::new());
 
-    $created = SupportManager::leaveAdmin()->createEntitlement(['user_id' => 4, 'hours_holiday' => 100.0]);
+    $created = SupportManager::leaveAdmin()->createEntitlement(['user_id' => 4, 'leave_year_start' => '2026-04-01', 'hours_holiday' => 100.0]);
     expect($created)->toBeInstanceOf(LeaveEntitlement::class)
         ->and($created?->hoursHoliday)->toBe(100.0)
         ->and(SupportManager::leaveAdmin()->entitlements())->toHaveCount(2);

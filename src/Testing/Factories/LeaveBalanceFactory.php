@@ -56,14 +56,14 @@ final class LeaveBalanceFactory extends Factory implements ProvidesFakeRoutes
                 'pending' => 8.0,
                 'approved' => 16.0,
                 'remaining' => 200.0,
-                'percentages' => ['used' => 7],
+                'percentages' => ['approved' => 7.14, 'pending' => 3.57, 'remaining' => 89.29],
             ],
             'sleeps' => [
                 'entitlement' => 10.0,
                 'pending' => 1.0,
                 'approved' => 2.0,
                 'remaining' => 7.0,
-                'percentages' => null,
+                'percentages' => ['approved' => 20.0, 'pending' => 10.0, 'remaining' => 70.0],
             ],
         ];
     }
