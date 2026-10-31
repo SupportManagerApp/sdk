@@ -16,6 +16,7 @@ use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
+use SupportManager\Sdk\Resources\Household\BinDayResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
 use SupportManager\Sdk\Resources\Household\ConsumablesResource;
@@ -50,6 +51,9 @@ use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftBlocksResource;
 use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
+use SupportManager\Sdk\Resources\Security\SocialAccountsResource;
+use SupportManager\Sdk\Resources\Security\TrustedDevicesResource;
+use SupportManager\Sdk\Resources\Security\TwoFactorResource;
 use SupportManager\Sdk\Resources\Signing\SignatureRequestsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
@@ -229,6 +233,12 @@ final class SupportManager
         return $this->resource(UsersResource::class);
     }
 
+    /** Household — bin collections and which bins go out tomorrow (singleton). */
+    public function binDay(): BinDayResource
+    {
+        return $this->resource(BinDayResource::class);
+    }
+
     /** Household — shopping list items. */
     public function shoppingList(): ShoppingListItemsResource
     {
@@ -311,6 +321,24 @@ final class SupportManager
     public function deviceTokens(): DeviceTokensResource
     {
         return $this->resource(DeviceTokensResource::class);
+    }
+
+    /** Security — the current user's linked social sign-in accounts (non-tenant). */
+    public function socialAccounts(): SocialAccountsResource
+    {
+        return $this->resource(SocialAccountsResource::class);
+    }
+
+    /** Security — the current user's trusted devices, with revoke (non-tenant). */
+    public function trustedDevices(): TrustedDevicesResource
+    {
+        return $this->resource(TrustedDevicesResource::class);
+    }
+
+    /** Security — the current user's authenticator app and backup codes (non-tenant). */
+    public function twoFactor(): TwoFactorResource
+    {
+        return $this->resource(TwoFactorResource::class);
     }
 
     /** Teams — the teams the current user belongs to (non-tenant). */

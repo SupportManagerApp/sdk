@@ -2,7 +2,8 @@
 # by the SDK's contract tests (tests/Contract). Do not edit by hand: regenerate
 # with `composer sync-openapi -- <platform-path>`.
 #
-# platform-commit: 55ec39dea
+# platform-commit: 0aae918cf
+
 openapi: 3.0.3
 info:
   title: 'SupportManager API'
@@ -90,6 +91,18 @@ components:
       schema:
         type: integer
       example: 7
+    AuthSocialProvider:
+      name: provider
+      in: path
+      required: true
+      description: 'The social provider identifier.'
+      schema:
+        type: string
+        enum:
+          - google
+          - microsoft
+          - apple
+      example: google
     CompliancePerPage:
       name: per_page
       in: query
@@ -610,6 +623,172 @@ components:
           type: string
           description: "Known values: `INVALID_VERIFICATION_SESSION`, `VERIFICATION_SESSION_EXPIRED`. This list is open and may grow — clients must ignore values they do not recognise rather than failing to decode the response.\n"
           example: INVALID_VERIFICATION_SESSION
+    AuthTrustedDevice:
+      type: object
+      description: "JSON:API resource object for one of the user's trusted devices."
+      properties:
+        id:
+          type: string
+          example: '12'
+        type:
+          type: string
+          example: trusted_devices
+        attributes:
+          type: object
+          properties:
+            device_name:
+              type: string
+              example: 'Safari on iPhone'
+            device_type:
+              type: string
+              description: "Known values: `Desktop`, `Mobile`, `Tablet`. This list is open and may grow — clients must ignore values they do not recognise rather than failing to decode the response.\n"
+              example: Mobile
+            masked_ip_address:
+              type: string
+              description: 'The last IP address the device signed in from, with the host part masked.'
+              example: 81.2.x.x
+            is_current_device:
+              type: boolean
+              description: 'Whether this is the device making the request.'
+              example: true
+            verified_at:
+              type: string
+              format: date-time
+            last_used_at:
+              type: string
+              format: date-time
+              nullable: true
+            expires_at:
+              type: string
+              format: date-time
+    AuthSocialAccount:
+      type: object
+      description: 'JSON:API resource object for a linked social account.'
+      properties:
+        id:
+          type: string
+          example: '3'
+        type:
+          type: string
+          example: social_accounts
+        attributes:
+          type: object
+          properties:
+            provider:
+              type: string
+              description: "Known values: `google`, `microsoft`, `apple`. This list is open and may grow — clients must ignore values they do not recognise rather than failing to decode the response.\n"
+              example: google
+            provider_label:
+              type: string
+              example: Google
+            provider_email:
+              type: string
+              nullable: true
+              example: sam@gmail.com
+            provider_name:
+              type: string
+              nullable: true
+              example: 'Sam Taylor'
+            linked_at:
+              type: string
+              format: date-time
+    AuthSocialProviderOption:
+      type: object
+      description: 'A provider configured on this environment, and whether the user has linked it.'
+      properties:
+        provider:
+          type: string
+          description: "Pass as `{provider}` to link or unlink. Known values: `google`, `microsoft`, `apple`. This list is open and may grow — clients must ignore values they do not recognise.\n"
+          example: google
+        label:
+          type: string
+          example: Google
+        linked:
+          type: boolean
+          example: true
+    AuthLinkSocialAccountRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: "The provider-issued token obtained natively. For Google and\nMicrosoft the OAuth access token; for Apple the identity token.\n"
+          example: ya29.a0AfH6SMB...
+    AuthTwoFactorStatus:
+      type: object
+      properties:
+        has_second_factor:
+          type: boolean
+          description: 'True when the authenticator app is enabled or the user has a passkey.'
+          example: true
+        totp_enabled:
+          type: boolean
+          example: true
+        totp_enabled_at:
+          type: string
+          format: date-time
+          nullable: true
+        backup_codes_remaining:
+          type: integer
+          description: 'Unused backup codes the user still holds.'
+          example: 7
+        backup_codes_generated_at:
+          type: string
+          format: date-time
+          nullable: true
+        second_factor_required_by:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Deadline for setting up a second factor; null once one is set up or none is required.'
+    AuthTotpSetup:
+      type: object
+      properties:
+        secret:
+          type: string
+          description: 'Base32 authenticator secret.'
+          example: JBSWY3DPEHPK3PXP
+        formatted_secret:
+          type: string
+          description: 'The secret in groups of four, for manual entry.'
+          example: 'JBSW Y3DP EHPK 3PXP'
+        otpauth_uri:
+          type: string
+          description: 'Provisioning URI to open in an authenticator app on this device.'
+          example: 'otpauth://totp/SupportManager:sam%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=SupportManager'
+        qr_code_data_uri:
+          type: string
+          description: 'SVG QR code of `otpauth_uri` as a data URI.'
+          example: 'data:image/svg+xml;base64,PD94bWwg...'
+        expires_in:
+          type: integer
+          description: 'Seconds the pending secret is held for confirmation.'
+          example: 900
+    AuthTotpCodeRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          description: 'The 6-digit code currently shown by the authenticator app.'
+          example: '123456'
+    AuthBackupCodesResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: 'Backup codes regenerated successfully.'
+        data:
+          type: object
+          properties:
+            backup_codes:
+              type: array
+              description: 'Eight single-use codes, shown once. Each can stand in for an authenticator code at device verification.'
+              items: { type: string, example: ABCD-EFGH }
     CarJourney:
       type: object
       properties:
@@ -923,6 +1102,83 @@ components:
           example:
             certificate:
               - 'Please upload a copy of your DBS certificate.'
+    DashboardWeatherForecast:
+      type: object
+      description: 'The forecast behind the `dashboard.weather` widget.'
+      properties:
+        location:
+          type: string
+          example: Weymouth
+        current:
+          $ref: '#/components/schemas/DashboardCurrentWeather'
+        days:
+          type: array
+          description: 'Today and the following days, up to five, in date order.'
+          items:
+            $ref: '#/components/schemas/DashboardDailyWeather'
+    DashboardCurrentWeather:
+      type: object
+      properties:
+        temperature:
+          type: integer
+          description: 'Degrees Celsius.'
+          example: 14
+        feels_like:
+          type: integer
+          description: 'Apparent temperature in degrees Celsius.'
+          example: 11
+        condition:
+          type: string
+          description: "Known values: `clear`, `partly_cloudy`, `overcast`, `fog`, `drizzle`,\n`rain`, `showers`, `snow`, `thunderstorm`. Treat anything else as\n`overcast`.\n"
+          example: partly_cloudy
+        condition_label:
+          type: string
+          example: 'Partly cloudy'
+        icon:
+          type: string
+          description: 'Lucide icon name, already chosen for day or night.'
+          example: cloud-sun
+        is_daytime:
+          type: boolean
+          example: true
+        wind_speed_mph:
+          type: integer
+          example: 12
+    DashboardDailyWeather:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: 'The day in Weymouth (Europe/London).'
+          example: '2026-10-09'
+        day_name:
+          type: string
+          description: '`Today`, or the short English weekday name.'
+          example: Today
+        condition:
+          type: string
+          description: "Same values as the current weather's `condition`."
+          example: drizzle
+        condition_label:
+          type: string
+          example: Drizzle
+        icon:
+          type: string
+          description: 'Lucide icon name for the daytime condition.'
+          example: cloud-drizzle
+        high:
+          type: integer
+          description: 'Highest temperature in degrees Celsius.'
+          example: 18
+        low:
+          type: integer
+          description: 'Lowest temperature in degrees Celsius.'
+          example: 14
+        rain_chance:
+          type: integer
+          description: 'Highest chance of rain during the day, as a percentage.'
+          example: 60
     DashboardWidgetPlacement:
       type: object
       description: "A widget's placement on the dashboard. Contains no widget content;\nthe tag description maps each key to the endpoint that serves it.\n"
@@ -1981,6 +2237,41 @@ components:
               - 'The start date field is required.'
             hours:
               - 'The hours must be at least 0.'
+    HouseholdBinDay:
+      type: object
+      properties:
+        bins_due_tomorrow:
+          type: array
+          description: 'The `bin` of each collection due tomorrow, in the order of `collections`.'
+          items:
+            type: string
+          example:
+            - rubbish
+            - food
+        collections:
+          type: array
+          description: 'One entry per bin, always in the order rubbish, recycling, food.'
+          items:
+            $ref: '#/components/schemas/HouseholdBinCollection'
+    HouseholdBinCollection:
+      type: object
+      properties:
+        bin:
+          type: string
+          description: 'Known values are `rubbish`, `recycling` and `food`; skip anything else.'
+          example: rubbish
+        label:
+          type: string
+          example: Rubbish
+        next_collection_on:
+          type: string
+          format: date
+          nullable: true
+          description: 'The next collection day, or `null` when the council cannot currently supply it.'
+          example: '2026-11-03'
+        is_due_tomorrow:
+          type: boolean
+          example: true
     ShoppingListAddMeta:
       type: object
       description: 'What an add to the shopping list actually did.'
@@ -3989,6 +4280,78 @@ components:
             maxLength: 50
           example:
             - training
+        pay_enhancement_id:
+          type: integer
+          nullable: true
+          description: "One of the team's pay enhancements, from `GET /payroll/pay-enhancements`."
+          example: 4
+        is_pay_enhancement_private:
+          type: boolean
+          default: false
+          description: 'Hide the enhancement from everyone but the worker and privileged users.'
+          example: false
+    RotaUpdateShiftInput:
+      type: object
+      description: 'Every field is optional; send only what changes.'
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2026-08-17'
+        start_time:
+          type: string
+          description: 'HH:MM, 24-hour.'
+          example: '09:00'
+        end_time:
+          type: string
+          description: 'HH:MM, 24-hour. At or before the start, the shift runs overnight.'
+          example: '17:00'
+        type:
+          type: string
+          enum:
+            - 'Contracted Hours'
+            - 'Overtime Hours'
+            - 'Contracted Sleeping Night'
+            - 'Overtime Sleeping Night'
+        user_id:
+          type: integer
+          nullable: true
+          description: 'A member of the team, or null to leave the shift unassigned.'
+          example: 12
+        pay_enhancement_id:
+          type: integer
+          nullable: true
+          description: "One of the team's pay enhancements, or null for none."
+          example: 4
+        is_pay_enhancement_private:
+          type: boolean
+        is_for_toil:
+          type: boolean
+          description: 'Bank the hours as time off in lieu rather than pay.'
+        is_available:
+          type: boolean
+          description: 'Open an unassigned shift to applications. Ignored when somebody is on the shift.'
+        is_published:
+          type: boolean
+        is_private:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 50
+          description: "Replaces the shift's rota tags."
+        scope:
+          type: string
+          enum:
+            - single
+            - future
+          default: single
+          description: 'For a repeating shift, whether to change only this one or this and every later one.'
+        reset_payslip:
+          type: boolean
+          default: false
+          description: "Confirm putting the shift's completed payslip back to draft."
     BankHoliday:
       type: object
       properties:
@@ -4208,7 +4571,7 @@ components:
           properties:
             can:
               type: object
-              properties: { apply: { type: boolean, description: "Whether you may apply for this entry — for a sleepover segment,\nfor its sleepover through the shift-block endpoint. The Working\nTime rest check runs when you apply.\n" }, request_amendment: { type: boolean, description: 'Whether `POST /rota/shifts/{id}/amendment-requests` is open to you' } }
+              properties: { apply: { type: boolean, description: "Whether you may apply for this entry — for a sleepover segment,\nfor its sleepover through the shift-block endpoint. The Working\nTime rest check runs when you apply.\n" }, request_amendment: { type: boolean, description: 'Whether `POST /rota/shifts/{id}/amendment-requests` is open to you' }, update: { type: boolean, description: 'Whether `PATCH /rota/shifts/{id}` is open to you' }, delete: { type: boolean, description: 'Whether `DELETE /rota/shifts/{id}` is open to you' }, duplicate: { type: boolean, description: 'Whether `POST /rota/shifts/{id}/duplicate` is open to you' }, assign: { type: boolean, description: 'Whether `POST /rota/shifts/{id}/assignment` is open to you' } }
             cannot_apply_reason:
               type: string
               nullable: true
@@ -5183,6 +5546,14 @@ components:
             $ref: '#/components/schemas/AccidentError'
           example:
             message: 'Not Found'
+    AuthTotpConflict:
+      description: "The authenticator app is already enabled (when starting or confirming\nsetup), or is not enabled (when disabling or regenerating backup codes).\n"
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string, example: 'Authenticator app is already enabled.' }
     DevLoginUnavailable:
       description: "Developer login is not available on this environment, so the route does\nnot exist. Indistinguishable from any other unknown path, which is\ndeliberate: the endpoints are absent rather than present-and-refusing.\n"
       content:
@@ -7028,6 +7399,32 @@ paths:
           description: 'The token is not an access token, or the team has no active subscription'
         500:
           $ref: '#/components/responses/ServerError'
+  /dashboard/weather:
+    get:
+      operationId: getDashboardWeather
+      summary: 'Get the weather forecast'
+      description: "Retrieve the forecast the web dashboard's weather widget shows: the\ncurrent weather in Weymouth and the next five days, from Open-Meteo.\n\nThe forecast is cached for 30 minutes and shared with the web widget,\nso repeated calls do not reach Open-Meteo. `data` is `null` while the\nforecast is unavailable; the web widget hides itself then, and clients\nshould do the same.\n\nTemperatures are whole degrees Celsius. `icon` is the Lucide icon name\nthe web widget uses.\n\n**Authorization:** Every role except former PAs, who do not see the\nweather widget and receive `403`. Returns `403` when the team has no\nactive subscription.\n"
+      tags:
+        - Dashboard
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          $ref: '#/components/parameters/XTeamID'
+      responses:
+        200:
+          description: 'Forecast retrieved, or `null` while it is unavailable'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { allOf: [{ $ref: '#/components/schemas/DashboardWeatherForecast' }], nullable: true }, meta: { type: object, properties: { team_id: { type: integer } } } } }
+              example: { data: { location: Weymouth, current: { temperature: 14, feels_like: 11, condition: partly_cloudy, condition_label: 'Partly cloudy', icon: cloud-sun, is_daytime: true, wind_speed_mph: 12 }, days: [{ date: '2026-10-09', day_name: Today, condition: drizzle, condition_label: Drizzle, icon: cloud-drizzle, high: 18, low: 14, rain_chance: 60 }, { date: '2026-10-10', day_name: Sat, condition: overcast, condition_label: Cloudy, icon: cloud, high: 15, low: 11, rain_chance: 8 }] }, meta: { team_id: 1 } }
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          description: 'The token is not an access token, the user is a former PA, or the team has no active subscription'
+        500:
+          $ref: '#/components/responses/ServerError'
   /documents/document-folders:
     get:
       operationId: getDocumentFolders
@@ -7402,6 +7799,36 @@ paths:
           $ref: '#/components/responses/Forbidden'
         404:
           $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/ServerError'
+  /household/bin-day:
+    get:
+      operationId: getHouseholdBinDay
+      summary: 'Get bin collections'
+      description: "Retrieve the next collection date of each bin from Dorset Council, and\nwhich bins go out tomorrow — the data behind the `household.bin-day`\ndashboard widget. The web widget only appears while\n`bins_due_tomorrow` is not empty.\n\nCollection dates are cached for an hour and shared with the web widget.\nA bin whose date the council cannot currently supply has a `null`\n`next_collection_on`.\n\n**Authorization:** Anyone who can use the Home tab. Shift workers are\nrefused with `403` outside the hour either side of their shift, and\nformer PAs always are.\n"
+      tags:
+        - 'Bin Day'
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          $ref: '#/components/parameters/XTeamID'
+      responses:
+        200:
+          description: 'Bin collections retrieved successfully'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/HouseholdBinDay' }, meta: { type: object, properties: { team_id: { type: integer } } } } }
+              example: { data: { bins_due_tomorrow: [rubbish, food], collections: [{ bin: rubbish, label: Rubbish, next_collection_on: '2026-11-03', is_due_tomorrow: true }, { bin: recycling, label: Recycling, next_collection_on: '2026-11-10', is_due_tomorrow: false }, { bin: food, label: Food, next_collection_on: '2026-11-03', is_due_tomorrow: true }] }, meta: { team_id: 1 } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          description: 'The team has switched the Household module off.'
+        422:
+          $ref: '#/components/responses/InvalidTeam'
         500:
           $ref: '#/components/responses/ServerError'
   /household/chore-categories:
@@ -12721,6 +13148,95 @@ paths:
           $ref: '#/components/responses/NotFound'
         500:
           $ref: '#/components/responses/ServerError'
+    patch:
+      operationId: updateShift
+      summary: 'Edit a shift'
+      description: "Change a shift as the web shift form does. Only the fields sent change;\neverything else keeps its current value.\n\n- `start_time`, `end_time` and `date` are wall-clock. An `end_time` at or\n  before `start_time` rolls into the next day.\n- Putting somebody on the shift (`user_id`) closes it to applications,\n  whatever `is_available` says.\n- `is_for_toil` needs the person on the shift to have a leave\n  entitlement for the shift's leave year.\n- A repeating shift takes `scope`: `single` (the default) detaches this\n  shift from its series; `future` changes it and every later one.\n- A shift on a completed (FPS filed, unpaid) payslip is refused with a\n  `reset_payslip` validation error until the request sends\n  `reset_payslip: true`, which puts that payslip back to draft and adds\n  a reminder to `meta.warnings`. Editing a shift that has already been\n  paid creates a payroll correction automatically.\n\n**Authorization:** privileged users (Admin/Manager). Show the button\nwhen the shift's `meta.can.update` is true. Needs a token with the\n`access` ability.\n"
+      tags:
+        - Shifts
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          description: 'Shift (rota entry) ID'
+          schema:
+            type: integer
+        -
+          $ref: '#/components/parameters/XTeamID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RotaUpdateShiftInput'
+            examples:
+              retime: { summary: 'Move it to a night and add an enhancement', value: { start_time: '22:00', end_time: '06:00', pay_enhancement_id: 4 } }
+              series: { summary: 'Change every remaining shift in the series', value: { type: 'Overtime Hours', scope: future } }
+      responses:
+        200:
+          description: 'Shift updated'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/RotaEntry' }, meta: { type: object, properties: { team_id: { type: integer }, warnings: { type: array, items: { type: string }, example: ['October 2026 payslip reset to draft - please regenerate and resubmit FPS.'] } } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        422:
+          $ref: '#/components/responses/RotaValidationError'
+        500:
+          $ref: '#/components/responses/ServerError'
+    delete:
+      operationId: deleteShift
+      summary: 'Delete a shift'
+      description: "A repeating shift takes `scope`: `single` (the default) deletes only\nthis shift; `future` deletes it and every later one in the series.\nDeleting a shift that has already been paid creates a payroll\ncorrection automatically.\n\n**Authorization:** privileged users (Admin/Manager). Show the button\nwhen the shift's `meta.can.delete` is true. Needs a token with the\n`access` ability.\n"
+      tags:
+        - Shifts
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          description: 'Shift (rota entry) ID'
+          schema:
+            type: integer
+        -
+          $ref: '#/components/parameters/XTeamID'
+        -
+          name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - single
+              - future
+            default: single
+      responses:
+        200:
+          description: 'Shift deleted'
+          content:
+            application/json:
+              schema: { type: object, properties: { message: { type: string, example: 'Shift deleted.' }, meta: { type: object, properties: { team_id: { type: integer } } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        422:
+          $ref: '#/components/responses/RotaValidationError'
+        500:
+          $ref: '#/components/responses/ServerError'
   '/rota/shifts/{id}/amendment-requests':
     post:
       operationId: requestShiftAmendment
@@ -12803,6 +13319,93 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         403:
           $ref: '#/components/responses/Forbidden'
+        422:
+          $ref: '#/components/responses/RotaValidationError'
+        500:
+          $ref: '#/components/responses/ServerError'
+  '/rota/shifts/{id}/assignment':
+    post:
+      operationId: assignShift
+      summary: 'Assign a shift to somebody'
+      description: "Put an active shift worker on the shift, as the web assign picker does.\nTheir pending application, if any, is approved; everyone else's is\nturned down and told. A sleepover segment assigns the whole sleepover.\n\nRefused with a `user_id` validation error when the person is on leave\nthat this shift covers, has said they are not working then, would break\nyoung-worker limits, or would not get their Working Time rest.\n\n**Authorization:** privileged users (Admin/Manager). Show the button\nwhen the shift's `meta.can.assign` is true. Needs a token with the\n`access` ability.\n"
+      tags:
+        - Shifts
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          description: 'Shift (rota entry) ID'
+          schema:
+            type: integer
+        -
+          $ref: '#/components/parameters/XTeamID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties: { user_id: { type: integer, description: 'An active shift worker (Manager or Personal Assistant) in the team', example: 12 } }
+      responses:
+        200:
+          description: 'Shift assigned'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/RotaEntry' }, meta: { type: object, properties: { team_id: { type: integer } } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        422:
+          $ref: '#/components/responses/RotaValidationError'
+        500:
+          $ref: '#/components/responses/ServerError'
+  '/rota/shifts/{id}/duplicate':
+    post:
+      operationId: duplicateShift
+      summary: 'Duplicate a shift'
+      description: "Copy a shift onto `date` (the same day when omitted) as a new,\npublished shift with the same times, person, type, pay enhancement,\navailability, privacy and tags. Duplicating any segment of a sleepover\ncopies the whole sleepover, keeping the person on the segment\nduplicated. Change the copy afterwards with `PATCH /rota/shifts/{id}`.\n\n**Authorization:** privileged users (Admin/Manager). Show the button\nwhen the shift's `meta.can.duplicate` is true. Needs a token with the\n`access` ability.\n"
+      tags:
+        - Shifts
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          name: id
+          in: path
+          required: true
+          description: 'Shift (rota entry) ID to copy'
+          schema:
+            type: integer
+        -
+          $ref: '#/components/parameters/XTeamID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { date: { type: string, format: date, example: '2026-11-03' } }
+      responses:
+        201:
+          description: "Shift copied. For a sleepover, `data` is the copy's sleeping-night\nsegment.\n"
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/RotaEntry' }, meta: { type: object, properties: { team_id: { type: integer } } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
         422:
           $ref: '#/components/responses/RotaValidationError'
         500:
@@ -13780,6 +14383,90 @@ paths:
           $ref: '#/components/responses/UserValidationError'
         500:
           $ref: '#/components/responses/ServerError'
+  /user/social-accounts:
+    get:
+      operationId: listSocialAccounts
+      summary: 'List connected social accounts'
+      description: "Returns the provider accounts linked to the user, and in\n`meta.available_providers` every provider configured on this\nenvironment with whether the user has linked it — the same rows the\nweb profile's Connected Accounts panel shows.\n\n**Authorization:** Any signed-in user. No team context is needed.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      responses:
+        200:
+          description: 'Connected accounts retrieved'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/AuthSocialAccount' } }, meta: { type: object, properties: { available_providers: { type: array, items: { $ref: '#/components/schemas/AuthSocialProviderOption' } } } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/ServerError'
+  '/user/social-accounts/{provider}':
+    post:
+      operationId: linkSocialAccount
+      summary: 'Link a social account'
+      description: "Links a provider account to the signed-in user. The app obtains a\nprovider token natively (Google Sign-In, Sign in with Apple, MSAL) —\nthe same token `POST /auth/social/{provider}` accepts — and the server\nverifies it with the provider. Writes a `social_account_linked`\nsecurity audit entry.\n\nFails with `422` when the token cannot be verified (`errors.token`),\nwhen that provider account is already linked to another user, or when\nthe user already has an account linked for this provider\n(`errors.social`), or when the provider is not configured on this\nenvironment.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          $ref: '#/components/parameters/AuthSocialProvider'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLinkSocialAccountRequest'
+            example:
+              token: ya29.a0AfH6SMB...
+      responses:
+        201:
+          description: 'Account linked'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/AuthSocialAccount' } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          description: 'Unknown provider'
+        422:
+          $ref: '#/components/responses/ValidationError'
+        429:
+          $ref: '#/components/responses/TooManyRequestsError'
+        500:
+          $ref: '#/components/responses/ServerError'
+    delete:
+      operationId: unlinkSocialAccount
+      summary: 'Unlink a social account'
+      description: "Unlinks the user's account for this provider and writes a\n`social_account_unlinked` security audit entry. Returns `404` when the\nuser has no account linked for the provider.\n\nAs on the web, unlinking is allowed even when it leaves the user with\nno password: they can still sign in through password reset, a\npasskey, or social sign-in with a provider whose email matches theirs\n(which links automatically).\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          $ref: '#/components/parameters/AuthSocialProvider'
+      responses:
+        204:
+          description: 'Account unlinked'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/ServerError'
   /user/teams:
     get:
       operationId: getUserTeams
@@ -13826,6 +14513,236 @@ paths:
           content:
             application/json:
               schema: { type: object, properties: { message: { type: string, example: Unauthenticated. } } }
+        500:
+          $ref: '#/components/responses/ServerError'
+  /user/trusted-devices:
+    get:
+      operationId: listTrustedDevices
+      summary: "List the user's trusted devices"
+      description: "Returns every device the authenticated user has trusted, most recently\nused first — the same list as the web profile's Trusted Devices panel.\nA trusted device can sign in without device verification until\n`expires_at`, which slides forward each time the device signs in.\n\n`is_current_device` marks the device making this request (matched by\nits User-Agent fingerprint, as on the web). The web hides the remove\nbutton for the current device; clients should do the same.\n\n**Authorization:** Any signed-in user; only their own devices are returned.\nNo team context is needed.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      responses:
+        200:
+          description: 'Trusted devices retrieved (empty array if none)'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/AuthTrustedDevice' } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/ServerError'
+    delete:
+      operationId: revokeOtherTrustedDevices
+      summary: 'Revoke every trusted device except this one'
+      description: "Removes all of the user's trusted devices except the device making the\nrequest. Those devices must complete device verification at their next\nsign-in. Mirrors the web's \"Revoke All Other Devices\" button and writes\nan `all_other_devices_revoked` security audit entry when any device was\nremoved. API tokens already issued to those devices are not revoked.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      responses:
+        200:
+          description: 'Other devices revoked'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { type: object, properties: { revoked_count: { type: integer, example: 2 } } } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/ServerError'
+  '/user/trusted-devices/{device}':
+    delete:
+      operationId: revokeTrustedDevice
+      summary: 'Revoke a trusted device'
+      description: "Removes one of the user's trusted devices and writes a `device_revoked`\nsecurity audit entry. Returns `404` for a device that does not belong\nto the user. API tokens already issued to that device are not revoked.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      parameters:
+        -
+          name: device
+          in: path
+          required: true
+          description: 'Trusted device ID'
+          schema:
+            type: integer
+          example: 12
+      responses:
+        204:
+          description: 'Device revoked'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/ServerError'
+  /user/two-factor:
+    get:
+      operationId: getTwoFactorStatus
+      summary: "Get the user's two-factor status"
+      description: "Reports which second factors the user has. `has_second_factor` is true\nwhen the authenticator app is enabled or the user has a passkey.\n`second_factor_required_by` is the deadline after which the web\nrequires a second factor to be set up; null once one is set up.\n\n**Authorization:** Any signed-in user. No team context is needed.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      responses:
+        200:
+          description: 'Status retrieved'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/AuthTwoFactorStatus' } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/ServerError'
+  /user/two-factor/backup-codes:
+    post:
+      operationId: regenerateBackupCodes
+      summary: 'Regenerate backup codes'
+      description: "Replaces the user's backup codes with eight new ones after verifying a\ncurrent authenticator code, and writes a `backup_codes_regenerated`\nsecurity audit entry. The new codes are returned once; existing codes\nstop working. How many unused codes remain is reported by\n`GET /user/two-factor`.\n\nFails with `422` (`errors.code`) for a wrong code, `409` when the\nauthenticator app is not enabled, and `429` after five wrong codes\nwithin 15 minutes.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthTotpCodeRequest'
+            example:
+              code: '123456'
+      responses:
+        200:
+          description: 'Backup codes regenerated'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthBackupCodesResponse' }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        409:
+          $ref: '#/components/responses/AuthTotpConflict'
+        422:
+          $ref: '#/components/responses/ValidationError'
+        429:
+          $ref: '#/components/responses/TooManyRequestsError'
+        500:
+          $ref: '#/components/responses/ServerError'
+  /user/two-factor/totp:
+    post:
+      operationId: beginTotpSetup
+      summary: 'Begin authenticator app setup'
+      description: "Generates a new authenticator secret and holds it server-side for\n`expires_in` seconds; nothing changes on the account until the setup\nis confirmed. Starting again replaces any secret already pending.\n\nShow `qr_code_data_uri` to scan from another device, open\n`otpauth_uri` to hand the secret to an authenticator app on this\ndevice, or display `formatted_secret` for manual entry. Then call\n`POST /user/two-factor/totp/confirm` with a code from the app.\n\nReturns `409` when the authenticator app is already enabled.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      responses:
+        200:
+          description: 'Setup started'
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: '#/components/schemas/AuthTotpSetup' } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        409:
+          $ref: '#/components/responses/AuthTotpConflict'
+        429:
+          $ref: '#/components/responses/TooManyRequestsError'
+        500:
+          $ref: '#/components/responses/ServerError'
+  /user/two-factor/totp/confirm:
+    post:
+      operationId: confirmTotpSetup
+      summary: 'Confirm authenticator app setup'
+      description: "Verifies a code from the authenticator app against the pending secret\nand enables the app. On success the user's backup codes are replaced\nwith eight new ones, returned once in `data.backup_codes` — the app\nmust show them for the user to save, as they cannot be retrieved\nagain. Clears `second_factor_required_by`, sends the \"second factor\nenabled\" notification and writes `totp_enabled` and\n`backup_codes_generated` security audit entries.\n\nWrong codes count towards the same limit the web uses: five failures\nwithin 15 minutes locks verification for the rest of that window\n(`429`).\n\nFails with `422` (`errors.code`) for a wrong code or when no setup is\npending (never started, or expired), and `409` when the authenticator\napp is already enabled.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthTotpCodeRequest'
+            example:
+              code: '123456'
+      responses:
+        200:
+          description: 'Authenticator app enabled'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthBackupCodesResponse' }
+              example: { message: 'Authenticator app enabled successfully.', data: { backup_codes: [ABCD-EFGH, JKLM-NPQR, STUV-WXYZ, 2345-6789, AB23-CD45, EF67-GH89, JK23-LM45, NP67-QR89] } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        409:
+          $ref: '#/components/responses/AuthTotpConflict'
+        422:
+          $ref: '#/components/responses/ValidationError'
+        429:
+          $ref: '#/components/responses/TooManyRequestsError'
+        500:
+          $ref: '#/components/responses/ServerError'
+  /user/two-factor/totp/disable:
+    post:
+      operationId: disableTotp
+      summary: 'Disable the authenticator app'
+      description: "Disables the authenticator app after verifying a current code from it.\nAs on the web, this then signs the user out everywhere else: every API\ntoken except this device's access/refresh pair is revoked, web\n\"remember me\" sessions are invalidated, and every trusted device except\nthis one is removed. Sends the \"second factor disabled\" notification\nand writes `totp_disabled` and `all_other_sessions_invalidated`\nsecurity audit entries. Backup codes are left in place, as on the web.\n\nFails with `422` (`errors.code`) for a wrong code, `409` when the\nauthenticator app is not enabled, and `429` after five wrong codes\nwithin 15 minutes.\n"
+      tags:
+        - 'Account Security'
+      security:
+        -
+          sanctum: {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthTotpCodeRequest'
+            example:
+              code: '123456'
+      responses:
+        200:
+          description: 'Authenticator app disabled'
+          content:
+            application/json:
+              schema: { type: object, properties: { message: { type: string, example: 'Authenticator app disabled.' } } }
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        409:
+          $ref: '#/components/responses/AuthTotpConflict'
+        422:
+          $ref: '#/components/responses/ValidationError'
+        429:
+          $ref: '#/components/responses/TooManyRequestsError'
         500:
           $ref: '#/components/responses/ServerError'
   /users:
@@ -13951,6 +14868,9 @@ tags:
     name: 'Accident Book'
     description: "The team's accident book, for recording workplace accidents in line with\nHSE guidance.\n\nAdmins, managers and personal assistants can record accidents and read\nthe reports they may see. The person who had the accident can confirm the\nreport later. Recording the RIDDOR outcome is web-only.\n"
   -
+    name: 'Account Security'
+    description: "The signed-in user's account security settings, matching the web\nprofile page: trusted devices, connected social accounts, and the\nauthenticator app (TOTP) second factor with its backup codes.\n\nThese endpoints are user-scoped and need no `X-Team-ID`. Passkey\nregistration and removal are not available over the API.\n"
+  -
     name: Authentication
     description: "Secure user authentication and session management using Laravel Sanctum with dual-token system.\n\n## Flows\n\n**Login**: `email/password` → `access_token + refresh_token`\n**API Requests**: Use `Bearer {access_token}` in Authorization header\n**Refresh**: Exchange `refresh_token` for new `access_token`\n**Password Reset**: Request OTP → Verify OTP → Reset with new password\n\n## Tokens\n\n- **Access**: 1-hour lifespan, for API requests\n- **Refresh**: 30-day lifespan, for token renewal\n- **Reset**: 5-minute lifespan, single-use for password reset\n- **Companion**: issued to a paired device (e.g. Apple Watch) via\n  `/auth/companion-token`; 1-hour access, 7-day refresh\n\nOptimized for mobile apps with Face ID/Touch ID support.\n"
   -
@@ -13959,6 +14879,9 @@ tags:
   -
     name: 'Bank Holidays'
     description: "Read-only endpoint for UK bank holidays within a date range.\n\nHolidays are sourced from the GOV.UK bank holidays API and filtered by\nthe team's configured region.\n"
+  -
+    name: 'Bin Day'
+    description: "Household bin collections from Dorset Council: when each bin is next\ncollected and which go out tomorrow.\n"
   -
     name: 'Calendar Feed'
     description: "Subscribe a calendar app to the team's appointments.\n"
@@ -13979,7 +14902,7 @@ tags:
     description: "DBS (Disclosure and Barring Service) check records for team members.\n\n## Authorization\n- **PAs and managers (non-privileged access):** Can only view their own DBS checks\n- **Privileged users (Admin/Manager):** Can view all team DBS checks\n- **Employees (PAs, managers and admins):** Can submit and replace their own DBS check\n- **Family members and contractors:** Cannot list, view or submit DBS checks\n"
   -
     name: Dashboard
-    description: "The dashboard layout for the current team, and what the signed-in user can\ndo there.\n\n## What the dashboard returns, and what it does not\n\n`GET /dashboard` describes **how the dashboard is put together**: which\nwidgets this user sees, how wide each one renders and in what order, the\nquick links beneath them, and the alerts the web app raises for the user.\nIt does not return the widgets' contents. Each widget's own module\nendpoint serves its data:\n\n| Widget key | Data from |\n|------------|-----------|\n| `dashboard.weather` | Web app only |\n| `tasks.getting-started` | `GET /tasks` and `GET /tasks/progress` |\n| `household.chores` | `GET /household/chores` |\n| `household.bin-day` | Web app only |\n| `payroll.payslip-notification` | `GET /payroll/payslips/latest` |\n| `payroll.estimated-pay` | `GET /payroll/estimated-pay` |\n| `rota.appointments` | `GET /rota/appointments/upcoming` |\n| `rota.today-rota` | `GET /rota/shifts/today` |\n| `rota.available-shifts` | `GET /rota/shifts/available` |\n| `leave.leave-summary` | `GET /leave/balance` |\n\nClients should skip widget keys they do not recognise.\n\n## Capabilities\n\n`GET /capabilities` tells the client which parts of the app to show: the\nuser's role in the team, whether the team is subscribed, which plan\nfeatures and optional modules the team has, and the navigation the web\napp gives this user. It still answers for a team without a subscription,\nso the client can explain why everything else returns `403`.\n\n## Authentication\n\n`/dashboard` and `/capabilities` take the Sanctum access token the rest of\nthis document uses, with the team in `X-Team-ID`. A refresh token is\nrefused with `403`.\n\n`/oauth/dashboard` is the OAuth version of the dashboard layout. It needs a\nPassport bearer token carrying the `dashboard:read` scope, and still\nreturns each widget's Blade component name rather than a key.\n"
+    description: "The dashboard layout for the current team, and what the signed-in user can\ndo there.\n\n## What the dashboard returns, and what it does not\n\n`GET /dashboard` describes **how the dashboard is put together**: which\nwidgets this user sees, how wide each one renders and in what order, the\nquick links beneath them, and the alerts the web app raises for the user.\nIt does not return the widgets' contents. Each widget's own module\nendpoint serves its data:\n\n| Widget key | Data from |\n|------------|-----------|\n| `dashboard.weather` | `GET /dashboard/weather` |\n| `tasks.getting-started` | `GET /tasks` and `GET /tasks/progress` |\n| `household.chores` | `GET /household/chores` |\n| `household.bin-day` | `GET /household/bin-day` |\n| `payroll.payslip-notification` | `GET /payroll/payslips/latest` |\n| `payroll.estimated-pay` | `GET /payroll/estimated-pay` |\n| `rota.appointments` | `GET /rota/appointments/upcoming` |\n| `rota.today-rota` | `GET /rota/shifts/today` |\n| `rota.available-shifts` | `GET /rota/shifts/available` |\n| `leave.leave-summary` | `GET /leave/balance` |\n\nClients should skip widget keys they do not recognise.\n\n## Capabilities\n\n`GET /capabilities` tells the client which parts of the app to show: the\nuser's role in the team, whether the team is subscribed, which plan\nfeatures and optional modules the team has, and the navigation the web\napp gives this user. It still answers for a team without a subscription,\nso the client can explain why everything else returns `403`.\n\n## Authentication\n\n`/dashboard` and `/capabilities` take the Sanctum access token the rest of\nthis document uses, with the team in `X-Team-ID`. A refresh token is\nrefused with `403`.\n\n`/oauth/dashboard` is the OAuth version of the dashboard layout. It needs a\nPassport bearer token carrying the `dashboard:read` scope, and still\nreturns each widget's Blade component name rather than a key.\n"
   -
     name: 'Document Folders'
     description: "Document folder listing for organizing documents.\n\n**Authorization:** All team members except contractors and former PAs see the team's folders. Everyone except contractors sees their own personal folders, and privileged users (Admin/Manager) also see colleagues' personal folders.\n"
@@ -14057,7 +14980,7 @@ tags:
     description: "Ask the managers for extra hours. Managers review requests on the web.\n"
   -
     name: Shifts
-    description: "Shift management endpoints for viewing and managing shifts.\n\n## Endpoints\n- **List shifts**: View shifts for a date range (own shifts, or any user for privileged users)\n- **Get shift**: View details of a specific shift\n- **Today's shifts**: View all published shifts scheduled for today\n- **Available shifts**: View unassigned shifts that team members can apply for\n"
+    description: "Shift management endpoints for viewing and managing shifts.\n\n## Endpoints\n- **List shifts**: View shifts for a date range (own shifts, or any user for privileged users)\n- **Get shift**: View details of a specific shift\n- **Today's shifts**: View all published shifts scheduled for today\n- **Available shifts**: View unassigned shifts that team members can apply for\n- **Manage shifts** (Admin/Manager): create, edit, duplicate, assign and delete\n"
   -
     name: 'Shopping List'
     description: "Shopping list management for the household.\n\nTrack items the household needs to buy, mark them as purchased,\nand record the last-purchased date for re-ordering insights.\n"

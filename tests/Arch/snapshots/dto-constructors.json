@@ -110,6 +110,25 @@
         "array $modules",
         "array $navigation"
     ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\CurrentWeather": [
+        "int $temperature",
+        "int $feelsLike",
+        "SupportManager\\Sdk\\Enums\\Dashboard\\WeatherCondition $condition",
+        "string $conditionLabel",
+        "string $icon",
+        "bool $isDaytime",
+        "int $windSpeedMph"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\DailyWeather": [
+        "string $date",
+        "string $dayName",
+        "SupportManager\\Sdk\\Enums\\Dashboard\\WeatherCondition $condition",
+        "string $conditionLabel",
+        "string $icon",
+        "int $high",
+        "int $low",
+        "int $rainChance"
+    ],
     "SupportManager\\Sdk\\Data\\Dashboard\\DashboardAlert": [
         "string $description",
         "int $count",
@@ -144,6 +163,11 @@
         "string $label",
         "?string $icon",
         "?string $routeName"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\WeatherForecast": [
+        "string $location",
+        "SupportManager\\Sdk\\Data\\Dashboard\\CurrentWeather $current",
+        "array $days"
     ],
     "SupportManager\\Sdk\\Data\\DevLoginTeam": [
         "int $id",
@@ -216,6 +240,16 @@
         "?string $createdAt",
         "?string $updatedAt",
         "?string $acknowledgedAt = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\BinCollection": [
+        "SupportManager\\Sdk\\Enums\\Household\\BinType $bin",
+        "string $label",
+        "?string $nextCollectionOn",
+        "bool $isDueTomorrow"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\BinCollectionSchedule": [
+        "array $binsDueTomorrow",
+        "array $collections"
     ],
     "SupportManager\\Sdk\\Data\\Household\\Chore": [
         "string $id",
@@ -806,7 +840,12 @@
         "?string $ownApplicationStatus = null",
         "bool $canApply = false",
         "bool $canRequestAmendment = false",
-        "?string $cannotApplyReason = null"
+        "?string $cannotApplyReason = null",
+        "bool $canUpdate = false",
+        "bool $canDelete = false",
+        "bool $canDuplicate = false",
+        "bool $canAssign = false",
+        "?SupportManager\\Sdk\\Data\\Rota\\ShiftPayEnhancement $payEnhancement = null"
     ],
     "SupportManager\\Sdk\\Data\\Rota\\ShiftAmendmentRequest": [
         "string $id",
@@ -838,6 +877,12 @@
         "?string $updatedAt",
         "?bool $isProvisional = null"
     ],
+    "SupportManager\\Sdk\\Data\\Rota\\ShiftPayEnhancement": [
+        "int $id",
+        "string $name",
+        "?string $factor",
+        "bool $isPrivate = false"
+    ],
     "SupportManager\\Sdk\\Data\\Rota\\ShiftRequest": [
         "string $id",
         "?int $teamId",
@@ -861,6 +906,47 @@
         "?string $label",
         "bool $compliant",
         "?string $reason"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\BackupCodes": [
+        "array $codes"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\SocialAccount": [
+        "string $id",
+        "?SupportManager\\Sdk\\Enums\\Security\\SocialProvider $provider",
+        "string $providerLabel",
+        "?string $providerEmail",
+        "?string $providerName",
+        "?string $linkedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\SocialProviderOption": [
+        "?SupportManager\\Sdk\\Enums\\Security\\SocialProvider $provider",
+        "string $label",
+        "bool $linked"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\TotpSetup": [
+        "string $secret",
+        "string $formattedSecret",
+        "string $otpauthUri",
+        "string $qrCodeDataUri",
+        "int $expiresIn"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\TrustedDevice": [
+        "string $id",
+        "string $deviceName",
+        "?SupportManager\\Sdk\\Enums\\Security\\TrustedDeviceType $deviceType",
+        "string $maskedIpAddress",
+        "bool $isCurrentDevice",
+        "?string $verifiedAt",
+        "?string $lastUsedAt",
+        "?string $expiresAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Security\\TwoFactorStatus": [
+        "bool $hasSecondFactor",
+        "bool $totpEnabled",
+        "?string $totpEnabledAt",
+        "int $backupCodesRemaining",
+        "?string $backupCodesGeneratedAt",
+        "?string $secondFactorRequiredBy"
     ],
     "SupportManager\\Sdk\\Data\\Signing\\SignatureRequest": [
         "string $id",

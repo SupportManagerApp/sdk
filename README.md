@@ -175,9 +175,51 @@ SupportManager::accidents()->create([
 SupportManager::accidents()->recordSubjectDeclaration(7, 'Alex Visitor');
 ```
 
+### Account security
+
+Three resources cover the web profile's security settings. Their endpoints
+(`/user/trusted-devices`, `/user/social-accounts`, `/user/two-factor`) are
+user-scoped, so no `X-Team-ID` goes out.
+
+`SupportManager::trustedDevices()` lists the devices that skip device
+verification. `destroy()` revokes one, and `destroyOthers()` revokes all but
+this one and returns how many it revoked. The platform identifies "this device"
+by a hash of the request's User-Agent, not by the `X-Device-Token` sent at
+login, so the device it means is the one this SDK client signed in from.
+`isCurrentDevice` flags that device, so hide its remove button. Revoking a
+device doesn't revoke its API tokens.
+
+`SupportManager::socialAccounts()` lists the linked accounts with `all()`, and
+`providers()` lists every provider configured on the platform with whether the
+user has linked it. `link()` takes a `SocialProvider` and the provider token
+the app gets natively, the same token `loginWithProvider()` takes. A token that
+can't be verified, a provider account linked to someone else, or a second
+account for the same provider answers 422. `destroy()` unlinks one. The
+platform allows unlinking the last social account even when the user has no
+password.
+
+`SupportManager::twoFactor()` covers the authenticator app. `show()` returns
+the status. `beginTotpSetup()` returns a `TotpSetup` (a QR code data URI, the
+otpauth URI and the secret), which the platform holds for `expiresIn`
+seconds. `confirmTotpSetup($code)` enables the app and returns the
+`BackupCodes`, shown only once. `disableTotp($code)` and
+`regenerateBackupCodes($code)` take a current code, not the password.
+Disabling also signs the user out of every other session and trusted device.
+A wrong code is a 422 on `code`, and five wrong codes in 15 minutes is a 429.
+A 409 means the app is already enabled, or isn't enabled yet. Never log or cache
+a `TotpSetup` or `BackupCodes`. Both redact themselves in `dump()` and
+`var_dump()`.
+
+```php
+SupportManager::trustedDevices()->destroyOthers();
+SupportManager::socialAccounts()->link(SocialProvider::Google, $googleAccessToken);
+$setup = SupportManager::twoFactor()->beginTotpSetup();    // show $setup->qrCodeDataUri
+$codes = SupportManager::twoFactor()->confirmTotpSetup('123456')->codes;
+```
+
 ### Dashboard
 
-`SupportManager::dashboard()` has two methods. `layout()` (`/dashboard`) returns
+`SupportManager::dashboard()` has three methods. `layout()` (`/dashboard`) returns
 the widget placements, quick links and alerts, but not the widget contents:
 fetch those from each widget's own module resource, and skip widget keys you
 don't recognise. `capabilities()` (`/capabilities`) returns the user's role,
@@ -185,10 +227,22 @@ the team's subscription, plan features, optional modules and own-page
 navigation. It still answers when the team has no subscription, so check
 `subscribed` before calling anything else.
 
+`weather()` (`/dashboard/weather`) is the content of the `dashboard.weather`
+widget: a `WeatherForecast` with the `current` weather and the coming `days`,
+each with a `WeatherCondition`. It returns null while the platform has no
+forecast, so hide the widget then. No module gates it, but former PAs get a
+403. The `household.bin-day` widget's content comes from
+`SupportManager::binDay()->show()` (`/household/bin-day`), a
+`BinCollectionSchedule` of each `BinType`'s next collection. The web app shows
+that widget only while `hasBinsDueTomorrow()`. It is part of the Household
+module, so it throws a 404 while the team has Household switched off.
+
 ```php
 SupportManager::dashboard()->layout()->widgets;
 SupportManager::dashboard()->capabilities()->usesModule(OptionalModule::Accidents);
 SupportManager::dashboard()->capabilities()->hasPlanFeature(PlanFeature::ESigning);
+SupportManager::dashboard()->weather()?->current->condition;    // WeatherCondition::PartlyCloudy
+SupportManager::binDay()->show()->binsDueTomorrow;              // [BinType::Rubbish, BinType::Food]
 ```
 
 ### E-signing

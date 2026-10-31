@@ -16,6 +16,7 @@ use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
+use SupportManager\Sdk\Resources\Household\BinDayResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
 use SupportManager\Sdk\Resources\Household\ConsumablesResource;
@@ -49,6 +50,9 @@ use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftBlocksResource;
 use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
+use SupportManager\Sdk\Resources\Security\SocialAccountsResource;
+use SupportManager\Sdk\Resources\Security\TrustedDevicesResource;
+use SupportManager\Sdk\Resources\Security\TwoFactorResource;
 use SupportManager\Sdk\Resources\Signing\SignatureRequestsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
@@ -90,6 +94,7 @@ function sharedResourceCalls(): array
         'document folders' => ['documentFolders', DocumentFoldersResource::class, fn (DocumentFoldersResource $r) => $r->find(9), 'GET', 'documents/document-folders/9', ['nullOn404' => true]],
         'documents' => ['documents', DocumentsResource::class, fn (DocumentsResource $r) => $r->query()->get(), 'GET', 'documents/documents', []],
         'policies' => ['policies', PoliciesResource::class, fn (PoliciesResource $r) => $r->query()->get(), 'GET', 'documents/policies', ['fieldErrors' => false]],
+        'bin day' => ['binDay', BinDayResource::class, fn (BinDayResource $r) => $r->show(), 'GET', 'household/bin-day', ['fieldErrors' => false]],
         'chore categories' => ['choreCategories', ChoreCategoriesResource::class, fn (ChoreCategoriesResource $r) => $r->query()->get(), 'GET', 'household/chore-categories', ['fieldErrors' => false]],
         'chores' => ['chores', ChoresResource::class, fn (ChoresResource $r) => $r->markNotNeeded([1]), 'POST', 'household/chores/not-needed', []],
         'consumables' => ['consumables', ConsumablesResource::class, fn (ConsumablesResource $r) => $r->adjustStock(1, 1), 'PATCH', 'household/consumable-variants/1/stock', []],
@@ -115,6 +120,9 @@ function sharedResourceCalls(): array
         'profile' => ['profile', ProfileResource::class, fn (ProfileResource $r) => $r->deleteEmergencyContact(99), 'DELETE', 'user/emergency-contacts/99', []],
         'users' => ['users', UsersResource::class, fn (UsersResource $r) => $r->options(), 'GET', 'users/options', []],
         'device tokens' => ['deviceTokens', DeviceTokensResource::class, fn (DeviceTokensResource $r) => $r->destroy(999), 'DELETE', 'push-notifications/tokens/999', []],
+        'social accounts' => ['socialAccounts', SocialAccountsResource::class, fn (SocialAccountsResource $r) => $r->link('google', 'ya29.token'), 'POST', 'user/social-accounts/google', ['tenant' => false]],
+        'trusted devices' => ['trustedDevices', TrustedDevicesResource::class, fn (TrustedDevicesResource $r) => $r->destroy(999), 'DELETE', 'user/trusted-devices/999', ['tenant' => false]],
+        'two-factor' => ['twoFactor', TwoFactorResource::class, fn (TwoFactorResource $r) => $r->confirmTotpSetup('123456'), 'POST', 'user/two-factor/totp/confirm', ['tenant' => false]],
         'appointments' => ['appointments', AppointmentsResource::class, fn (AppointmentsResource $r) => $r->update(4, ['title' => 'Mine now']), 'PATCH', 'rota/appointments/4', []],
         'rota calendar' => ['rotaCalendar', CalendarResource::class, fn (CalendarResource $r) => $r->regenerateFeed(), 'POST', 'rota/calendar-feed/token', []],
         'quick add' => ['quickAdd', QuickAddResource::class, fn (QuickAddResource $r) => $r->parse('dentist tuesday'), 'POST', 'rota/quick-add/parse', []],

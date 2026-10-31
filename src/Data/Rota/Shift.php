@@ -25,7 +25,12 @@ use SupportManager\Sdk\Enums\Rota\EntryType;
  * status (null when they have not applied). `canApply`, `canRequestAmendment`
  * and `cannotApplyReason` come from the platform's `meta.can` flags, so a
  * client can show or hide the matching buttons; they read false/null when the
- * response carried no meta.
+ * response carried no meta. The manager flags `canUpdate`, `canDelete`,
+ * `canDuplicate` and `canAssign` gate the matching
+ * {@see \SupportManager\Sdk\Resources\Rota\ShiftsResource} actions the same way.
+ *
+ * `payEnhancement` is the shift's pay enhancement, or null when it has none,
+ * the platform didn't load it, or the caller may not see it.
  */
 final readonly class Shift
 {
@@ -66,6 +71,15 @@ final readonly class Shift
         public bool $canRequestAmendment = false,
         #[Meta('cannot_apply_reason')]
         public ?string $cannotApplyReason = null,
+        #[Can('update')]
+        public bool $canUpdate = false,
+        #[Can('delete')]
+        public bool $canDelete = false,
+        #[Can('duplicate')]
+        public bool $canDuplicate = false,
+        #[Can('assign')]
+        public bool $canAssign = false,
+        public ?ShiftPayEnhancement $payEnhancement = null,
     ) {}
 
     /**

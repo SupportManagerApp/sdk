@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Dashboard\Capabilities;
+use SupportManager\Sdk\Data\Dashboard\CurrentWeather;
+use SupportManager\Sdk\Data\Dashboard\DailyWeather;
 use SupportManager\Sdk\Data\Dashboard\DashboardAlert;
 use SupportManager\Sdk\Data\Dashboard\DashboardLayout;
 use SupportManager\Sdk\Data\Dashboard\DashboardQuickLink;
 use SupportManager\Sdk\Data\Dashboard\DashboardWidget;
 use SupportManager\Sdk\Data\Dashboard\NavigationArea;
+use SupportManager\Sdk\Data\Dashboard\WeatherForecast;
 use SupportManager\Sdk\Enums\Dashboard\OptionalModule;
 use SupportManager\Sdk\Enums\Dashboard\PlanFeature;
+use SupportManager\Sdk\Enums\Dashboard\WeatherCondition;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 
 it('reads the dashboard layout from a flat {data, meta} payload', function () {
     fakeApi(['dashboard' => [
@@ -87,4 +92,88 @@ it('reads the user capabilities', function () {
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), 'api/v1/capabilities')
         && $request->hasHeader('X-Team-ID', '42'));
+});
+
+// The platform's WeatherApiTest body (WeatherController::show).
+function weatherForecastBody(): array
+{
+    return [
+        'data' => [
+            'location' => 'Weymouth',
+            'current' => [
+                'temperature' => 14,
+                'feels_like' => 11,
+                'condition' => 'partly_cloudy',
+                'condition_label' => 'Partly cloudy',
+                'icon' => 'cloud-moon',
+                'is_daytime' => false,
+                'wind_speed_mph' => 12,
+            ],
+            'days' => [
+                ['date' => '2026-10-09', 'day_name' => 'Today', 'condition' => 'drizzle', 'condition_label' => 'Drizzle', 'icon' => 'cloud-drizzle', 'high' => 18, 'low' => 14, 'rain_chance' => 60],
+                ['date' => '2026-10-10', 'day_name' => 'Sat', 'condition' => 'thunderstorm', 'condition_label' => 'Thunderstorms', 'icon' => 'cloud-lightning', 'high' => 13, 'low' => 8, 'rain_chance' => 90],
+            ],
+        ],
+        'meta' => ['team_id' => 42],
+    ];
+}
+
+it('reads the weather forecast', function () {
+    fakeApi(['dashboard/weather' => weatherForecastBody()]);
+
+    $forecast = sdk()->dashboard()->weather();
+
+    expect($forecast)->toBeInstanceOf(WeatherForecast::class)
+        ->and($forecast->location)->toBe('Weymouth')
+        ->and($forecast->current)->toEqual(new CurrentWeather(
+            temperature: 14,
+            feelsLike: 11,
+            condition: WeatherCondition::PartlyCloudy,
+            conditionLabel: 'Partly cloudy',
+            icon: 'cloud-moon',
+            isDaytime: false,
+            windSpeedMph: 12,
+        ))
+        ->and($forecast->days)->toHaveCount(2)
+        ->and($forecast->days[0])->toEqual(new DailyWeather(
+            date: '2026-10-09',
+            dayName: 'Today',
+            condition: WeatherCondition::Drizzle,
+            conditionLabel: 'Drizzle',
+            icon: 'cloud-drizzle',
+            high: 18,
+            low: 14,
+            rainChance: 60,
+        ))
+        ->and($forecast->days[1]->condition)->toBe(WeatherCondition::Thunderstorm)
+        ->and($forecast->days[1]->condition->label())->toBe($forecast->days[1]->conditionLabel);
+
+    assertSentTo('GET', 'dashboard/weather', fn ($request) => $request->hasHeader('X-Team-ID', '42'));
+});
+
+it('returns no forecast while the weather is unavailable', function () {
+    fakeApi(['dashboard/weather' => ['data' => null, 'meta' => ['team_id' => 42]]]);
+
+    expect(sdk()->dashboard()->weather())->toBeNull();
+});
+
+it('reads a weather condition it does not know as overcast, as the platform says to', function () {
+    $body = weatherForecastBody();
+    $body['data']['current']['condition'] = 'hail';
+    $body['data']['days'][0]['condition'] = 'sandstorm';
+    fakeApi(['dashboard/weather' => $body]);
+
+    $forecast = sdk()->dashboard()->weather();
+
+    expect($forecast?->current->condition)->toBe(WeatherCondition::Overcast)
+        ->and($forecast?->days[0]->condition)->toBe(WeatherCondition::Overcast)
+        ->and($forecast?->days[1]->condition)->toBe(WeatherCondition::Thunderstorm);
+});
+
+it('throws when a former PA asks for the weather', function () {
+    fakeApi(['dashboard/weather' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+
+    expect(fn () => sdk()->dashboard()->weather())->toThrow(
+        fn (SupportManagerApiException $exception) => expect($exception->status)->toBe(403),
+    );
 });
