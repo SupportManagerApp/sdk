@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Payroll;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Attributes\ListOf;
 use SupportManager\Sdk\Data\Hydration\Hydrator;
 
 /**
@@ -15,6 +17,10 @@ use SupportManager\Sdk\Data\Hydration\Hydrator;
  * grand total, and — when a full net-pay estimate is available — the
  * gross/net/deductions breakdown (otherwise those fields are null).
  *
+ * `hours` and `sleeps` carry only their totals; the per-type rows the
+ * platform sends with them (`hours.breakdown`, `sleeps.breakdown`) are
+ * {@see self::$hoursBreakdown} and {@see self::$sleepsBreakdown}.
+ *
  * @phpstan-type Money array{total_value: float, total_cost: float}
  */
 final readonly class EstimatedPay
@@ -24,6 +30,8 @@ final readonly class EstimatedPay
      * @param  Money  $sleeps
      * @param  list<array{type: string, total_value: float, total_cost: float}>  $enhancements
      * @param  Money  $grandTotal
+     * @param  list<EstimatedPayBreakdownLine>  $hoursBreakdown  `hours.breakdown`: the hours total by entry type.
+     * @param  list<EstimatedPayBreakdownLine>  $sleepsBreakdown  `sleeps.breakdown`: the sleeping-nights total by entry type.
      */
     public function __construct(
         public int $year,
@@ -37,6 +45,12 @@ final readonly class EstimatedPay
         public ?float $netPay,
         public ?float $deductionsTotal,
         public ?EstimatedPayDeductions $deductions,
+        #[From('hours.breakdown')]
+        #[ListOf(EstimatedPayBreakdownLine::class)]
+        public array $hoursBreakdown = [],
+        #[From('sleeps.breakdown')]
+        #[ListOf(EstimatedPayBreakdownLine::class)]
+        public array $sleepsBreakdown = [],
     ) {}
 
     /**
