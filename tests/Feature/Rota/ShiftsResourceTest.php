@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\Shift;
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
+use SupportManager\Sdk\Data\Rota\ShiftPayEnhancement;
 use SupportManager\Sdk\Enums\Rota\EntryType;
 
 function rotaShiftPage(int $page, int $lastPage): array
@@ -228,6 +229,60 @@ it('defaults the wave 2 shift fields when the platform omits them', function () 
         ->and($shift->canApply)->toBeFalse()
         ->and($shift->canRequestAmendment)->toBeFalse()
         ->and($shift->cannotApplyReason)->toBeNull();
+});
+
+it('hydrates the shift admin meta.can flags and the pay enhancement', function () {
+    fakeApi(['rota/shifts/7' => [
+        'data' => [
+            'type' => 'rota_entries',
+            'id' => '7',
+            'attributes' => [
+                'team_id' => 42,
+                'user_id' => 12,
+                'type' => 'Overtime Hours',
+                'duration' => 8,
+                'pay_enhancement' => ['id' => 4, 'name' => 'Weekend', 'factor' => '0.50', 'is_private' => true],
+            ],
+            'meta' => [
+                'can' => [
+                    'apply' => false,
+                    'request_amendment' => false,
+                    'update' => true,
+                    'delete' => true,
+                    'duplicate' => true,
+                    'assign' => false,
+                ],
+                'cannot_apply_reason' => 'You cannot apply for this shift.',
+            ],
+        ],
+        'meta' => ['team_id' => 42],
+    ]]);
+
+    $shift = sdk()->shifts()->find(7);
+
+    expect($shift?->canUpdate)->toBeTrue()
+        ->and($shift->canDelete)->toBeTrue()
+        ->and($shift->canDuplicate)->toBeTrue()
+        ->and($shift->canAssign)->toBeFalse()
+        ->and($shift->payEnhancement)->toEqual(new ShiftPayEnhancement(4, 'Weekend', '0.50', true));
+});
+
+it('reads no pay enhancement and no admin flags when the platform omits them', function () {
+    fakeApi(['rota/shifts/5' => [
+        'data' => ['type' => 'rota_entries', 'id' => '5', 'attributes' => [
+            'type' => 'Contracted Hours',
+            'duration' => 8,
+            'pay_enhancement' => null,
+        ]],
+    ]]);
+
+    $shift = sdk()->shifts()->find(5);
+
+    expect($shift?->payEnhancement)->toBeNull()
+        ->and($shift->canUpdate)->toBeFalse()
+        ->and($shift->canDelete)->toBeFalse()
+        ->and($shift->canDuplicate)->toBeFalse()
+        ->and($shift->canAssign)->toBeFalse();
 });
 
 it('requests an amendment to a shift and hydrates the pending request', function () {
