@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
-use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
-use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake shopping-list items.
@@ -75,19 +72,9 @@ final class ShoppingListItemFactory extends Factory implements ProvidesFakeRoute
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::patch('household/shopping-list/{id}/toggle-purchased', static function (RecordStore $store, array $matches): mixed {
-                $record = $store->find('household/shopping-list', $matches[1]);
-
-                if ($record === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                $toggled = $store->update('household/shopping-list', $matches[1], [
-                    'needs_purchasing' => ! ($record['needs_purchasing'] ?? false),
-                ]);
-
-                return Http::response(Json::item('shopping_list_items', $toggled ?? $record));
-            }),
+            FakeRoute::action('PATCH', 'household/shopping-list/{id}/toggle-purchased', static fn (array $item): array => [
+                'needs_purchasing' => ! ($item['needs_purchasing'] ?? false),
+            ]),
         ];
     }
 }
