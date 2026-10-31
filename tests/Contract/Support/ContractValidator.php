@@ -113,6 +113,22 @@ final class ContractValidator
     }
 
     /**
+     * The spec operation a request reaches, e.g. `GET /household/chores`, or
+     * null for a non-API URL or a method and path the spec does not have
+     * (even one a `missing` allowlist entry lets through).
+     */
+    public function operationFor(RequestInterface $request): ?string
+    {
+        $path = $request->getUri()->getPath();
+
+        if (! str_starts_with($path, self::API_PREFIX.'/')) {
+            return null;
+        }
+
+        return OpenApiSpec::instance()->match(self::effectiveMethod($request), mb_substr($path, mb_strlen(self::API_PREFIX)));
+    }
+
+    /**
      * Calls per operation key during this process.
      *
      * @return array<string, int>
