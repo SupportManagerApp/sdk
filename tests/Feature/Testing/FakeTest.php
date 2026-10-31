@@ -143,7 +143,7 @@ it('serves a flat singleton and hides the code until revealed', function () {
         ->and($shown->hasCode)->toBeTrue()
         ->and($shown->code)->toBeNull();
 
-    expect(SupportManager::keysafe()->reveal()->code)->toBe('4321');
+    expect(SupportManager::keysafe()->reveal())->toBe('4321');
 });
 
 it('updates a flat singleton', function () {
@@ -153,7 +153,7 @@ it('updates a flat singleton', function () {
 
     $updated = SupportManager::keysafe()->update('9999');
     expect($updated->hasCode)->toBeTrue()
-        ->and(SupportManager::keysafe()->reveal()->code)->toBe('9999');
+        ->and(SupportManager::keysafe()->reveal())->toBe('9999');
 });
 
 it('returns an empty page for an unseeded resource instead of hitting the network', function () {
