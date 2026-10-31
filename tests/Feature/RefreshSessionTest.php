@@ -32,7 +32,7 @@ function refresh_response(array $overrides = []): array
 }
 
 it('exchanges the refresh token and persists the new pair', function () {
-    Http::fake(['api.test/api/v1/auth/refresh' => Http::response(refresh_response())]);
+    Http::fake([apiUrl('auth/refresh') => Http::response(refresh_response())]);
 
     [$refresh, $session] = refresh_action();
     $session->start(new AuthTokens('access-old', 'refresh-old', 'Bearer', 3600));
@@ -57,7 +57,7 @@ it('returns null without calling the API when there is no refresh token', functi
 });
 
 it('clears the session when the refresh token is rejected', function () {
-    Http::fake(['api.test/api/v1/auth/refresh' => Http::response(['message' => 'expired'], 401)]);
+    Http::fake([apiUrl('auth/refresh') => Http::response(['message' => 'expired'], 401)]);
 
     [$refresh, $session] = refresh_action();
     $session->start(new AuthTokens('access-old', 'refresh-old', 'Bearer', 3600));
@@ -68,7 +68,7 @@ it('clears the session when the refresh token is rejected', function () {
 });
 
 it('keeps the cached user when the refresh response omits one', function () {
-    Http::fake(['api.test/api/v1/auth/refresh' => Http::response(refresh_response())]);
+    Http::fake([apiUrl('auth/refresh') => Http::response(refresh_response())]);
 
     [$refresh, $session] = refresh_action();
     $session->start(new AuthTokens(
@@ -85,7 +85,7 @@ it('keeps the cached user when the refresh response omits one', function () {
 });
 
 it('refreshes proactively only when the token is expiring within the skew', function () {
-    Http::fake(['api.test/api/v1/auth/refresh' => Http::response(refresh_response())]);
+    Http::fake([apiUrl('auth/refresh') => Http::response(refresh_response())]);
 
     [$refresh, $session] = refresh_action();
 

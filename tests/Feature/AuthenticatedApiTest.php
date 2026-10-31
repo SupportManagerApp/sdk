@@ -29,7 +29,7 @@ function authenticated_api(): array
 $call = fn ($request) => $request->get('user/teams/count');
 
 it('returns the response and never refreshes when the call succeeds', function () use ($call) {
-    Http::fake(['api.test/api/v1/user/teams/count' => Http::response(['data' => ['count' => 1]], 200)]);
+    Http::fake([apiUrl('user/teams/count') => Http::response(['data' => ['count' => 1]], 200)]);
 
     [$api, $session] = authenticated_api();
     $session->start(new AuthTokens('access-1', 'refresh-1', 'Bearer', 3600));
@@ -44,10 +44,10 @@ it('returns the response and never refreshes when the call succeeds', function (
 
 it('refreshes once and retries with the new token on a 401', function () use ($call) {
     Http::fake([
-        'api.test/api/v1/user/teams/count' => Http::sequence()
+        apiUrl('user/teams/count') => Http::sequence()
             ->push(['message' => 'Unauthenticated'], 401)
             ->push(['data' => ['count' => 1]], 200),
-        'api.test/api/v1/auth/refresh' => Http::response(['data' => [
+        apiUrl('auth/refresh') => Http::response(['data' => [
             'access_token' => 'access-2',
             'refresh_token' => 'refresh-2',
             'token_type' => 'Bearer',
@@ -70,8 +70,8 @@ it('refreshes once and retries with the new token on a 401', function () use ($c
 
 it('throws and clears the session when the refresh is rejected on a 401', function () use ($call) {
     Http::fake([
-        'api.test/api/v1/user/teams/count' => Http::response(['message' => 'Unauthenticated'], 401),
-        'api.test/api/v1/auth/refresh' => Http::response(['message' => 'expired'], 401),
+        apiUrl('user/teams/count') => Http::response(['message' => 'Unauthenticated'], 401),
+        apiUrl('auth/refresh') => Http::response(['message' => 'expired'], 401),
     ]);
 
     [$api, $session] = authenticated_api();
@@ -92,7 +92,7 @@ it('throws immediately when there is no session', function () use ($call) {
 });
 
 it('forwards the team id as a header', function () {
-    Http::fake(['api.test/api/v1/user/teams/count' => Http::response(['data' => ['count' => 1]], 200)]);
+    Http::fake([apiUrl('user/teams/count') => Http::response(['data' => ['count' => 1]], 200)]);
 
     [$api, $session] = authenticated_api();
     $session->start(new AuthTokens('access-1', 'refresh-1', 'Bearer', 3600));
@@ -104,14 +104,14 @@ it('forwards the team id as a header', function () {
 
 it('resolves the current team for tenant scoped requests', function () {
     Http::fake([
-        'api.test/api/v1/user/teams' => Http::response(['data' => [
+        apiUrl('user/teams') => Http::response(['data' => [
             [
                 'type' => 'teams',
                 'id' => '42',
                 'attributes' => ['name' => 'Bletchley Park'],
             ],
         ]]),
-        'api.test/api/v1/user/teams/count' => Http::response(['data' => ['count' => 1]], 200),
+        apiUrl('user/teams/count') => Http::response(['data' => ['count' => 1]], 200),
     ]);
 
     [$api, $session] = authenticated_api();
