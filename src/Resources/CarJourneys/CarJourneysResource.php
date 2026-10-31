@@ -33,7 +33,11 @@ use SupportManager\Sdk\Resources\Resource;
  * ```php
  * SupportManager::journeys()->query()->filter('ongoing', true)->sort('-trip_start')->get();
  * SupportManager::journeys()->ongoing();
- * SupportManager::journeys()->create(['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z']);
+ * SupportManager::journeys()->create([
+ *     'driver_name' => 'Ada',
+ *     'trip_start_date' => '2026-06-06', 'trip_start_time' => '09:00',
+ *     'trip_end_date' => '2026-06-06', 'trip_end_time' => '10:30',
+ * ]);
  * ```
  *
  * @extends Resource<CarJourney>
@@ -51,6 +55,21 @@ final class CarJourneysResource extends Resource
      * journey ends any journey still ongoing for the team (its `trip_end` is
      * set to now), whoever started it.
      *
+     * The platform's `StoreCarJourneyRequest` takes the trip as separate date
+     * and time fields, not the `trip_start`/`trip_end` timestamps a journey
+     * reads back with, and requires both ends. Anything else is a 422:
+     *
+     * ```php
+     * SupportManager::journeys()->create([
+     *     'driver_name' => 'Ada',            // required, at most 255 characters
+     *     'trip_start_date' => '2026-06-06', // required, a date
+     *     'trip_start_time' => '09:00',      // required, H:i
+     *     'trip_end_date' => '2026-06-06',   // required, on or after trip_start_date
+     *     'trip_end_time' => '10:30',        // required, H:i
+     *     'comments' => 'School run',        // optional, at most 1000 characters
+     * ]);
+     * ```
+     *
      * @param  array<string, mixed>  $data
      */
     public function create(array $data): ?CarJourney
@@ -60,6 +79,23 @@ final class CarJourneysResource extends Resource
 
     /**
      * Update a journey record, returning the updated trip.
+     *
+     * This replaces the record rather than patching it: the platform's
+     * `UpdateCarJourneyRequest` requires `driver_name`, `trip_start_date` and
+     * `trip_start_time` on every update (a 422 without them), and the platform
+     * then writes every field. Leaving out `trip_end_date`/`trip_end_time`
+     * reopens the trip, and leaving out `comments` clears them, so send the
+     * whole journey back with your change. `trip_end_time` is required with
+     * `trip_end_date`.
+     *
+     * ```php
+     * SupportManager::journeys()->update($id, [
+     *     'driver_name' => $journey->driverName,
+     *     'trip_start_date' => '2026-06-06', 'trip_start_time' => '09:00',
+     *     'trip_end_date' => '2026-06-06', 'trip_end_time' => '10:30',
+     *     'comments' => 'Dropped off at school',
+     * ]);
+     * ```
      *
      * @param  array<string, mixed>  $data
      */
@@ -93,7 +129,8 @@ final class CarJourneysResource extends Resource
     /**
      * Start a new journey now, driven by the authenticated user. The platform
      * takes no input here: the driver is the user's own name and comments start
-     * empty (add them later with {@see update()}).
+     * empty. To add comments later, {@see update()} the whole journey, as it
+     * requires the driver and start date and time too.
      *
      * Only one journey per team may be open at a time. Starting one while
      * another is {@see ongoing()} throws an {@see ApiValidationException}
