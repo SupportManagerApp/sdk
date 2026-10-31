@@ -1,6 +1,74 @@
 # Changelog
 
-All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, a minor or patch release may contain breaking changes; they are always listed under **Breaking**.
+All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, breaking changes bump the minor version (see `CONTRIBUTING.md`), and they are always listed under **Breaking**.
+
+## v0.2.0 — 2026-10-31
+
+An internal rework that makes the SDK cheaper to extend and checks it against the platform's API spec, plus fixes for the bugs that check found. Adding an endpoint is now a typed DTO, one resource method using the base helpers, and a short test. `CONTRIBUTING.md` walks through it end to end.
+
+### Breaking
+
+- **Downloads return typed results** and throw `SupportManagerApiException` on an error response, instead of returning the raw `Response`.
+  - **Return `Http\Download`** (`body()`, `filename()`, `mimeType()`, `size()`, `saveTo()`, `response()`):
+    - `payslips()`, `p45s()`, `p60s()` and `timesheets()`: `download()`
+    - `profile()->downloadEmploymentConfirmationLetter()`
+    - `signatureRequests()->downloadOriginal()`
+  - **Return `Http\DownloadLink`** (`url`, `filename`, `expiresAt`):
+    - `documents()->download()`
+    - `dbsChecks()->downloadCertificate()`
+    - `rightToWork()->downloadPrimaryDocument()` and `downloadSupportingDocument()`
+    - `driversLicenceChecks()->downloadCheckResultDocument()`
+    - `signatureRequests()->downloadSigned()`
+- **`find()`, `all()` and `query()` exist only where the platform has the route.** They used to be inherited by every resource, so calls like `chores()->find()` failed with a 405 against the real platform. They now come from the `Resources\Concerns\Listable` (`query()`, `all()`) and `Findable` (`find()`) traits, and an architecture test checks each against the spec.
+  - **No longer offer any of the three:** `dashboard()`, `keysafe()`, `mealPlan()`, `leaveAdmin()`, `leaveBalance()`, `automaticPayEnhancements()`, `estimatedPay()`, `starterDeclaration()`, `profile()`, `rotaCalendar()`, `quickAdd()`, `shiftBlocks()`.
+  - **No longer offer `find()`:** `choreCategories()`, `chores()`, `consumables()`, `shoppingList()`, `leaveEntitlements()`, `leaveAdjustments()`, `leaveNotWorkingNotices()`, `deviceTokens()`, `shiftAmendmentRequests()`, `shiftApplications()`, `shiftRequests()`.
+  - **No longer offer `find()` or `query()`, but keep their own `all()`:** `notifications()`, `tasks()`, `teams()`, `payRuns()`.
+  - **No longer offer `query()`:** `signatureRequests()`. It keeps `all(?status)` and `find()`.
+- **Calendar:** `rotaCalendar()->bankHolidays()`, `birthdays()` and `anniversaries()` now take required `$from` and `$to` dates (`string` or `DateTimeInterface`) instead of an optional query array. The platform rejected calls without them.
+- **Keysafe:** `keysafe()->reveal()` returns the code as `?string`. It used to return a `Keysafe` whose other fields were always false, because the platform only sends the code.
+- **Profile:** `deleteAddress()`, `deleteAvatar()` and `changePassword()` now throw on error responses instead of failing silently.
+- **DTOs:** `fromArray()` takes a single array everywhere. `AccidentReport`, `LeaveRequest`, `NotWorkingNotice`, `StarterDeclaration` and `SignatureRequest` no longer accept a second `$meta` argument. Permission flags are read from the flattened resource's `meta.can`.
+- **Test fakes:**
+  - **JSON:API types:** fake responses now use the platform's real snake_case `type` values, for example `rota_entries`, `car_journeys`, `leave_requests`, `shopping_list_items`, `d_b_s_checks`, `right_to_works`. Thirteen factories changed; host tests that assert on the old kebab-case values need updating.
+  - **Route handlers:** custom `FakeRoute` handlers now receive a fifth `Registration` argument. Handlers with fewer parameters still work.
+  - **Team id:** records take the team id of the acting team when they are seeded (`actingAsTeam()` before `seed()`), instead of a fixed `42`.
+  - A few fake 404 messages now read "Not found".
+
+### Deprecated
+
+These still work, and raise `E_USER_DEPRECATED` pointing at the new name:
+
+| Deprecated | Use instead |
+|---|---|
+| `shiftApplications()->cancel()` / `remove()` | `destroy()` |
+| `shiftRequests()->cancel()` | `destroy()` |
+| `chores()->delete()` / `shoppingList()->delete()` | `destroy()` |
+| `signatureRequests()->file()` | `downloadOriginal()` |
+| `profile()->employmentConfirmationLetter()` | `downloadEmploymentConfirmationLetter()` |
+| `query()->include()` | nothing: the platform ignores `include` everywhere, so it now sends nothing |
+
+### Fixed
+
+- `auth()->loginWithProvider()` now sends the device token as `X-Device-Token`, through a new optional `$deviceToken` argument. Trusted devices signing in with Google, Microsoft or Apple are no longer asked to verify again.
+- `EstimatedPay` now includes the per-type `hoursBreakdown` and `sleepsBreakdown` lists (`EstimatedPayBreakdownLine`), which it used to drop.
+- The car journey `create()` and `update()` examples now use the fields the platform accepts.
+
+### Added
+
+- **Shared hydrator:** DTOs are hydrated by an attribute-driven `Data\Hydration\Hydrator` (`#[From]`, `#[Can]`, `#[ListOf]` and others), so a new DTO is just a typed constructor.
+- **Base `Resource` helpers:** `item()`, `collection()`, `paginated()`, `data()`, `dataList()`, `dataPaginated()`, `raw()`, `downloadFile()` and `downloadLink()`.
+- **Fake building blocks:** `FakeRoute::action()`, `download()`, `downloadLink()`, `collection()` and `flat()`; `Json::flat()`, `notFound()`, `forbidden()` and `validation()`; `Fake::teamId()`; and `Factory::forTeam()`.
+- **Contract tests:**
+  - Every faked request and response in the test suite is checked against the platform's OpenAPI spec (`tests/Contract/openapi.yaml`, refreshed with `composer sync-openapi`).
+  - `composer coverage:api` reports which spec operations the SDK calls: currently 206 of 214, with the other 8 listed with a reason.
+  - Places where the spec disagrees with the platform code are recorded in `tests/Contract/spec-exceptions.php`.
+- **Architecture tests** enforce the conventions:
+  - Naming: `destroy()`, `download*()`.
+  - Each resource is wired to an accessor and a facade `@method`.
+  - `final readonly` DTOs using the hydrator.
+  - DTO constructors only grow at the end, checked by a snapshot.
+  - Backed enums, strict types and layer boundaries.
+- **Docs:** `CONTRIBUTING.md`, a guide to adding an endpoint end to end, plus the conventions.
 
 ## v0.1.0 — 2026-10-31
 
