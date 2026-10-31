@@ -18,7 +18,7 @@ function payrollPayRunBody(int $page, int $lastPage): array
         'data' => [[
             'month_key' => '2026-0'.$page,
             'month_label' => "Month {$page}",
-            'process_date' => '2026-0'.$page.'-30',
+            'process_date' => '2026-0'.$page.'-28',
             'payslip_count' => 10,
             'published_count' => 10,
             'status' => 'published',

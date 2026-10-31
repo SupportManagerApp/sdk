@@ -11,6 +11,11 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!-- Last: its coverage and stale-allowlist checks read what the
+             Unit and Feature suites recorded in this process. -->
+        <testsuite name="Contract">
+            <directory>tests/Contract</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

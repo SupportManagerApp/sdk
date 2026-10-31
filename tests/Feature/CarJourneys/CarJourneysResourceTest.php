@@ -27,14 +27,13 @@ function journeyPage(int $page, int $lastPage): array
     ];
 }
 
-it('encodes filter, sort, include and pagination as Spatie-style query params', function () {
+it('encodes filter, sort and pagination as Spatie-style query params', function () {
     Http::fake(['api.test/api/v1/car-journeys*' => Http::response(journeyPage(1, 1))]);
     bootTenantSession();
 
     journeys()->query()
         ->filter('ongoing', true)
         ->sort('-trip_start', 'driver_name')
-        ->include('user')
         ->perPage(15)
         ->get();
 
@@ -43,7 +42,6 @@ it('encodes filter, sort, include and pagination as Spatie-style query params', 
 
         return str_contains($url, 'filter[ongoing]=1')
             && str_contains($url, 'sort=-trip_start,driver_name')
-            && str_contains($url, 'include=user')
             && str_contains($url, 'per_page=15')
             && $request->hasHeader('X-Team-ID', '42');
     });
@@ -158,18 +156,18 @@ it('finishes an open journey', function () {
     expect(journeys()->finish(8)->isOngoing)->toBeFalse();
 });
 
-it('maps a 422 on the resource path to a validation exception', function () {
+it('maps a 422 (invalid team context) on the resource path to a validation exception', function () {
     Http::fake(['api.test/api/v1/car-journeys*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The ongoing filter is invalid.']],
+        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
     ], 422)]);
     bootTenantSession();
 
     try {
-        journeys()->query()->filter('ongoing', 'maybe')->get();
+        journeys()->query()->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The ongoing filter is invalid.');
+        expect($e->getMessage())->toBe('Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.')
+            ->and($e->errors)->toBe([]);
     }
 });
 
@@ -214,7 +212,13 @@ it('creates a journey record directly', function () {
     ], 201)]);
     bootTenantSession();
 
-    $journey = journeys()->create(['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z']);
+    $journey = journeys()->create([
+        'driver_name' => 'Ada',
+        'trip_start_date' => '2026-06-06',
+        'trip_start_time' => '09:00',
+        'trip_end_date' => '2026-06-06',
+        'trip_end_time' => '10:30',
+    ]);
 
     expect($journey)->toBeInstanceOf(CarJourney::class)
         ->and($journey->id)->toBe('11')
@@ -230,7 +234,12 @@ it('updates a journey record', function () {
     ])]);
     bootTenantSession();
 
-    $journey = journeys()->update(11, ['comments' => 'Edited']);
+    $journey = journeys()->update(11, [
+        'driver_name' => 'Ada',
+        'trip_start_date' => '2026-06-06',
+        'trip_start_time' => '09:00',
+        'comments' => 'Edited',
+    ]);
 
     expect($journey->comments)->toBe('Edited');
     Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'car-journeys/11'));

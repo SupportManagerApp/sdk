@@ -12,55 +12,55 @@ function payrollPayEnhancements(): PayEnhancementsResource
     return app(PayEnhancementsResource::class);
 }
 
-function payrollPayEnhancementPage(int $page, int $lastPage): array
+// PayEnhancementController::index returns every enhancement, ordered by name,
+// as a plain (non-paginated) resource collection with only meta.team_id.
+function payrollPayEnhancementList(int $count): array
 {
     return [
-        'data' => [[
+        'data' => array_map(static fn (int $n): array => [
             'type' => 'pay-enhancements',
-            'id' => (string) $page,
+            'id' => (string) $n,
             'attributes' => [
-                'name' => "Enhancement {$page}",
+                'name' => "Enhancement {$n}",
                 'description' => 'Weekend rate',
                 'enhancement_factor' => '0.50',
                 'enhancement_factor_label' => 'Time and a half',
+                'created_at' => '2026-01-01T09:00:00.000000Z',
+                'updated_at' => '2026-01-01T09:00:00.000000Z',
             ],
-        ]],
-        'meta' => ['current_page' => $page, 'last_page' => $lastPage, 'per_page' => 1, 'total' => $lastPage],
-        'links' => ['next' => $page < $lastPage ? 'https://api.test/api/v1/payroll/pay-enhancements?page='.($page + 1) : null],
+        ], range(1, $count)),
+        'meta' => ['team_id' => 42],
     ];
 }
 
-it('encodes pagination as query params', function () {
-    Http::fake(['api.test/api/v1/payroll/pay-enhancements*' => Http::response(payrollPayEnhancementPage(1, 1))]);
+it('lists pay enhancements with the team header', function () {
+    Http::fake(['api.test/api/v1/payroll/pay-enhancements*' => Http::response(payrollPayEnhancementList(1))]);
     bootTenantSession();
 
-    payrollPayEnhancements()->query()->perPage(50)->get();
+    payrollPayEnhancements()->query()->get();
 
-    Http::assertSent(function ($request) {
-        $url = urldecode($request->url());
-
-        return str_contains($url, 'per_page=50')
-            && $request->hasHeader('X-Team-ID', '42');
-    });
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'payroll/pay-enhancements')
+        && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('hydrates pay enhancement DTOs and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/payroll/pay-enhancements*' => Http::response(payrollPayEnhancementPage(1, 2))]);
+it('hydrates pay enhancement DTOs from the unpaginated list', function () {
+    Http::fake(['api.test/api/v1/payroll/pay-enhancements*' => Http::response(payrollPayEnhancementList(2))]);
     bootTenantSession();
 
     $page = payrollPayEnhancements()->query()->get();
 
-    expect($page->items()[0])->toBeInstanceOf(PayEnhancement::class)
+    expect($page->items())->toHaveCount(2)
+        ->and($page->items()[0])->toBeInstanceOf(PayEnhancement::class)
         ->and($page->items()[0]->name)->toBe('Enhancement 1')
         ->and($page->items()[0]->enhancementFactor)->toBe('0.50')
         ->and($page->items()[0]->enhancementFactorLabel)->toBe('Time and a half')
-        ->and($page->hasMorePages())->toBeTrue();
+        ->and($page->hasMorePages())->toBeFalse();
 });
 
 it('finds a pay enhancement by id', function () {
     Http::fake([
         'api.test/api/v1/payroll/pay-enhancements/5' => Http::response([
-            'data' => ['type' => 'pay-enhancements', 'id' => '5', 'attributes' => ['name' => 'Sunday', 'enhancement_factor' => '1.00']],
+            'data' => ['type' => 'pay-enhancements', 'id' => '5', 'attributes' => ['name' => 'Sunday', 'enhancement_factor' => '1']],
         ]),
     ]);
     bootTenantSession();
@@ -77,11 +77,11 @@ it('returns null when finding a missing pay enhancement (404)', function () {
 
 it('creates a pay enhancement', function () {
     Http::fake(['api.test/api/v1/payroll/pay-enhancements' => Http::response([
-        'data' => ['type' => 'pay-enhancements', 'id' => '8', 'attributes' => ['name' => 'Bank Holiday', 'enhancement_factor' => '1.00']],
+        'data' => ['type' => 'pay-enhancements', 'id' => '8', 'attributes' => ['name' => 'Bank Holiday', 'enhancement_factor' => '1']],
     ], 201)]);
     bootTenantSession();
 
-    $created = payrollPayEnhancements()->create(['name' => 'Bank Holiday', 'enhancement_factor' => '1.00']);
+    $created = payrollPayEnhancements()->create(['name' => 'Bank Holiday', 'enhancement_factor' => '1']);
 
     expect($created)->toBeInstanceOf(PayEnhancement::class)
         ->and($created->name)->toBe('Bank Holiday');

@@ -39,7 +39,7 @@ final class PayRunFactory extends Factory implements ProvidesFakeRoutes
         return [
             'month_key' => "2026-{$month}",
             'month_label' => "Month {$number}",
-            'process_date' => "2026-{$month}-30",
+            'process_date' => "2026-{$month}-28",
             'payslip_count' => 10,
             'published_count' => 10,
             'status' => 'published',

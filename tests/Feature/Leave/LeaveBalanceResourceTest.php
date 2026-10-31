@@ -21,8 +21,8 @@ function leaveBalanceBody(): array
     return [
         'data' => [
             'year' => 2026,
-            'hours' => ['entitlement' => 224.0, 'pending' => 8.0, 'approved' => 16.0, 'remaining' => 200.0, 'percentages' => ['used' => 7]],
-            'sleeps' => ['entitlement' => 10.0, 'pending' => 1.0, 'approved' => 2.0, 'remaining' => 7.0, 'percentages' => null],
+            'hours' => ['entitlement' => 224.0, 'pending' => 8.0, 'approved' => 16.0, 'remaining' => 200.0, 'percentages' => ['approved' => 7.14, 'pending' => 3.57, 'remaining' => 89.29]],
+            'sleeps' => ['entitlement' => 10.0, 'pending' => 1.0, 'approved' => 2.0, 'remaining' => 7.0, 'percentages' => ['approved' => 20.0, 'pending' => 10.0, 'remaining' => 70.0]],
         ],
         'meta' => ['team_id' => 42],
     ];
@@ -38,9 +38,9 @@ it('shows the current user balance', function () {
         ->and($balance->year)->toBe(2026)
         ->and($balance->hours->entitlement)->toBe(224.0)
         ->and($balance->hours->remaining)->toBe(200.0)
-        ->and($balance->hours->percentages)->toBe(['used' => 7])
+        ->and($balance->hours->percentages)->toBe(['approved' => 7.14, 'pending' => 3.57, 'remaining' => 89.29])
         ->and($balance->sleeps->remaining)->toBe(7.0)
-        ->and($balance->sleeps->percentages)->toBeNull();
+        ->and($balance->sleeps->percentages)->toEqual(['approved' => 20.0, 'pending' => 10.0, 'remaining' => 70.0]);
 
     Http::assertSent(fn ($r) => $r->method() === 'GET' && $r->hasHeader('X-Team-ID', '42'));
 });

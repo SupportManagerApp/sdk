@@ -12,12 +12,17 @@ function notifications(): NotificationsResource
     return app(NotificationsResource::class);
 }
 
+function notificationId(int $n): string
+{
+    return sprintf('9d8f1a2b-1c3d-4e5f-8a9b-%012d', $n);
+}
+
 function notificationPage(int $page, int $lastPage, int $unread = 2): array
 {
     return [
         'data' => [[
             'type' => 'notifications',
-            'id' => "uuid-{$page}",
+            'id' => notificationId($page),
             'attributes' => [
                 'type' => 'SupportManager\\Leave\\Notifications\\LeaveStatusUpdatedNotification',
                 'data' => ['message' => "Notice {$page}", 'leave_request_id' => $page],
@@ -44,7 +49,7 @@ it('lists notifications, hydrating DTOs and exposing the unread count', function
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(Notification::class)
-        ->and($page->items()[0]->id)->toBe('uuid-1')
+        ->and($page->items()[0]->id)->toBe(notificationId(1))
         ->and($page->items()[0]->type)->toBe('SupportManager\\Leave\\Notifications\\LeaveStatusUpdatedNotification')
         ->and($page->items()[0]->data['message'])->toBe('Notice 1')
         ->and($page->items()[0]->isUnread())->toBeTrue()
@@ -87,7 +92,7 @@ it('walks to the next page', function () {
 
     expect($next)->not->toBeNull()
         ->and($next->currentPage())->toBe(2)
-        ->and($next->items()[0]->id)->toBe('uuid-2');
+        ->and($next->items()[0]->id)->toBe(notificationId(2));
 });
 
 it('reads the unread count from the index meta', function () {
@@ -99,30 +104,30 @@ it('reads the unread count from the index meta', function () {
 });
 
 it('marks a notification as read', function () {
-    Http::fake(['api.test/api/v1/notifications/uuid-1/read' => Http::response(['success' => true])]);
+    Http::fake(['api.test/api/v1/notifications/'.notificationId(1).'/read' => Http::response(['success' => true, 'message' => 'Notification marked as read.'])]);
     bootTenantSession();
 
-    notifications()->markAsRead('uuid-1');
+    notifications()->markAsRead(notificationId(1));
 
-    Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'notifications/uuid-1/read'));
+    Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'notifications/'.notificationId(1).'/read'));
 });
 
 it('marks a notification as unread', function () {
-    Http::fake(['api.test/api/v1/notifications/uuid-1/unread' => Http::response(['success' => true])]);
+    Http::fake(['api.test/api/v1/notifications/'.notificationId(1).'/unread' => Http::response(['success' => true, 'message' => 'Notification marked as unread.'])]);
     bootTenantSession();
 
-    notifications()->markAsUnread('uuid-1');
+    notifications()->markAsUnread(notificationId(1));
 
-    Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'notifications/uuid-1/unread'));
+    Http::assertSent(fn ($r) => $r->method() === 'PATCH' && str_contains($r->url(), 'notifications/'.notificationId(1).'/unread'));
 });
 
 it('deletes a notification', function () {
-    Http::fake(['api.test/api/v1/notifications/uuid-1' => Http::response(['success' => true])]);
+    Http::fake(['api.test/api/v1/notifications/'.notificationId(1) => Http::response(['success' => true, 'message' => 'Notification deleted.'])]);
     bootTenantSession();
 
-    notifications()->destroy('uuid-1');
+    notifications()->destroy(notificationId(1));
 
-    Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_contains($r->url(), 'notifications/uuid-1'));
+    Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_contains($r->url(), 'notifications/'.notificationId(1)));
 });
 
 it('marks all notifications as read', function () {
@@ -144,8 +149,8 @@ it('deletes all notifications', function () {
 });
 
 it('throws when marking a missing notification as read (404)', function () {
-    Http::fake(['api.test/api/v1/notifications/missing/read' => Http::response(['message' => 'Notification not found.'], 404)]);
+    Http::fake(['api.test/api/v1/notifications/'.notificationId(999).'/read' => Http::response(['message' => 'Notification not found.'], 404)]);
     bootTenantSession();
 
-    notifications()->markAsRead('missing');
+    notifications()->markAsRead(notificationId(999));
 })->throws(SupportManagerApiException::class);

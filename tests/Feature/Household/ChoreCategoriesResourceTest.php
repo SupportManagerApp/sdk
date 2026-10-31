@@ -65,17 +65,18 @@ it('hydrates chore categories with pagination metadata', function () {
 });
 
 it('maps a 422 on chore categories to a validation exception', function () {
+    // The platform's only 422 here is the invalid-team response: a bare message, no field errors.
     Http::fake(['api.test/api/v1/household/chore-categories*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The color filter is invalid.']],
+        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
     ], 422)]);
     bootTenantSession();
 
     try {
-        householdChoreCategories()->query()->filter('color', 'nope')->get();
+        householdChoreCategories()->query()->filter('color', '#3b82f6')->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The color filter is invalid.');
+        expect($e->getMessage())->toContain('Invalid or missing team')
+            ->and($e->errors)->toBe([]);
     }
 });
 

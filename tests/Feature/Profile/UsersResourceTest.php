@@ -21,8 +21,8 @@ function profileDirectoryPage(): array
 {
     return [
         'data' => [
-            ['type' => 'users', 'id' => '1', 'attributes' => ['name' => 'Ada', 'avatar' => null, 'role' => 'employee']],
-            ['type' => 'users', 'id' => '2', 'attributes' => ['name' => 'Grace', 'avatar' => null, 'role' => 'manager']],
+            ['type' => 'users', 'id' => '1', 'attributes' => ['name' => 'Ada', 'avatar' => 'https://ui-avatars.com/api/?name=Ada&background=random', 'role' => 'PA']],
+            ['type' => 'users', 'id' => '2', 'attributes' => ['name' => 'Grace', 'avatar' => 'https://ui-avatars.com/api/?name=Grace&background=random', 'role' => 'Manager']],
         ],
         'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 2, 'team_id' => 42],
         'links' => ['next' => null],
@@ -38,7 +38,7 @@ it('lists directory users with a team header', function () {
     expect($users)->toHaveCount(2)
         ->and($users[0])->toBeInstanceOf(DirectoryUser::class)
         ->and($users[0]->name)->toBe('Ada')
-        ->and($users[1]->role)->toBe('manager');
+        ->and($users[1]->role)->toBe('Manager');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/api/v1/users')
         && $request->hasHeader('X-Team-ID', '42'));
@@ -63,7 +63,7 @@ it('finds a single directory user by id', function () {
     Http::fake(['api.test/api/v1/users/2' => Http::response([
         'data' => ['type' => 'users', 'id' => '2', 'attributes' => [
             'name' => 'Grace',
-            'role' => 'manager',
+            'role' => 'Manager',
             'mobile_number' => '+44 7700 900003',
         ]],
     ])]);
@@ -104,7 +104,7 @@ it('lists colleague picker options with a team header', function () {
     Http::fake(['api.test/api/v1/users/options' => Http::response([
         'data' => [
             ['type' => 'users', 'id' => '5', 'attributes' => ['name' => 'Ada Lovelace', 'avatar' => 'https://cdn.test/ada.png']],
-            ['type' => 'users', 'id' => '6', 'attributes' => ['name' => 'Grace Hopper', 'avatar' => null]],
+            ['type' => 'users', 'id' => '6', 'attributes' => ['name' => 'Grace Hopper', 'avatar' => 'https://ui-avatars.com/api/?name=Grace+Hopper&background=random']],
         ],
     ])]);
     bootTenantSession();
@@ -116,7 +116,7 @@ it('lists colleague picker options with a team header', function () {
         ->and($options[0]->id)->toBe('5')
         ->and($options[0]->name)->toBe('Ada Lovelace')
         ->and($options[0]->avatar)->toBe('https://cdn.test/ada.png')
-        ->and($options[1]->avatar)->toBeNull();
+        ->and($options[1]->avatar)->toBe('https://ui-avatars.com/api/?name=Grace+Hopper&background=random');
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/users/options')
         && $request->hasHeader('X-Team-ID', '42'));

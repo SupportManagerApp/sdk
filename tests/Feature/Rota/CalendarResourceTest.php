@@ -50,7 +50,7 @@ it('reads flat birthday rows', function () {
     ])]);
     bootTenantSession();
 
-    $birthdays = rotaCalendar()->birthdays();
+    $birthdays = rotaCalendar()->birthdays(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
 
     expect($birthdays)->toHaveCount(1)
         ->and($birthdays[0])->toBeInstanceOf(Birthday::class)
@@ -64,7 +64,7 @@ it('reads flat anniversary rows including years of service', function () {
     ])]);
     bootTenantSession();
 
-    $anniversaries = rotaCalendar()->anniversaries();
+    $anniversaries = rotaCalendar()->anniversaries(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
 
     expect($anniversaries)->toHaveCount(1)
         ->and($anniversaries[0])->toBeInstanceOf(Anniversary::class)

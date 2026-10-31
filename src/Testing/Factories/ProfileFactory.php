@@ -68,9 +68,9 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
             'has_second_factor' => false,
             'created_at' => '2026-01-01T00:00:00Z',
             'teams' => [
-                ['id' => 42, 'name' => 'Care Team', 'role' => 'employee'],
+                ['id' => 42, 'name' => 'Care Team', 'role' => 'PA'],
             ],
-            'role' => 'employee',
+            'role' => 'PA',
             'address' => [
                 'id' => '3',
                 'address_line_one' => '12 King St',
@@ -204,7 +204,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
             FakeRoute::delete('user/address', static function (RecordStore $store): mixed {
                 self::putNested($store, 'address', null);
 
-                return Http::response(['message' => 'Deleted']);
+                return Http::response('', 204);
             }),
 
             // user/address/suggestions — the canned UK address lookup.
@@ -326,21 +326,43 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
 
                 return Http::response(['data' => ['avatar_url' => $url]]);
             }),
+            // Removal falls back to the platform's generated initials avatar
+            // (HasTenancy::getAvatarUrl() never answers null).
             FakeRoute::delete('user/avatar', static function (RecordStore $store): mixed {
-                $store->put('user', [[...self::record($store), 'avatar' => null]]);
+                $record = self::record($store);
+                $store->put('user', [[...$record, 'avatar' => self::initialsAvatar((string) ($record['name'] ?? ''))]]);
 
                 return Http::response('', 204);
             }),
 
             // user/bank-details — tenant-scoped read & replace.
             FakeRoute::get('user/bank-details', static fn (RecordStore $store): mixed => self::nestedResponse(
-                'bank-details', self::record($store)['bank_details'] ?? null,
+                'bank_details', self::record($store)['bank_details'] ?? null,
             )),
+            // The platform validates UK sort code / account number formats
+            // (StoreBankDetailsRequest) and answers with the account number
+            // masked to its last four digits (BankDetailsResource).
             FakeRoute::put('user/bank-details', static function (RecordStore $store, array $matches, Request $request): mixed {
-                $details = self::mergeNested(self::record($store)['bank_details'] ?? null, '9', $request->data());
+                $inbound = $request->data();
+                $errors = [];
+
+                if (preg_match('/^\d{2}-\d{2}-\d{2}$/', (string) ($inbound['sort_code'] ?? '')) !== 1) {
+                    $errors['sort_code'] = ['The sort code must be in the format XX-XX-XX.'];
+                }
+
+                if (preg_match('/^\d{8}$/', (string) ($inbound['account_number'] ?? '')) !== 1) {
+                    $errors['account_number'] = ['The account number must be exactly 8 digits.'];
+                }
+
+                if ($errors !== []) {
+                    return Http::response(['message' => (string) array_values($errors)[0][0], 'errors' => $errors], 422);
+                }
+
+                $inbound['account_number'] = '****'.mb_substr((string) $inbound['account_number'], -4);
+                $details = self::mergeNested(self::record($store)['bank_details'] ?? null, '9', $inbound);
                 self::putNested($store, 'bank_details', $details);
 
-                return Http::response(Json::item('bank-details', $details));
+                return Http::response(Json::item('bank_details', $details));
             }),
         ];
     }
@@ -433,7 +455,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
 
     /**
      * The `GET user/profile` document, nesting the address as the platform's
-     * `{data: {id, attributes}}` envelope and the emergency contacts as a plain
+     * `{data: {id, type, attributes}}` envelope and the emergency contacts as a plain
      * list of `{type, id, attributes}` objects.
      *
      * @param  array<string, mixed>  $record
@@ -445,7 +467,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
         unset($profile['bank_details'], $profile['role'], $profile['employment'], $profile['address_suggestions']);
 
         $profile['is_view_only'] = (bool) ($record['is_view_only'] ?? false);
-        $profile['address'] = self::nestedEnvelope($record['address'] ?? null);
+        $profile['address'] = self::nestedEnvelope('addresses', $record['address'] ?? null);
         $profile['emergency_contacts'] = Json::collection(
             'emergency_contacts',
             is_array($record['emergency_contacts'] ?? null) ? array_values($record['emergency_contacts']) : [],
@@ -455,12 +477,12 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
     }
 
     /**
-     * Wrap a nested record as a `{data: {id, attributes}}` envelope, or null.
+     * Wrap a nested record as a `{data: {id, type, attributes}}` envelope, or null.
      *
      * @param  array<string, mixed>|null  $nested
      * @return array<string, mixed>|null
      */
-    private static function nestedEnvelope(?array $nested): ?array
+    private static function nestedEnvelope(string $type, ?array $nested): ?array
     {
         if ($nested === null) {
             return null;
@@ -469,7 +491,7 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
         $attributes = $nested;
         unset($attributes['id']);
 
-        return ['data' => ['id' => (string) ($nested['id'] ?? ''), 'attributes' => $attributes]];
+        return ['data' => ['id' => (string) ($nested['id'] ?? ''), 'type' => $type, 'attributes' => $attributes]];
     }
 
     /**
@@ -500,6 +522,14 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
         ];
 
         return [...$base, ...$attributes, 'id' => $base['id'] ?? $defaultId];
+    }
+
+    /**
+     * The platform's fallback avatar for a user with no uploaded image.
+     */
+    private static function initialsAvatar(string $name): string
+    {
+        return 'https://ui-avatars.com/api/?name='.urlencode($name).'&background=random';
     }
 
     /**

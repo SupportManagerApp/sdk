@@ -38,7 +38,7 @@ it('fetches the current user with a team header', function () {
         'name' => 'Ada Lovelace',
         'email' => 'ada@example.com',
         'avatar' => 'https://cdn.test/ada.png',
-        'role' => 'employee',
+        'role' => 'PA',
     ]))]);
     bootTenantSession();
 
@@ -47,7 +47,7 @@ it('fetches the current user with a team header', function () {
     expect($user)->toBeInstanceOf(User::class)
         ->and($user->id)->toBe('7')
         ->and($user->name)->toBe('Ada Lovelace')
-        ->and($user->role)->toBe('employee');
+        ->and($user->role)->toBe('PA');
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/user')
         && $request->hasHeader('X-Team-ID', '42'));
@@ -64,12 +64,12 @@ it('shows the full profile with nested address and emergency contacts', function
         'ni_number' => 'AB123456C',
         'show_birthday_on_roster' => true,
         'is_view_only' => false,
-        'address' => ['data' => ['id' => '3', 'attributes' => ['address_line_one' => '12 King St', 'town' => 'London', 'postcode' => 'SW1A 1AA']]],
+        'address' => ['data' => ['id' => '3', 'type' => 'addresses', 'attributes' => ['address_line_one' => '12 King St', 'town' => 'London', 'postcode' => 'SW1A 1AA']]],
         'emergency_contacts' => [
             ['id' => '5', 'type' => 'emergency_contacts', 'attributes' => ['name' => 'Jane', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002']],
             ['id' => '6', 'type' => 'emergency_contacts', 'attributes' => ['name' => 'John', 'relationship' => 'Brother', 'phone_number' => '+44 7700 900003']],
         ],
-        'teams' => [['id' => 42, 'name' => 'Care Team', 'role' => 'employee']],
+        'teams' => [['id' => 42, 'name' => 'Care Team', 'role' => 'PA']],
         'has_second_factor' => true,
         'created_at' => '2026-01-01T00:00:00Z',
     ]))]);
@@ -91,7 +91,7 @@ it('shows the full profile with nested address and emergency contacts', function
         ->and($profile->emergencyContacts[0]->id)->toBe('5')
         ->and($profile->emergencyContacts[0]->name)->toBe('Jane')
         ->and($profile->emergencyContacts[1]->relationship)->toBe('Brother')
-        ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'employee']]);
+        ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'PA']]);
 
     Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
 });
@@ -171,11 +171,13 @@ it('maps a 422 on profile update to a validation exception', function () {
 
 it('reads, saves and deletes the address with a team header', function () {
     Http::fake([
-        'api.test/api/v1/user/address' => Http::response(profileItem('addresses', '3', [
-            'address_line_one' => '12 King St',
-            'town' => 'London',
-            'postcode' => 'SW1A 1AA',
-        ])),
+        'api.test/api/v1/user/address' => fn ($request) => $request->method() === 'DELETE'
+            ? Http::response('', 204)
+            : Http::response(profileItem('addresses', '3', [
+                'address_line_one' => '12 King St',
+                'town' => 'London',
+                'postcode' => 'SW1A 1AA',
+            ])),
     ]);
     bootTenantSession();
 
@@ -496,7 +498,8 @@ it('uploads and removes the avatar through the fake', function () {
 
     SupportManager::profile()->deleteAvatar();
 
-    expect(SupportManager::profile()->me()?->avatar)->toBeNull();
+    // The platform falls back to a generated initials avatar.
+    expect(SupportManager::profile()->me()?->avatar)->toBe('https://ui-avatars.com/api/?name=Ada+Lovelace&background=random');
 });
 
 it('rejects an empty avatar upload through the fake', function () {
@@ -518,7 +521,7 @@ it('deletes the avatar', function () {
 });
 
 it('reads bank details WITH a team header (tenant-scoped)', function () {
-    Http::fake(['api.test/api/v1/user/bank-details' => Http::response(profileItem('bank-details', '9', [
+    Http::fake(['api.test/api/v1/user/bank-details' => Http::response(profileItem('bank_details', '9', [
         'name_on_account' => 'A Lovelace',
         'sort_code' => '12-34-56',
         'account_number' => '****5678',
@@ -535,7 +538,7 @@ it('reads bank details WITH a team header (tenant-scoped)', function () {
 });
 
 it('saves bank details WITH a team header (tenant-scoped)', function () {
-    Http::fake(['api.test/api/v1/user/bank-details' => Http::response(profileItem('bank-details', '9', [
+    Http::fake(['api.test/api/v1/user/bank-details' => Http::response(profileItem('bank_details', '9', [
         'name_on_account' => 'A Lovelace',
         'sort_code' => '12-34-56',
         'account_number' => '****5678',

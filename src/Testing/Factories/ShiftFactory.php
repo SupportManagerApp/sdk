@@ -54,6 +54,15 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
      */
     public const string SLEEPOVER_SEGMENT_MESSAGE = 'This shift is part of a sleepover, which is applied for and retracted as a whole.';
 
+    /**
+     * The `HH:MM` wall-clock time of a shift timestamp, as a shift application's
+     * `start_time`/`end_time` carry it (ApplyForShiftAction stores `H:i`).
+     */
+    public static function clockTime(mixed $timestamp): ?string
+    {
+        return is_string($timestamp) && preg_match('/T(\d{2}:\d{2})/', $timestamp, $m) === 1 ? $m[1] : null;
+    }
+
     public function path(): string
     {
         return 'rota/shifts';
@@ -85,7 +94,6 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
             'tags' => [],
             'own_application_status' => null,
             'notes' => null,
-            'shift_applications_count' => 0,
             'user' => ['id' => 7, 'name' => "User {$number}", 'avatar' => 'https://example.test/avatar.png'],
             'created_at' => '2026-06-06T09:00:00Z',
             'updated_at' => '2026-06-06T09:00:00Z',
@@ -101,7 +109,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
      */
     public function today(): static
     {
-        return $this->state(['is_today' => true]);
+        return $this->state(['_today' => true]);
     }
 
     /**
@@ -109,7 +117,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
      */
     public function upcoming(): static
     {
-        return $this->state(['is_upcoming' => true]);
+        return $this->state(['_upcoming' => true]);
     }
 
     /**
@@ -120,7 +128,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
         return $this->state([
             'is_available' => true,
             'user' => null,
-            'shift_applications_count' => 0,
+            '_applications_count' => 0,
             'meta' => [
                 'can' => ['apply' => true, 'request_amendment' => false],
                 'cannot_apply_reason' => null,
@@ -196,7 +204,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
 
                 $records = array_slice(array_values(array_filter(
                     $store->all('rota/shifts'),
-                    static fn (array $r): bool => (bool) ($r['is_upcoming'] ?? false),
+                    static fn (array $r): bool => (bool) ($r['_upcoming'] ?? false),
                 )), 0, $limit);
 
                 // Never paginated: the whole answer is the one body.
@@ -211,17 +219,21 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
             FakeRoute::get('rota/shifts/today', static function (RecordStore $store): mixed {
                 $records = array_values(array_filter(
                     $store->all('rota/shifts'),
-                    static fn (array $r): bool => (bool) ($r['is_today'] ?? false),
+                    static fn (array $r): bool => (bool) ($r['_today'] ?? false),
                 ));
 
                 return Http::response(Json::collection('rota-entries', $records));
             }),
 
             FakeRoute::get('rota/shifts/available', static function (RecordStore $store): mixed {
-                $records = array_values(array_filter(
-                    $store->all('rota/shifts'),
-                    static fn (array $r): bool => (bool) ($r['is_available'] ?? false),
-                ));
+                // Only this endpoint counts applications (withCount for privileged users).
+                $records = array_map(
+                    static fn (array $r): array => [...$r, 'shift_applications_count' => $r['_applications_count'] ?? 0],
+                    array_values(array_filter(
+                        $store->all('rota/shifts'),
+                        static fn (array $r): bool => (bool) ($r['is_available'] ?? false),
+                    )),
+                );
 
                 return Http::response(Json::collection('rota-entries', $records));
             }),
@@ -241,10 +253,10 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                     'id' => $store->nextId('rota/shift-applications'),
                     'team_id' => 42,
                     'status' => 'Pending',
-                    'start_time' => $shift['start'] ?? null,
-                    'end_time' => $shift['end'] ?? null,
+                    'start_time' => self::clockTime($shift['start'] ?? null),
+                    'end_time' => self::clockTime($shift['end'] ?? null),
                     'user' => ['id' => 7, 'name' => 'Applicant'],
-                    'rota_entry' => ['id' => (string) $shift['id'], 'attributes' => $shift],
+                    'rota_entry' => Json::nested('rota-entries', $shift),
                     'reviewed_by' => null,
                     'created_at' => '2026-06-06T09:00:00Z',
                     'updated_at' => '2026-06-06T09:00:00Z',

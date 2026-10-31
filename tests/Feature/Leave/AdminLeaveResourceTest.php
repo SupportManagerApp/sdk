@@ -133,7 +133,7 @@ it('creates an admin entitlement', function () {
     ], 201)]);
     bootTenantSession();
 
-    $entitlement = leaveAdmin()->createEntitlement(['user_id' => 3, 'hours_holiday' => 100.0]);
+    $entitlement = leaveAdmin()->createEntitlement(['user_id' => 3, 'leave_year_start' => '2026-04-01', 'hours_holiday' => 100.0]);
 
     expect($entitlement->id)->toBe('6')
         ->and($entitlement->hoursHoliday)->toBe(100.0);

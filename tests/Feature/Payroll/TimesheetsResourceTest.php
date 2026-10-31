@@ -95,9 +95,10 @@ it('returns null when finding a missing timesheet (404)', function () {
 });
 
 it('maps a 422 on the timesheets path to a validation exception', function () {
+    // The only 422 this index returns is SetApiTenant's missing/invalid team
+    // response, which carries a message and no field errors.
     Http::fake(['api.test/api/v1/payroll/timesheets*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The status filter is invalid.']],
+        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
     ], 422)]);
     bootTenantSession();
 
@@ -105,12 +106,13 @@ it('maps a 422 on the timesheets path to a validation exception', function () {
         payrollTimesheets()->query()->filter('status', 'nope')->get();
         test()->fail('Expected ApiValidationException');
     } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The status filter is invalid.');
+        expect($e->getMessage())->toContain('Invalid or missing team')
+            ->and($e->errors)->toBe([]);
     }
 });
 
 it('downloads a timesheet PDF as a raw response', function () {
-    Http::fake(['api.test/api/v1/payroll/timesheets/3/download' => Http::response('%PDF-1.4 timesheet-bytes', 200)]);
+    Http::fake(['api.test/api/v1/payroll/timesheets/3/download' => Http::response('%PDF-1.4 timesheet-bytes', 200, ['Content-Type' => 'application/pdf'])]);
     bootTenantSession();
 
     $response = payrollTimesheets()->download(3);

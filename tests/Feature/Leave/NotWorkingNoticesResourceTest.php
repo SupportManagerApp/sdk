@@ -74,9 +74,11 @@ it('lists notices with the show filter and hydrates DTOs', function () {
 });
 
 it('ignores a duration type or status it does not recognise', function () {
-    Http::fake(['api.test/api/v1/leave/not-working*' => Http::response([
-        'data' => [notWorkingNotice('12', ['duration_type' => 'Half Days', 'status' => 'Paused', 'shifts_needing_cover_count' => null])],
-    ])]);
+    $notice = notWorkingNotice('12', ['duration_type' => 'Half Days', 'status' => 'Paused']);
+    // whenCounted() leaves the count out entirely when it was not loaded.
+    unset($notice['attributes']['shifts_needing_cover_count']);
+
+    Http::fake(['api.test/api/v1/leave/not-working*' => Http::response(['data' => [$notice]])]);
     bootTenantSession();
 
     $notice = notWorkingNotices()->all()->items()[0];

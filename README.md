@@ -168,3 +168,82 @@ actions and flat (non-JSON:API) endpoints are described by the factory itself
 composer install
 vendor/bin/pest
 ```
+
+## Contract tests
+
+Every request the SDK sends in a test, and every response it gets back, is
+checked against the platform's OpenAPI spec. That covers both `Http::fake()`
+in resource tests and the `SupportManager::fake()` factories. The spec is
+vendored at `tests/Contract/openapi.yaml`, and its header names the platform
+commit it came from. The check runs in `tests/TestCase.php`
+(`assertPostConditions`) over the exchanges Laravel recorded, so no test has to
+opt in. A mismatch fails the test with the operation, the status, the JSON
+pointer and the schema error:
+
+```
+GET /rota/shifts → 200 response: at /data/0/attributes: Keyword validation failed: Data has additional properties (driver_name) which are not allowed
+```
+
+The validator is `league/openapi-psr7-validator`, and it is strict. Every
+object schema that lists `properties` is closed (`additionalProperties: false`),
+so a field the spec doesn't list fails, and so does an undocumented query
+parameter. A request to a path or method the spec doesn't have also fails.
+
+Error responses are checked against the schema the operation documents for
+that status. Where the spec doesn't document a 4xx or 5xx, the body must be a
+plain Laravel error, `{message, errors?}`. A 5xx with a non-JSON body (a proxy
+or gateway page) is not checked. When a request gets a 400 or 422, the test
+sent invalid input on purpose, so only the response is checked. URLs outside
+`/api/v1/`, such as avatar CDNs or signed S3 links, are not checked.
+
+### Re-syncing the spec
+
+```bash
+composer sync-openapi -- /path/to/Platform     # or set SUPPORTMANAGER_PLATFORM_PATH
+vendor/bin/pest
+```
+
+### When a check fails
+
+Read the platform code (its routes, controllers and API Resources). The
+platform code is the source of truth, not the spec. Then pick one of these:
+
+1. **The fixture is wrong.** Fix the test's fake body or the factory in
+   `src/Testing/Factories`. This is the usual case.
+2. **The spec is wrong.** Add an entry to `tests/Contract/spec-exceptions.php`.
+3. **The SDK is wrong.** Correcting the fixture makes the SDK misbehave. Add an
+   entry to `tests/Contract/known-sdk-bugs.php` so the suite stays green, and
+   fix the SDK.
+
+An entry in either list patches one operation's schema at one place:
+
+```php
+[
+    'operation' => 'GET /rota/shift-applications',
+    'in' => 200,                                  // a status, or 'request', 'query', 'path'
+    'pointer' => '/data/*/attributes/is_provisional', // `*` = every array item; '/<name>' for a parameter
+    'schema' => ['type' => 'boolean'],            // and/or 'nullable' => true, 'optional' => true
+    'reason' => 'ShiftApplicationResource sends it; the spec omits it.',
+],
+```
+
+A known-SDK-bugs entry with `'missing' => true` (plus `operation` and
+`reason`) names an endpoint the SDK calls that the platform doesn't have.
+
+The check follows Laravel's request handling: a multipart POST carrying
+`_method` counts as the spoofed method, a multipart-only operation also takes
+JSON, and `''` stands in for null in a form field.
+
+Keep entries narrow and the lists short. The suite reports any entry that no
+exchange needs any more, for example once the platform's spec is fixed and
+re-synced. Remove those entries.
+
+### API coverage
+
+`tests/Contract/CoverageTest.php` records the operations the suite actually
+calls, so paths built with string interpolation are counted too. It fails on
+any spec operation that nothing calls, unless that operation is listed with a
+reason in `tests/Contract/unwrapped-operations.php`. After a re-sync, it lists
+exactly the platform's new endpoints. Run `composer coverage:api` for the full
+report. Coverage needs the whole suite in one process, so it skips on filtered
+or `--parallel` runs.

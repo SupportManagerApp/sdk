@@ -168,20 +168,20 @@ it('runs the pay-enhancement CRUD lifecycle', function () {
     $found = SupportManager::payEnhancements()->find(1);
     assert($found instanceof PayEnhancement);
 
-    expect(SupportManager::payEnhancements()->all()->total())->toBe(2)
+    expect(SupportManager::payEnhancements()->all()->items())->toHaveCount(2)
         ->and($found->name)->toBe('Enhancement 1');
 
-    $created = SupportManager::payEnhancements()->create(['name' => 'Bank Holiday', 'enhancement_factor' => '1.00']);
+    $created = SupportManager::payEnhancements()->create(['name' => 'Bank Holiday', 'enhancement_factor' => '1']);
     assert($created instanceof PayEnhancement);
     expect($created->name)->toBe('Bank Holiday')
-        ->and(SupportManager::payEnhancements()->all()->total())->toBe(3);
+        ->and(SupportManager::payEnhancements()->all()->items())->toHaveCount(3);
 
     $updated = SupportManager::payEnhancements()->update($created->id, ['name' => 'Renamed']);
     assert($updated instanceof PayEnhancement);
     expect($updated->name)->toBe('Renamed');
 
     SupportManager::payEnhancements()->destroy($created->id);
-    expect(SupportManager::payEnhancements()->all()->total())->toBe(2);
+    expect(SupportManager::payEnhancements()->all()->items())->toHaveCount(2);
 });
 
 // ── Estimated pay (flat singleton) ──────────────────────────────────────────

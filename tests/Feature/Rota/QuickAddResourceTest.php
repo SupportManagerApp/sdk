@@ -67,7 +67,7 @@ it('submits text with the timezone and returns the pending token', function () {
 
 it('omits the timezone when none is given', function () {
     Http::fake(['api.test/api/v1/rota/quick-add/parse' => Http::response([
-        'data' => ['token' => 'abc', 'status' => 'pending', 'expires_in' => 300],
+        'data' => ['token' => '9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12', 'status' => 'pending', 'expires_in' => 300],
     ], 202)]);
     bootTenantSession();
 
@@ -96,10 +96,10 @@ it('throws an api exception when the parse is throttled', function () {
 });
 
 it('polls a pending parse', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/abc' => Http::response(['data' => ['status' => 'pending']])]);
+    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response(['data' => ['status' => 'pending']])]);
     bootTenantSession();
 
-    $state = rotaQuickAdd()->poll('abc');
+    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
 
     expect($state->isPending())->toBeTrue()
         ->and($state->isCompleted())->toBeFalse()
@@ -108,12 +108,12 @@ it('polls a pending parse', function () {
 });
 
 it('polls a completed parse and hydrates the full result', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/abc' => Http::response([
+    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response([
         'data' => ['status' => 'completed', 'result' => rotaQuickAddResult()],
     ])]);
     bootTenantSession();
 
-    $state = rotaQuickAdd()->poll('abc');
+    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
     $result = $state->result;
 
     expect($state->isCompleted())->toBeTrue()
@@ -131,12 +131,12 @@ it('polls a completed parse and hydrates the full result', function () {
 });
 
 it('polls a failed parse and carries the hint', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/abc' => Http::response([
+    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response([
         'data' => ['status' => 'failed', 'hint' => "We couldn't read that. Try again, or enter the details yourself."],
     ])]);
     bootTenantSession();
 
-    $state = rotaQuickAdd()->poll('abc');
+    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
 
     expect($state->isFailed())->toBeTrue()
         ->and($state->result)->toBeNull()
@@ -144,12 +144,12 @@ it('polls a failed parse and carries the hint', function () {
 });
 
 it('tolerates a status and intent it does not recognise', function () {
-    Http::fake(['api.test/api/v1/rota/quick-add/parse/abc' => Http::response([
+    Http::fake(['api.test/api/v1/rota/quick-add/parse/9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12' => Http::response([
         'data' => ['status' => 'queued', 'result' => rotaQuickAddResult(['intent' => 'reminder'])],
     ])]);
     bootTenantSession();
 
-    $state = rotaQuickAdd()->poll('abc');
+    $state = rotaQuickAdd()->poll('9b2f6c1e-4d7a-4f2b-8e1a-3c5d7e9f0a12');
 
     expect($state->status)->toBeNull()
         ->and($state->isPending())->toBeFalse()

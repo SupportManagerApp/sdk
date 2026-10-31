@@ -43,8 +43,20 @@ final class EstimatedPayFactory extends Factory implements ProvidesFakeRoutes
             'year' => 2026,
             'month' => 6,
             'month_label' => 'June 2026',
-            'hours' => ['total_value' => 150.0, 'total_cost' => 2250.0],
-            'sleeps' => ['total_value' => 4.0, 'total_cost' => 200.0],
+            'hours' => [
+                'total_value' => 150.0,
+                'total_cost' => 2250.0,
+                'breakdown' => [
+                    ['type' => 'Contracted Hours', 'total_payroll_value' => 150.0, 'total_cost' => 2250.0],
+                ],
+            ],
+            'sleeps' => [
+                'total_value' => 4.0,
+                'total_cost' => 200.0,
+                'breakdown' => [
+                    ['type' => 'Contracted Sleeping Night', 'total_payroll_value' => 4.0, 'total_cost' => 200.0],
+                ],
+            ],
             'enhancements' => [
                 ['type' => 'Bank Holiday', 'total_value' => 8.0, 'total_cost' => 120.0],
             ],

@@ -23,7 +23,6 @@ function rotaShiftPage(int $page, int $lastPage): array
             'type' => 'rota-entries',
             'id' => (string) $page,
             'attributes' => [
-                'driver_name' => null,
                 'type' => 'Contracted Hours',
                 'type_label' => 'Contracted Hours',
                 'start' => '2026-06-06T09:00:00Z',
@@ -46,7 +45,6 @@ it('encodes Spatie-style query params and tenant header', function () {
     rotaShifts()->query()
         ->filter('mode', 'available')
         ->sort('start')
-        ->include('user')
         ->perPage(25)
         ->get();
 
@@ -55,7 +53,6 @@ it('encodes Spatie-style query params and tenant header', function () {
 
         return str_contains($url, 'filter[mode]=available')
             && str_contains($url, 'sort=start')
-            && str_contains($url, 'include=user')
             && str_contains($url, 'per_page=25')
             && $request->hasHeader('X-Team-ID', '42');
     });

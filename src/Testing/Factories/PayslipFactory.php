@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -29,6 +31,8 @@ use SupportManager\Sdk\Testing\RecordStore;
  */
 final class PayslipFactory extends Factory implements ProvidesFakeRoutes
 {
+    private const array SHOW_ONLY_KEYS = ['payments', 'deductions', 'period_totals', 'ytd_totals', 'employer'];
+
     public function path(): string
     {
         return 'payroll/payslips';
@@ -101,14 +105,49 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // The platform's index eager-loads only the user, so the line-item
+            // relations and the show-only employer block are absent
+            // (PayslipController::index, PayslipResource::whenLoaded()).
+            FakeRoute::get('payroll/payslips', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $filters = $fake->query($request)['filter'] ?? [];
+
+                $records = array_values(array_filter(
+                    $store->all('payroll/payslips'),
+                    static function (array $record) use ($filters): bool {
+                        foreach (is_array($filters) ? $filters : [] as $key => $value) {
+                            if ((string) ($record[$key] ?? '') !== (string) $value) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    },
+                ));
+
+                $rows = array_map(
+                    static fn (array $record): array => array_diff_key(self::attributes($record), array_flip(self::SHOW_ONLY_KEYS)),
+                    $records,
+                );
+
+                return $fake->paginate('payroll/payslips', 'payslips', $rows, $request, ['team_id' => 42]);
+            }),
+
             FakeRoute::get('payroll/payslips/latest', static function (RecordStore $store): mixed {
                 foreach ($store->all('payroll/payslips') as $record) {
                     if ($record['is_latest'] ?? false) {
-                        return Http::response(Json::item('payslips', $record));
+                        return Http::response(Json::item('payslips', self::attributes($record)));
                     }
                 }
 
                 return Http::response(['data' => null]);
+            }),
+
+            FakeRoute::get('payroll/payslips/{id}', static function (RecordStore $store, array $matches): mixed {
+                $record = $store->find('payroll/payslips', $matches[1]);
+
+                return $record === null
+                    ? Http::response(['message' => 'Not found'], 404)
+                    : Http::response(Json::item('payslips', self::attributes($record)));
             }),
 
             FakeRoute::get('payroll/payslips/{id}/download', static function (RecordStore $store, array $matches): mixed {
@@ -119,5 +158,19 @@ final class PayslipFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response('%PDF-1.4 payslip-bytes', 200, ['Content-Type' => 'application/pdf']);
             }),
         ];
+    }
+
+    /**
+     * The record as the platform serialises it: without the fake-only
+     * `is_latest` marker.
+     *
+     * @param  array<string, mixed>  $record
+     * @return array<string, mixed>
+     */
+    private static function attributes(array $record): array
+    {
+        unset($record['is_latest']);
+
+        return $record;
     }
 }

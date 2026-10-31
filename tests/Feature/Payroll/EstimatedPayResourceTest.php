@@ -19,8 +19,20 @@ function payrollEstimatedPayBody(): array
             'year' => 2026,
             'month' => 6,
             'month_label' => 'June 2026',
-            'hours' => ['total_value' => 150.0, 'total_cost' => 2250.0],
-            'sleeps' => ['total_value' => 4.0, 'total_cost' => 200.0],
+            'hours' => [
+                'total_value' => 150.0,
+                'total_cost' => 2250.0,
+                'breakdown' => [
+                    ['type' => 'Contracted Hours', 'total_payroll_value' => 150.0, 'total_cost' => 2250.0],
+                ],
+            ],
+            'sleeps' => [
+                'total_value' => 4.0,
+                'total_cost' => 200.0,
+                'breakdown' => [
+                    ['type' => 'Contracted Sleeping Night', 'total_payroll_value' => 4.0, 'total_cost' => 200.0],
+                ],
+            ],
             'enhancements' => [
                 ['type' => 'Bank Holiday', 'total_value' => 8.0, 'total_cost' => 120.0],
             ],
@@ -28,7 +40,15 @@ function payrollEstimatedPayBody(): array
             'gross_pay' => 2570.0,
             'net_pay' => 2100.0,
             'deductions_total' => 470.0,
-            'deductions' => ['income_tax' => 300.5, 'national_insurance' => 170.0],
+            'deductions' => [
+                'income_tax' => 300.5,
+                'national_insurance' => 170.0,
+                'pension' => 0.0,
+                'student_loan' => 0.0,
+                'postgraduate_loan' => 0.0,
+                'corrections' => [],
+                'earnings_orders' => [],
+            ],
         ],
         'meta' => ['team_id' => 42],
     ];
@@ -63,11 +83,25 @@ it('fetches the estimated-pay projection and passes year/month/user_id', functio
     });
 });
 
-it('returns null when the estimate has no net-pay breakdown data', function () {
-    Http::fake(['api.test/api/v1/payroll/estimated-pay*' => Http::response(['data' => null, 'meta' => ['team_id' => 42]])]);
+it('leaves the net-pay fields null when the estimate has no net-pay breakdown data', function () {
+    // The platform always sends a projection; with no tax code configured the
+    // gross/net/deductions fields are null (EstimatedPayResource::toArray()).
+    $body = payrollEstimatedPayBody();
+    $body['data']['gross_pay'] = null;
+    $body['data']['net_pay'] = null;
+    $body['data']['deductions_total'] = null;
+    $body['data']['deductions'] = null;
+
+    Http::fake(['api.test/api/v1/payroll/estimated-pay*' => Http::response($body)]);
     bootTenantSession();
 
-    expect(payrollEstimatedPay()->show())->toBeNull();
+    $estimate = payrollEstimatedPay()->show();
+
+    expect($estimate)->toBeInstanceOf(EstimatedPay::class)
+        ->and($estimate?->grossPay)->toBeNull()
+        ->and($estimate?->netPay)->toBeNull()
+        ->and($estimate?->deductionsTotal)->toBeNull()
+        ->and($estimate?->deductions)->toBeNull();
 });
 
 it('maps a server error on the estimated-pay path to an api exception', function () {

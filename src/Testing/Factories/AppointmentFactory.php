@@ -97,7 +97,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
      */
     public function upcoming(): static
     {
-        return $this->state(['is_upcoming' => true]);
+        return $this->state(['_upcoming' => true]);
     }
 
     public function fakeRoutes(): array
@@ -188,7 +188,7 @@ final class AppointmentFactory extends Factory implements ProvidesFakeRoutes
             FakeRoute::get('rota/appointments/upcoming', static function (RecordStore $store): mixed {
                 $records = array_values(array_filter(
                     $store->all('rota/appointments'),
-                    static fn (array $r): bool => (bool) ($r['is_upcoming'] ?? false),
+                    static fn (array $r): bool => (bool) ($r['_upcoming'] ?? false),
                 ));
 
                 return Http::response(Json::collection('appointments', $records));
