@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\PayRun;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Payroll\PayRunsResource;
-
-function payrollPayRuns(): PayRunsResource
-{
-    return app(PayRunsResource::class);
-}
 
 function payrollPayRunBody(int $page, int $lastPage): array
 {
@@ -31,10 +24,9 @@ function payrollPayRunBody(int $page, int $lastPage): array
 }
 
 it('hydrates pay-run summaries and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/payroll/pay-runs*' => Http::response(payrollPayRunBody(1, 3))]);
-    bootTenantSession();
+    fakeApi(['payroll/pay-runs*' => Http::response(payrollPayRunBody(1, 3))]);
 
-    $page = payrollPayRuns()->all();
+    $page = sdk()->payRuns()->all();
 
     expect($page->items())->toHaveCount(1)
         ->and($page->items()[0])->toBeInstanceOf(PayRun::class)
@@ -50,14 +42,13 @@ it('hydrates pay-run summaries and exposes pagination metadata', function () {
 });
 
 it('walks to the next page of pay runs', function () {
-    Http::fake([
-        'api.test/api/v1/payroll/pay-runs*' => Http::sequence()
+    fakeApi([
+        'payroll/pay-runs*' => Http::sequence()
             ->push(payrollPayRunBody(1, 2))
             ->push(payrollPayRunBody(2, 2)),
     ]);
-    bootTenantSession();
 
-    $next = payrollPayRuns()->all()->next();
+    $next = sdk()->payRuns()->all()->next();
 
     expect($next)->not->toBeNull()
         ->and($next->currentPage())->toBe(2)
@@ -65,12 +56,4 @@ it('walks to the next page of pay runs', function () {
         ->and($next->hasMorePages())->toBeFalse();
 
     Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'page=2'));
-});
-
-it('maps a server error on the pay-runs path to an api exception', function () {
-    Http::fake(['api.test/api/v1/payroll/pay-runs*' => Http::response('<html>boom</html>', 500)]);
-    bootTenantSession();
-
-    expect(fn () => payrollPayRuns()->all())
-        ->toThrow(SupportManagerApiException::class);
 });

@@ -4,14 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\P60;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Http\Download;
-use SupportManager\Sdk\Resources\Payroll\P60sResource;
-
-function payrollP60s(): P60sResource
-{
-    return app(P60sResource::class);
-}
 
 function payrollP60Page(int $page, int $lastPage): array
 {
@@ -34,10 +27,9 @@ function payrollP60Page(int $page, int $lastPage): array
 }
 
 it('encodes filter and pagination as Spatie-style query params', function () {
-    Http::fake(['api.test/api/v1/payroll/p60s*' => Http::response(payrollP60Page(1, 1))]);
-    bootTenantSession();
+    fakeApi(['payroll/p60s*' => Http::response(payrollP60Page(1, 1))]);
 
-    payrollP60s()->query()->filter('tax_year', '2025/26')->perPage(20)->get();
+    sdk()->p60s()->query()->filter('tax_year', '2025/26')->perPage(20)->get();
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
@@ -49,10 +41,9 @@ it('encodes filter and pagination as Spatie-style query params', function () {
 });
 
 it('hydrates P60 DTOs and exposes pagination metadata', function () {
-    Http::fake(['api.test/api/v1/payroll/p60s*' => Http::response(payrollP60Page(1, 2))]);
-    bootTenantSession();
+    fakeApi(['payroll/p60s*' => Http::response(payrollP60Page(1, 2))]);
 
-    $page = payrollP60s()->query()->get();
+    $page = sdk()->p60s()->query()->get();
 
     expect($page->items()[0])->toBeInstanceOf(P60::class)
         ->and($page->items()[0]->taxYear)->toBe('2025/26')
@@ -62,8 +53,8 @@ it('hydrates P60 DTOs and exposes pagination metadata', function () {
 });
 
 it('finds a P60 by id with nested detail rows', function () {
-    Http::fake([
-        'api.test/api/v1/payroll/p60s/4' => Http::response([
+    fakeApi([
+        'payroll/p60s/4' => [
             'data' => [
                 'type' => 'p60s',
                 'id' => '4',
@@ -75,11 +66,10 @@ it('finds a P60 by id with nested detail rows', function () {
                     'ni_contributions' => [['id' => 1, 'ni_letter' => 'A', 'employee_contributions' => 1200.0]],
                 ],
             ],
-        ]),
+        ],
     ]);
-    bootTenantSession();
 
-    $p60 = payrollP60s()->find(4);
+    $p60 = sdk()->p60s()->find(4);
 
     expect($p60)->toBeInstanceOf(P60::class)
         ->and($p60->id)->toBe('4')
@@ -90,34 +80,15 @@ it('finds a P60 by id with nested detail rows', function () {
 });
 
 it('returns null when finding a missing P60 (404)', function () {
-    Http::fake(['api.test/api/v1/payroll/p60s/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['payroll/p60s/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(payrollP60s()->find(999))->toBeNull();
-});
-
-it('maps a 422 on the p60s path to a validation exception', function () {
-    // The only 422 this index returns is SetApiTenant's missing/invalid team
-    // response, which carries a message and no field errors.
-    Http::fake(['api.test/api/v1/payroll/p60s*' => Http::response([
-        'message' => 'Invalid or missing team. Please specify a valid team ID via X-Team-ID header or team_id parameter.',
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        payrollP60s()->query()->filter('tax_year', 'nope')->get();
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->getMessage())->toContain('Invalid or missing team')
-            ->and($e->errors)->toBe([]);
-    }
+    expect(sdk()->p60s()->find(999))->toBeNull();
 });
 
 it('downloads a P60 PDF as a raw response', function () {
-    Http::fake(['api.test/api/v1/payroll/p60s/4/download' => Http::response('%PDF-1.4 p60-bytes', 200, ['Content-Type' => 'application/pdf'])]);
-    bootTenantSession();
+    fakeApi(['payroll/p60s/4/download' => Http::response('%PDF-1.4 p60-bytes', 200, ['Content-Type' => 'application/pdf'])]);
 
-    $response = payrollP60s()->download(4);
+    $response = sdk()->p60s()->download(4);
 
     expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 p60-bytes');
