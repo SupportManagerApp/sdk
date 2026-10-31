@@ -101,3 +101,16 @@ it('returns the raw download payload response', function () {
     expect($response->url)->toBe('https://s3.test/signed/7.pdf')
         ->and($response->filename)->toBe('NDA');
 });
+
+it('reads the first page of documents with all()', function () {
+    fakeApi(['documents/documents*' => Http::response(documentsPage(1, 2))]);
+
+    $page = sdk()->documents()->all();
+
+    expect($page->items())->toHaveCount(1)
+        ->and($page->items()[0])->toBeInstanceOf(Document::class)
+        ->and($page->items()[0]->name)->toBe('Document 1')
+        ->and($page->hasMorePages())->toBeTrue();
+
+    assertSentTo('GET', 'documents/documents', fn ($request) => $request->hasHeader('X-Team-ID', '42'));
+});

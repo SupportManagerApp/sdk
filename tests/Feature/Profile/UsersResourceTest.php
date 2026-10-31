@@ -49,6 +49,20 @@ it('forwards search and sort filters as query params', function () {
     });
 });
 
+it('reads the first page of the directory, with its pagination, from all()', function () {
+    fakeApi(['users*' => Http::response(profileDirectoryPage())]);
+
+    $page = sdk()->users()->all();
+
+    expect($page->items())->toHaveCount(2)
+        ->and($page->items()[0])->toBeInstanceOf(DirectoryUser::class)
+        ->and($page->items()[1]->name)->toBe('Grace')
+        ->and($page->total())->toBe(2)
+        ->and($page->hasMorePages())->toBeFalse();
+
+    assertSentTo('GET', 'users', fn ($request) => $request->hasHeader('X-Team-ID', '42'));
+});
+
 it('finds a single directory user by id', function () {
     fakeApi(['users/2' => [
         'data' => ['type' => 'users', 'id' => '2', 'attributes' => [
