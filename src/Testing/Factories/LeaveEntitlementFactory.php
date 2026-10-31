@@ -27,7 +27,7 @@ final class LeaveEntitlementFactory extends Factory
 
     public function type(): string
     {
-        return 'leave-entitlements';
+        return 'leave_entitlements';
     }
 
     public function definition(int $index): array

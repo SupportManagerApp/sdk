@@ -14,7 +14,7 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake pay enhancements — named rate multipliers.
  *
- * A JSON:API collection (type `pay-enhancements`) with full CRUD. Find, create,
+ * A JSON:API collection (type `pay_enhancements`) with full CRUD. Find, create,
  * update and delete come from the generic REST machinery; the index is a custom
  * route because the platform returns every enhancement, ordered by name, as a
  * plain (non-paginated) collection with only `meta.team_id`
@@ -34,7 +34,7 @@ final class PayEnhancementFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'pay-enhancements';
+        return 'pay_enhancements';
     }
 
     public function definition(int $index): array
@@ -59,7 +59,7 @@ final class PayEnhancementFactory extends Factory implements ProvidesFakeRoutes
 
                 usort($records, static fn (array $a, array $b): int => strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
 
-                return Http::response(Json::collection('pay-enhancements', $records, ['team_id' => 42]));
+                return Http::response(Json::collection('pay_enhancements', $records, ['team_id' => 42]));
             }),
         ];
     }

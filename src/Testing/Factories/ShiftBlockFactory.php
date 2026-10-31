@@ -42,6 +42,11 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
         return 'rota/shift-blocks';
     }
 
+    /**
+     * The platform never serialises a shift block itself (its endpoints answer
+     * flat bodies or shift applications), so this only names the store's
+     * JSON:API dialect, after Laravel's default for a `ShiftBlockResource`.
+     */
     public function type(): string
     {
         return 'shift_blocks';
@@ -114,7 +119,7 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
                         'start_time' => $position === 0 && $startTime !== null ? $startTime : ShiftFactory::clockTime($shift['start'] ?? null),
                         'end_time' => ShiftFactory::clockTime($shift['end'] ?? null),
                         'user' => ['id' => 7, 'name' => 'Applicant'],
-                        'rota_entry' => Json::nested('rota-entries', $shift),
+                        'rota_entry' => Json::nested('rota_entries', $shift),
                         'reviewed_by' => null,
                         'created_at' => '2026-06-06T09:00:00Z',
                         'updated_at' => '2026-06-06T09:00:00Z',
@@ -124,7 +129,7 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
                 $count = count($applications);
 
                 return Http::response([
-                    ...Json::collection('shift-applications', $applications),
+                    ...Json::collection('shift_applications', $applications),
                     'message' => "Your application for the sleepover ({$count} parts) has been submitted for review.",
                     'meta' => ['team_id' => 42],
                 ], 201);

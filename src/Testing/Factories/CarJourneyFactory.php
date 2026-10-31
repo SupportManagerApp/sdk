@@ -42,7 +42,7 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'car-journeys';
+        return 'car_journeys';
     }
 
     public function definition(int $index): array
@@ -123,7 +123,7 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     ...self::journeyAttributes($request->data()),
                 ]);
 
-                return Http::response(Json::item('car-journeys', $created), 201);
+                return Http::response(Json::item('car_journeys', $created), 201);
             }),
 
             // Like the platform's UpdateCarJourneyRequest, an edit resends the
@@ -133,13 +133,13 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
 
                 return $updated === null
                     ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('car-journeys', $updated));
+                    : Http::response(Json::item('car_journeys', $updated));
             }),
 
             FakeRoute::get('car-journeys/ongoing', static function (RecordStore $store): mixed {
                 foreach ($store->all('car-journeys') as $record) {
                     if ($record['is_ongoing'] ?? false) {
-                        return Http::response(Json::item('car-journeys', $record));
+                        return Http::response(Json::item('car_journeys', $record));
                     }
                 }
 
@@ -164,7 +164,7 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
                     'duration_minutes' => null,
                 ]);
 
-                return Http::response(Json::item('car-journeys', $started), 201);
+                return Http::response(Json::item('car_journeys', $started), 201);
             }),
 
             FakeRoute::patch('car-journeys/{id}/finish', static function (RecordStore $store, array $matches): mixed {
@@ -176,7 +176,7 @@ final class CarJourneyFactory extends Factory implements ProvidesFakeRoutes
 
                 return $finished === null
                     ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('car-journeys', $finished));
+                    : Http::response(Json::item('car_journeys', $finished));
             }),
         ];
     }

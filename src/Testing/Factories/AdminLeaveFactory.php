@@ -163,14 +163,14 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
                 /** @var list<array<string, mixed>> $adjustments */
                 $adjustments = self::bag($store)['adjustments'] ?? [];
 
-                return $fake->paginate('leave/admin/adjustments', 'manual-adjustments', array_values($adjustments), $request);
+                return $fake->paginate('leave/admin/adjustments', 'manual_adjustments', array_values($adjustments), $request);
             }),
 
             FakeRoute::get('leave/admin/entitlements', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 /** @var list<array<string, mixed>> $entitlements */
                 $entitlements = self::bag($store)['entitlements'] ?? [];
 
-                return $fake->paginate('leave/admin/entitlements', 'leave-entitlements', array_values($entitlements), $request);
+                return $fake->paginate('leave/admin/entitlements', 'leave_entitlements', array_values($entitlements), $request);
             }),
 
             FakeRoute::post('leave/admin/entitlements', static function (RecordStore $store, array $matches, Request $request): mixed {
@@ -178,7 +178,7 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
 
                 self::appendKind($store, 'entitlements', $record);
 
-                return Http::response(Json::item('leave-entitlements', $record), 201);
+                return Http::response(Json::item('leave_entitlements', $record), 201);
             }),
 
             FakeRoute::put('leave/admin/entitlements/{id}', static function (RecordStore $store, array $matches, Request $request): mixed {
@@ -197,7 +197,7 @@ final class AdminLeaveFactory extends Factory implements ProvidesFakeRoutes
                     ARRAY_FILTER_USE_BOTH,
                 )];
 
-                return Http::response(Json::item('leave-entitlements', $record));
+                return Http::response(Json::item('leave_entitlements', $record));
             }),
 
             FakeRoute::delete('leave/admin/entitlements/{id}', static fn (): mixed => Http::response(['message' => 'Deleted'])),

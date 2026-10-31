@@ -32,7 +32,7 @@ final class ShoppingListItemFactory extends Factory implements ProvidesFakeRoute
 
     public function type(): string
     {
-        return 'shopping-list';
+        return 'shopping_list_items';
     }
 
     public function definition(int $index): array
@@ -86,7 +86,7 @@ final class ShoppingListItemFactory extends Factory implements ProvidesFakeRoute
                     'needs_purchasing' => ! ($record['needs_purchasing'] ?? false),
                 ]);
 
-                return Http::response(Json::item('shopping-list', $toggled ?? $record));
+                return Http::response(Json::item('shopping_list_items', $toggled ?? $record));
             }),
         ];
     }

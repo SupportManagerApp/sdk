@@ -35,7 +35,7 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
 
     public function type(): string
     {
-        return 'shift-applications';
+        return 'shift_applications';
     }
 
     public function definition(int $index): array
@@ -48,7 +48,7 @@ final class ShiftApplicationFactory extends Factory implements ProvidesFakeRoute
             'start_time' => '09:00',
             'end_time' => '17:00',
             'user' => ['id' => 7, 'name' => "Applicant {$number}"],
-            'rota_entry' => Json::nested('rota-entries', ['id' => (string) $number, 'type' => 'Contracted Hours', 'duration' => 8.0]),
+            'rota_entry' => Json::nested('rota_entries', ['id' => (string) $number, 'type' => 'Contracted Hours', 'duration' => 8.0]),
             'reviewed_by' => null,
             'created_at' => '2026-06-06T09:00:00Z',
             'updated_at' => '2026-06-06T09:00:00Z',

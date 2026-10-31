@@ -16,7 +16,7 @@ use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
 /**
- * Fake rota shifts (the platform's `rota-entries`).
+ * Fake rota shifts (the platform's `rota_entries`).
  *
  * Generic CRUD (list, find, update, delete) comes for free from the resource
  * path; this factory adds the module's read feeds — {@see today()}'s shifts,
@@ -70,7 +70,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'rota-entries';
+        return 'rota_entries';
     }
 
     public function definition(int $index): array
@@ -195,7 +195,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                     'updated_at' => '2026-06-06T09:00:00Z',
                 ]);
 
-                return Http::response(Json::item('rota-entries', $shift), 201);
+                return Http::response(Json::item('rota_entries', $shift), 201);
             }),
 
             FakeRoute::get('rota/shifts/upcoming', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
@@ -208,7 +208,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 )), 0, $limit);
 
                 // Never paginated: the whole answer is the one body.
-                return Http::response(['data' => Json::collection('rota-entries', $records)['data'], 'meta' => [
+                return Http::response(['data' => Json::collection('rota_entries', $records)['data'], 'meta' => [
                     'team_id' => 42,
                     'mode' => in_array($query['mode'] ?? null, ['scheduled', 'team', 'available'], true) ? $query['mode'] : 'scheduled',
                     'days' => max(1, min((int) ($query['days'] ?? 2), 30)),
@@ -222,7 +222,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                     static fn (array $r): bool => (bool) ($r['_today'] ?? false),
                 ));
 
-                return Http::response(Json::collection('rota-entries', $records));
+                return Http::response(Json::collection('rota_entries', $records));
             }),
 
             FakeRoute::get('rota/shifts/available', static function (RecordStore $store): mixed {
@@ -235,7 +235,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                     )),
                 );
 
-                return Http::response(Json::collection('rota-entries', $records));
+                return Http::response(Json::collection('rota_entries', $records));
             }),
 
             FakeRoute::post('rota/shifts/{id}/apply', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
@@ -256,7 +256,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                     'start_time' => self::clockTime($shift['start'] ?? null),
                     'end_time' => self::clockTime($shift['end'] ?? null),
                     'user' => ['id' => 7, 'name' => 'Applicant'],
-                    'rota_entry' => Json::nested('rota-entries', $shift),
+                    'rota_entry' => Json::nested('rota_entries', $shift),
                     'reviewed_by' => null,
                     'created_at' => '2026-06-06T09:00:00Z',
                     'updated_at' => '2026-06-06T09:00:00Z',
@@ -265,7 +265,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 $store->append('rota/shift-applications', $application);
                 $store->update('rota/shifts', (string) $shift['id'], ['own_application_status' => 'Pending']);
 
-                return Http::response(Json::collection('shift-applications', [$application]), 201);
+                return Http::response(Json::collection('shift_applications', [$application]), 201);
             }),
 
             FakeRoute::post('rota/shifts/{id}/amendment-requests', static function (RecordStore $store, array $matches, Request $request): mixed {

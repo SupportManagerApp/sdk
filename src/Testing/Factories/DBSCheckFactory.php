@@ -17,7 +17,8 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake DBS (Disclosure and Barring Service) checks.
  *
- * JSON:API collection (`dbs-checks`), so generic GET list/find come for free
+ * JSON:API collection (`d_b_s_checks`, Laravel's default type for the
+ * platform's `DBSCheckResource`), so generic GET list/find come for free
  * from the resource path. This factory adds the employee's multipart
  * {@see \SupportManager\Sdk\Resources\Compliance\DBSChecksResource::submit()}
  * and the flat certificate download. States cover the obvious outcomes
@@ -48,7 +49,7 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'dbs-checks';
+        return 'd_b_s_checks';
     }
 
     public function definition(int $index): array
@@ -117,7 +118,7 @@ final class DBSCheckFactory extends Factory implements ProvidesFakeRoutes
                     ], 422);
                 }
 
-                return self::saveOwnRecord($store, 'compliance/dbs-checks', 'dbs-checks', $own, [
+                return self::saveOwnRecord($store, 'compliance/dbs-checks', 'd_b_s_checks', $own, [
                     // The platform stores the date and serialises it as midnight
                     // wall-clock time in Europe/London (ApiResource::wallClock()).
                     'date_of_issue' => isset($fields['date_of_issue'])

@@ -43,7 +43,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'leave-requests';
+        return 'leave_requests';
     }
 
     public function definition(int $index): array
@@ -128,7 +128,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
                     ));
                 }
 
-                return $fake->paginate('leave/requests', 'leave-requests', $records, $request, ['status_counts' => $counts]);
+                return $fake->paginate('leave/requests', 'leave_requests', $records, $request, ['status_counts' => $counts]);
             }),
 
             FakeRoute::patch('leave/requests/{id}/approve', static function (RecordStore $store, array $matches): mixed {
@@ -136,7 +136,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
 
                 return $updated === null
                     ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('leave-requests', $updated));
+                    : Http::response(Json::item('leave_requests', $updated));
             }),
 
             FakeRoute::patch('leave/requests/{id}/reject', static function (RecordStore $store, array $matches, Request $request): mixed {
@@ -148,7 +148,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
 
                 return $updated === null
                     ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('leave-requests', $updated));
+                    : Http::response(Json::item('leave_requests', $updated));
             }),
 
             FakeRoute::patch('leave/requests/{id}/cancel', static function (RecordStore $store, array $matches): mixed {
@@ -159,7 +159,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
 
                 return $updated === null
                     ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('leave-requests', $updated));
+                    : Http::response(Json::item('leave_requests', $updated));
             }),
         ];
     }

@@ -15,7 +15,7 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake driving licence verification checks.
  *
- * JSON:API collection (`drivers-licence-checks`), so generic GET list/find come
+ * JSON:API collection (`drivers_licence_checks`), so generic GET list/find come
  * for free from the resource path. This factory adds the employee's
  * {@see \SupportManager\Sdk\Resources\Compliance\DriversLicenceChecksResource::submit()}
  * and the flat check-result document download. States cover the declaration
@@ -44,7 +44,7 @@ final class DriversLicenceCheckFactory extends Factory implements ProvidesFakeRo
 
     public function type(): string
     {
-        return 'drivers-licence-checks';
+        return 'drivers_licence_checks';
     }
 
     public function definition(int $index): array
@@ -112,7 +112,7 @@ final class DriversLicenceCheckFactory extends Factory implements ProvidesFakeRo
                     ], 422);
                 }
 
-                return self::saveOwnRecord($store, 'compliance/drivers-licence-checks', 'drivers-licence-checks', self::ownRecord($store, 'compliance/drivers-licence-checks'), [
+                return self::saveOwnRecord($store, 'compliance/drivers-licence-checks', 'drivers_licence_checks', self::ownRecord($store, 'compliance/drivers-licence-checks'), [
                     'drivers_licence_number' => $fields['drivers_licence_number'] ?? null,
                     'check_code' => $fields['check_code'] ?? null,
                     'declaration_accepted' => true,

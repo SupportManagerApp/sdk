@@ -16,7 +16,8 @@ use SupportManager\Sdk\Testing\RecordStore;
 /**
  * Fake right-to-work records.
  *
- * JSON:API collection (`right-to-work`), so generic GET list/find come for free
+ * JSON:API collection (`right_to_works`, Laravel's default type for the
+ * platform's `RightToWorkResource`), so generic GET list/find come for free
  * from the resource path. This factory adds the employee's multipart
  * {@see \SupportManager\Sdk\Resources\Compliance\RightToWorkResource::submit()}
  * and the flat primary/supporting document downloads. States cover a stored
@@ -46,7 +47,7 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
 
     public function type(): string
     {
-        return 'right-to-work';
+        return 'right_to_works';
     }
 
     public function definition(int $index): array
@@ -119,7 +120,7 @@ final class RightToWorkFactory extends Factory implements ProvidesFakeRoutes
                     ], 422);
                 }
 
-                return self::saveOwnRecord($store, 'compliance/right-to-work', 'right-to-work', $own, [
+                return self::saveOwnRecord($store, 'compliance/right-to-work', 'right_to_works', $own, [
                     'primary_document_type' => $fields['primary_document_type'],
                     'primary_document' => $primary,
                     'supporting_document' => $type?->requiresSupportingDocument() ? $supporting : null,
