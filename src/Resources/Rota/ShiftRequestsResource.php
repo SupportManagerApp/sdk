@@ -48,9 +48,7 @@ final class ShiftRequestsResource extends Resource
      */
     public function cancel(string|int $id): void
     {
-        $uri = "{$this->path()}/{$id}";
-
-        $this->throwForErrorResponse($this->delete($uri), $uri);
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     protected function path(): string

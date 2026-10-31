@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Rota;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Rota\Anniversary;
 use SupportManager\Sdk\Data\Rota\BankHoliday;
 use SupportManager\Sdk\Data\Rota\Birthday;
@@ -17,8 +16,8 @@ use SupportManager\Sdk\Resources\Resource;
  * a date range, plus the address of the caller's iCalendar subscription feed.
  *
  * Unlike the rest of the module these endpoints return flat `{data: ...}`
- * bodies rather than JSON:API resource objects, so each reads the raw `data`
- * directly. Every date feed requires a `filter[start_date]` and
+ * bodies rather than JSON:API resource objects, so each reads `data` with
+ * {@see Resource::dataList()} or {@see Resource::raw()}. Every date feed requires a `filter[start_date]` and
  * `filter[end_date]` (`Y-m-d`).
  *
  * ```php
@@ -39,7 +38,7 @@ final class CalendarResource extends Resource
      */
     public function bankHolidays(array $query = []): array
     {
-        return $this->rows($this->get('rota/bank-holidays', $query), BankHoliday::fromArray(...));
+        return $this->dataList($this->get('rota/bank-holidays', $query), BankHoliday::class);
     }
 
     /**
@@ -50,7 +49,7 @@ final class CalendarResource extends Resource
      */
     public function birthdays(array $query = []): array
     {
-        return $this->rows($this->get('rota/birthdays', $query), Birthday::fromArray(...));
+        return $this->dataList($this->get('rota/birthdays', $query), Birthday::class);
     }
 
     /**
@@ -61,7 +60,7 @@ final class CalendarResource extends Resource
      */
     public function anniversaries(array $query = []): array
     {
-        return $this->rows($this->get('rota/anniversaries', $query), Anniversary::fromArray(...));
+        return $this->dataList($this->get('rota/anniversaries', $query), Anniversary::class);
     }
 
     /**
@@ -70,7 +69,7 @@ final class CalendarResource extends Resource
      */
     public function feed(): CalendarFeed
     {
-        return $this->calendarFeed($this->get('rota/calendar-feed'), 'rota/calendar-feed');
+        return CalendarFeed::fromArray($this->raw($this->get('rota/calendar-feed')));
     }
 
     /**
@@ -79,7 +78,7 @@ final class CalendarResource extends Resource
      */
     public function regenerateFeed(): CalendarFeed
     {
-        return $this->calendarFeed($this->post('rota/calendar-feed/token'), 'rota/calendar-feed/token');
+        return CalendarFeed::fromArray($this->raw($this->post('rota/calendar-feed/token')));
     }
 
     protected function path(): string
@@ -90,45 +89,5 @@ final class CalendarResource extends Resource
     protected function hydrate(ResourceObject $object): BankHoliday
     {
         return BankHoliday::fromArray($object->flat());
-    }
-
-    /**
-     * Parse the calendar-feed endpoints' flat `{data: {url}}` body.
-     */
-    private function calendarFeed(Response $response, string $context): CalendarFeed
-    {
-        $this->throwForErrorResponse($response, $context);
-
-        /** @var array<string, mixed> $data */
-        $data = is_array($response->json('data')) ? $response->json('data') : [];
-
-        return CalendarFeed::fromArray($data);
-    }
-
-    /**
-     * Hydrate a flat calendar feed's `data` rows into DTOs.
-     *
-     * @template TRow
-     *
-     * @param  callable(array<string, mixed>): TRow  $into
-     * @return list<TRow>
-     */
-    private function rows(Response $response, callable $into): array
-    {
-        $this->throwForErrorResponse($response, $response->effectiveUri()?->getPath() ?? 'rota/calendar');
-
-        /** @var array<array-key, mixed> $data */
-        $data = $response->json('data') ?? [];
-
-        $rows = [];
-
-        foreach ($data as $row) {
-            if (is_array($row)) {
-                /** @var array<string, mixed> $row */
-                $rows[] = $into($row);
-            }
-        }
-
-        return $rows;
     }
 }

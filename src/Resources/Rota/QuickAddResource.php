@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Rota;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Rota\QuickAddParse;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -21,7 +20,8 @@ use SupportManager\Sdk\Resources\Resource;
  * **Parsing creates nothing.** Render the result for confirmation, then call
  * `shifts()->create()` or `appointments()->create()` yourself. Like the
  * keysafe, the platform's `QuickAddController` returns flat `{data: {...}}`
- * bodies rather than JSON:API documents, so `data` is read directly.
+ * bodies rather than JSON:API documents, so they are read with
+ * {@see Resource::data()}.
  *
  * ```php
  * $parse = SupportManager::quickAdd()->parse('dentist tuesday half three', 'Europe/London');
@@ -43,10 +43,10 @@ final class QuickAddResource extends Resource
      */
     public function parse(string $text, ?string $timezone = null): ?QuickAddParse
     {
-        return $this->state($this->post($this->path(), array_filter([
+        return $this->data($this->post($this->path(), array_filter([
             'text' => $text,
             'timezone' => $timezone,
-        ], static fn (mixed $value): bool => $value !== null)), $this->path());
+        ], static fn (mixed $value): bool => $value !== null)), QuickAddParse::class);
     }
 
     /**
@@ -62,7 +62,7 @@ final class QuickAddResource extends Resource
             return null;
         }
 
-        return $this->state($response, "{$this->path()}/{token}");
+        return $this->data($response, QuickAddParse::class);
     }
 
     protected function path(): string
@@ -73,25 +73,5 @@ final class QuickAddResource extends Resource
     protected function hydrate(ResourceObject $object): QuickAddParse
     {
         return QuickAddParse::fromArray($object->flat());
-    }
-
-    /**
-     * Parse the controller's flat (non-JSON:API) `data` body into a DTO.
-     */
-    private function state(Response $response, string $context): ?QuickAddParse
-    {
-        $this->throwForErrorResponse($response, $context);
-
-        /** @var array<string, mixed> $body */
-        $body = $response->json() ?? [];
-
-        if (! isset($body['data']) || ! is_array($body['data'])) {
-            return null;
-        }
-
-        /** @var array<string, mixed> $data */
-        $data = $body['data'];
-
-        return QuickAddParse::fromArray($data);
     }
 }

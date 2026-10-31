@@ -67,9 +67,7 @@ final class AppointmentsResource extends Resource
      */
     public function destroy(string|int $id): void
     {
-        $uri = "{$this->path()}/{$id}";
-
-        $this->throwForErrorResponse($this->delete($uri), $uri);
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     /**
