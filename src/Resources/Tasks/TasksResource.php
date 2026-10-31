@@ -31,7 +31,7 @@ use SupportManager\Sdk\Resources\Resource;
  * ```php
  * SupportManager::tasks()->all()->items();
  * SupportManager::tasks()->count()->count;
- * SupportManager::tasks()->complete('verify_bank_details');
+ * SupportManager::tasks()->complete('payroll.bank_details');
  * ```
  *
  * @extends \SupportManager\Sdk\Resources\Resource<Task>
@@ -107,6 +107,12 @@ final class TasksResource extends Resource
      * Mark a task complete by its key, optionally on behalf of another user
      * (managers only). Returns the task's fresh state, or null if the response
      * carried no task body.
+     *
+     * A task is really completed by saving the record it asks for through its
+     * own module (e.g. `profile.emergency_contact` via
+     * {@see \SupportManager\Sdk\Resources\Profile\ProfileResource::saveEmergencyContacts()});
+     * this call only refreshes the cached counts afterwards. A `$userId` who is
+     * not a member of the current team is rejected with a 422.
      */
     public function complete(string $taskKey, string|int|null $userId = null): ?Task
     {
@@ -122,7 +128,7 @@ final class TasksResource extends Resource
 
     protected function path(): string
     {
-        return 'tasks/tasks';
+        return 'tasks';
     }
 
     protected function hydrate(ResourceObject $object): Task
