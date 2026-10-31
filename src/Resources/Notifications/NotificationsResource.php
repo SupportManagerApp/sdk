@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Resources\Notifications;
 
 use SupportManager\Sdk\Data\Notifications\Notification;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -75,7 +74,7 @@ final class NotificationsResource extends Resource
      */
     public function markAsRead(string $id): void
     {
-        $this->throwForErrorResponse($this->patch("{$this->path()}/{$id}/read"), $this->path());
+        $this->throwForErrorResponse($this->patch("{$this->path()}/{$id}/read"));
     }
 
     /**
@@ -83,7 +82,7 @@ final class NotificationsResource extends Resource
      */
     public function markAsUnread(string $id): void
     {
-        $this->throwForErrorResponse($this->patch("{$this->path()}/{$id}/unread"), $this->path());
+        $this->throwForErrorResponse($this->patch("{$this->path()}/{$id}/unread"));
     }
 
     /**
@@ -91,7 +90,7 @@ final class NotificationsResource extends Resource
      */
     public function destroy(string $id): void
     {
-        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"), $this->path());
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     /**
@@ -99,7 +98,7 @@ final class NotificationsResource extends Resource
      */
     public function markAllAsRead(): void
     {
-        $this->throwForErrorResponse($this->post("{$this->path()}/read-all"), $this->path());
+        $this->throwForErrorResponse($this->post("{$this->path()}/read-all"));
     }
 
     /**
@@ -107,7 +106,7 @@ final class NotificationsResource extends Resource
      */
     public function destroyAll(): void
     {
-        $this->throwForErrorResponse($this->delete($this->path()), $this->path());
+        $this->throwForErrorResponse($this->delete($this->path()));
     }
 
     protected function path(): string
@@ -133,16 +132,9 @@ final class NotificationsResource extends Resource
             $query['per_page'] = $perPage;
         }
 
-        $response = $this->get($this->path(), $query);
-        $this->throwForErrorResponse($response, $this->path());
-
-        $document = Document::fromArray($response->json() ?? []);
-
-        return new Paginated(
-            items: array_map($this->hydrate(...), $document->resources()),
-            meta: $document->meta(),
-            links: $document->links(),
-            pageFetcher: fn (int $page): Paginated => $this->list([...$query, 'page' => $page], $perPage),
+        return $this->paginated(
+            $this->get($this->path(), $query),
+            fn (int $page): Paginated => $this->list([...$query, 'page' => $page], $perPage),
         );
     }
 }
