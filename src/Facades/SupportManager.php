@@ -38,6 +38,7 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static \SupportManager\Sdk\Resources\Teams\TeamsResource teams()
  * @method static \SupportManager\Sdk\Resources\Signing\SignatureRequestsResource signatureRequests()
  * @method static \SupportManager\Sdk\Resources\Tasks\TasksResource tasks()
+ * @method static \SupportManager\Sdk\Resources\Household\BinDayResource binDay()
  * @method static \SupportManager\Sdk\Resources\Household\ShoppingListItemsResource shoppingList()
  * @method static \SupportManager\Sdk\Resources\Household\ChoresResource chores()
  * @method static \SupportManager\Sdk\Resources\Household\ChoreCategoriesResource choreCategories()

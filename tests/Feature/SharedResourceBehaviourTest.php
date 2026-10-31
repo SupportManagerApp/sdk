@@ -16,6 +16,7 @@ use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
+use SupportManager\Sdk\Resources\Household\BinDayResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
 use SupportManager\Sdk\Resources\Household\ConsumablesResource;
@@ -90,6 +91,7 @@ function sharedResourceCalls(): array
         'document folders' => ['documentFolders', DocumentFoldersResource::class, fn (DocumentFoldersResource $r) => $r->find(9), 'GET', 'documents/document-folders/9', ['nullOn404' => true]],
         'documents' => ['documents', DocumentsResource::class, fn (DocumentsResource $r) => $r->query()->get(), 'GET', 'documents/documents', []],
         'policies' => ['policies', PoliciesResource::class, fn (PoliciesResource $r) => $r->query()->get(), 'GET', 'documents/policies', ['fieldErrors' => false]],
+        'bin day' => ['binDay', BinDayResource::class, fn (BinDayResource $r) => $r->show(), 'GET', 'household/bin-day', ['fieldErrors' => false]],
         'chore categories' => ['choreCategories', ChoreCategoriesResource::class, fn (ChoreCategoriesResource $r) => $r->query()->get(), 'GET', 'household/chore-categories', ['fieldErrors' => false]],
         'chores' => ['chores', ChoresResource::class, fn (ChoresResource $r) => $r->markNotNeeded([1]), 'POST', 'household/chores/not-needed', []],
         'consumables' => ['consumables', ConsumablesResource::class, fn (ConsumablesResource $r) => $r->adjustStock(1, 1), 'PATCH', 'household/consumable-variants/1/stock', []],

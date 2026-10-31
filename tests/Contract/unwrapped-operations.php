@@ -26,7 +26,6 @@ return [
 
     // PENDING v0.0.4: platform API wave 3 (platform PR #1066). Each entry is
     // removed by the change that wraps it; none may ship in v0.0.4.
-    'GET /household/bin-day' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
     'PATCH /rota/shifts/{id}' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
     'DELETE /rota/shifts/{id}' => 'PENDING v0.0.4: wave 3, not wrapped yet.',
     'POST /rota/shifts/{id}/assignment' => 'PENDING v0.0.4: wave 3, not wrapped yet.',

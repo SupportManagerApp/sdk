@@ -241,6 +241,16 @@
         "?string $updatedAt",
         "?string $acknowledgedAt = null"
     ],
+    "SupportManager\\Sdk\\Data\\Household\\BinCollection": [
+        "SupportManager\\Sdk\\Enums\\Household\\BinType $bin",
+        "string $label",
+        "?string $nextCollectionOn",
+        "bool $isDueTomorrow"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\BinCollectionSchedule": [
+        "array $binsDueTomorrow",
+        "array $collections"
+    ],
     "SupportManager\\Sdk\\Data\\Household\\Chore": [
         "string $id",
         "string $name",

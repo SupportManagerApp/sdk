@@ -16,6 +16,7 @@ use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
+use SupportManager\Sdk\Resources\Household\BinDayResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
 use SupportManager\Sdk\Resources\Household\ConsumablesResource;
@@ -227,6 +228,12 @@ final class SupportManager
     public function users(): UsersResource
     {
         return $this->resource(UsersResource::class);
+    }
+
+    /** Household — bin collections and which bins go out tomorrow (singleton). */
+    public function binDay(): BinDayResource
+    {
+        return $this->resource(BinDayResource::class);
     }
 
     /** Household — shopping list items. */
