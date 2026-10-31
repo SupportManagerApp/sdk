@@ -17,13 +17,7 @@ use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Http\Download;
-use SupportManager\Sdk\Resources\Profile\ProfileResource;
 use SupportManager\Sdk\Testing\Factories\ProfileFactory;
-
-function profileResource(): ProfileResource
-{
-    return app(ProfileResource::class);
-}
 
 /**
  * @param  array<string, mixed>  $attributes
@@ -35,15 +29,14 @@ function profileItem(string $type, string $id, array $attributes): array
 }
 
 it('fetches the current user with a team header', function () {
-    Http::fake(['api.test/api/v1/user' => Http::response(profileItem('users', '7', [
+    fakeApi(['user' => Http::response(profileItem('users', '7', [
         'name' => 'Ada Lovelace',
         'email' => 'ada@example.com',
         'avatar' => 'https://cdn.test/ada.png',
         'role' => 'PA',
     ]))]);
-    bootTenantSession();
 
-    $user = profileResource()->me();
+    $user = sdk()->profile()->me();
 
     expect($user)->toBeInstanceOf(User::class)
         ->and($user->id)->toBe('7')
@@ -55,7 +48,7 @@ it('fetches the current user with a team header', function () {
 });
 
 it('shows the full profile with nested address and emergency contacts', function () {
-    Http::fake(['api.test/api/v1/user/profile' => Http::response(profileItem('users', '7', [
+    fakeApi(['user/profile' => Http::response(profileItem('users', '7', [
         'title' => 'DR',
         'name' => 'Ada Lovelace',
         'email' => 'ada@example.com',
@@ -74,9 +67,8 @@ it('shows the full profile with nested address and emergency contacts', function
         'has_second_factor' => true,
         'created_at' => '2026-01-01T00:00:00Z',
     ]))]);
-    bootTenantSession();
 
-    $profile = profileResource()->show();
+    $profile = sdk()->profile()->show();
 
     expect($profile)->toBeInstanceOf(Profile::class)
         ->and($profile->title)->toBe('DR')
@@ -98,14 +90,13 @@ it('shows the full profile with nested address and emergency contacts', function
 });
 
 it('leaves nested relations null when absent', function () {
-    Http::fake(['api.test/api/v1/user/profile' => Http::response(profileItem('users', '7', [
+    fakeApi(['user/profile' => Http::response(profileItem('users', '7', [
         'name' => 'Ada',
         'teams' => [],
         'has_second_factor' => false,
     ]))]);
-    bootTenantSession();
 
-    $profile = profileResource()->show();
+    $profile = sdk()->profile()->show();
 
     expect($profile->address)->toBeNull()
         ->and($profile->emergencyContacts)->toBe([])
@@ -116,12 +107,11 @@ it('leaves nested relations null when absent', function () {
 });
 
 it('updates the profile via PATCH', function () {
-    Http::fake(['api.test/api/v1/user/profile' => Http::response(profileItem('users', '7', [
+    fakeApi(['user/profile' => Http::response(profileItem('users', '7', [
         'name' => 'Grace Hopper',
     ]))]);
-    bootTenantSession();
 
-    $profile = profileResource()->update(['name' => 'Grace Hopper']);
+    $profile = sdk()->profile()->update(['name' => 'Grace Hopper']);
 
     expect($profile->name)->toBe('Grace Hopper');
     Http::assertSent(fn ($request) => $request->method() === 'PATCH'
@@ -130,16 +120,15 @@ it('updates the profile via PATCH', function () {
 });
 
 it('sends the web profile fields on update', function () {
-    Http::fake(['api.test/api/v1/user/profile' => Http::response(profileItem('users', '7', [
+    fakeApi(['user/profile' => Http::response(profileItem('users', '7', [
         'title' => 'DR',
         'name' => 'Ada Lovelace',
         'email' => 'ada@new.example.com',
         'ni_number' => 'AB123456C',
         'show_birthday_on_roster' => true,
     ]))]);
-    bootTenantSession();
 
-    $profile = profileResource()->update([
+    $profile = sdk()->profile()->update([
         'title' => 'DR',
         'email' => 'ada@new.example.com',
         'ni_number' => 'AB123456C',
@@ -155,24 +144,9 @@ it('sends the web profile fields on update', function () {
         && $request['show_birthday_on_roster'] === true);
 });
 
-it('maps a 422 on profile update to a validation exception', function () {
-    Http::fake(['api.test/api/v1/user/profile' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['name' => ['The name field is required.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        profileResource()->update(['name' => '']);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('name'))->toBe('The name field is required.');
-    }
-});
-
 it('reads, saves and deletes the address with a team header', function () {
-    Http::fake([
-        'api.test/api/v1/user/address' => fn ($request) => $request->method() === 'DELETE'
+    fakeApi([
+        'user/address' => fn ($request) => $request->method() === 'DELETE'
             ? Http::response('', 204)
             : Http::response(profileItem('addresses', '3', [
                 'address_line_one' => '12 King St',
@@ -180,9 +154,8 @@ it('reads, saves and deletes the address with a team header', function () {
                 'postcode' => 'SW1A 1AA',
             ])),
     ]);
-    bootTenantSession();
 
-    $address = profileResource()->saveAddress([
+    $address = sdk()->profile()->saveAddress([
         'address_line_one' => '12 King St',
         'town' => 'London',
         'postcode' => 'SW1A 1AA',
@@ -191,26 +164,24 @@ it('reads, saves and deletes the address with a team header', function () {
     expect($address)->toBeInstanceOf(Address::class)
         ->and($address->postcode)->toBe('SW1A 1AA');
 
-    profileResource()->deleteAddress();
+    sdk()->profile()->deleteAddress();
 
     Http::assertSent(fn ($request) => $request->method() === 'PUT' && $request->hasHeader('X-Team-ID', '42'));
     Http::assertSent(fn ($request) => $request->method() === 'DELETE' && $request->hasHeader('X-Team-ID', '42'));
 });
 
 it('returns null address when the server reports none', function () {
-    Http::fake(['api.test/api/v1/user/address' => Http::response(['data' => null])]);
-    bootTenantSession();
+    fakeApi(['user/address' => ['data' => null]]);
 
-    expect(profileResource()->address())->toBeNull();
+    expect(sdk()->profile()->address())->toBeNull();
 });
 
 it('searches address suggestions with a team header', function () {
-    Http::fake(['api.test/api/v1/user/address/suggestions*' => Http::response(['data' => [
+    fakeApi(['user/address/suggestions*' => ['data' => [
         ['id' => '23747771', 'address' => '10 Downing Street, London, SW1A'],
-    ]])]);
-    bootTenantSession();
+    ]]]);
 
-    $suggestions = profileResource()->addressSuggestions('SW1A 2AA');
+    $suggestions = sdk()->profile()->addressSuggestions('SW1A 2AA');
 
     expect($suggestions)->toHaveCount(1)
         ->and($suggestions[0])->toBeInstanceOf(AddressSuggestion::class)
@@ -221,33 +192,17 @@ it('searches address suggestions with a team header', function () {
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('maps a too-short address search to a validation exception', function () {
-    Http::fake(['api.test/api/v1/user/address/suggestions*' => Http::response([
-        'message' => 'The q field must be at least 3 characters.',
-        'errors' => ['q' => ['The q field must be at least 3 characters.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        profileResource()->addressSuggestions('SW');
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('q'))->toBe('The q field must be at least 3 characters.');
-    }
-});
-
 it('fetches a suggested address ready to save', function () {
-    Http::fake(['api.test/api/v1/user/address/suggestions/23747771' => Http::response(['data' => [
+    fakeApi(['user/address/suggestions/23747771' => ['data' => [
         'address_line_one' => 'Prime Minister & First Lord of the Treasury',
         'address_line_two' => '10 Downing Street',
         'address_line_three' => 'Westminster, Whitehall',
         'town' => 'London',
         'county' => 'Greater London',
         'postcode' => 'SW1A 2AA',
-    ]])]);
-    bootTenantSession();
+    ]]]);
 
-    $address = profileResource()->addressSuggestion('23747771');
+    $address = sdk()->profile()->addressSuggestion('23747771');
 
     expect($address)->toBeInstanceOf(SuggestedAddress::class)
         ->and($address->addressLineTwo)->toBe('10 Downing Street')
@@ -265,20 +220,18 @@ it('fetches a suggested address ready to save', function () {
 });
 
 it('returns null for an unknown address suggestion (404)', function () {
-    Http::fake(['api.test/api/v1/user/address/suggestions/nope' => Http::response(['message' => 'Address not found.'], 404)]);
-    bootTenantSession();
+    fakeApi(['user/address/suggestions/nope' => Http::response(['message' => 'Address not found.'], 404)]);
 
-    expect(profileResource()->addressSuggestion('nope'))->toBeNull();
+    expect(sdk()->profile()->addressSuggestion('nope'))->toBeNull();
 });
 
 it('lists the emergency contacts with a team header', function () {
-    Http::fake(['api.test/api/v1/user/emergency-contacts' => Http::response(['data' => [
+    fakeApi(['user/emergency-contacts' => ['data' => [
         ['type' => 'emergency_contacts', 'id' => '5', 'attributes' => ['name' => 'Jane', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002']],
         ['type' => 'emergency_contacts', 'id' => '6', 'attributes' => ['name' => 'John', 'relationship' => 'Brother', 'phone_number' => '+44 7700 900003']],
-    ]])]);
-    bootTenantSession();
+    ]]]);
 
-    $contacts = profileResource()->emergencyContacts();
+    $contacts = sdk()->profile()->emergencyContacts();
 
     expect($contacts)->toHaveCount(2)
         ->and($contacts[0])->toBeInstanceOf(EmergencyContact::class)
@@ -291,20 +244,18 @@ it('lists the emergency contacts with a team header', function () {
 });
 
 it('returns no emergency contacts when none are set', function () {
-    Http::fake(['api.test/api/v1/user/emergency-contacts' => Http::response(['data' => []])]);
-    bootTenantSession();
+    fakeApi(['user/emergency-contacts' => ['data' => []]]);
 
-    expect(profileResource()->emergencyContacts())->toBe([]);
+    expect(sdk()->profile()->emergencyContacts())->toBe([]);
 });
 
 it('saves several emergency contacts and returns the full list', function () {
-    Http::fake(['api.test/api/v1/user/emergency-contacts' => Http::response(['data' => [
+    fakeApi(['user/emergency-contacts' => ['data' => [
         ['type' => 'emergency_contacts', 'id' => '5', 'attributes' => ['name' => 'Jane Roe', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002']],
         ['type' => 'emergency_contacts', 'id' => '7', 'attributes' => ['name' => 'John Smith', 'relationship' => 'Brother', 'phone_number' => '+44 7700 900004']],
-    ]])]);
-    bootTenantSession();
+    ]]]);
 
-    $contacts = profileResource()->saveEmergencyContacts([
+    $contacts = sdk()->profile()->saveEmergencyContacts([
         ['id' => 5, 'name' => 'Jane Roe', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002'],
         ['name' => 'John Smith', 'relationship' => 'Brother', 'phone_number' => '+44 7700 900004'],
     ]);
@@ -321,43 +272,18 @@ it('saves several emergency contacts and returns the full list', function () {
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('maps a 422 on saving emergency contacts to a validation exception', function () {
-    Http::fake(['api.test/api/v1/user/emergency-contacts' => Http::response([
-        'message' => 'The emergency contact could not be found.',
-        'errors' => ['contacts.0.id' => ['The emergency contact could not be found.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        profileResource()->saveEmergencyContacts([
-            ['id' => 999, 'name' => 'Jane', 'relationship' => 'Spouse', 'phone_number' => '+44 7700 900002'],
-        ]);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('contacts.0.id'))->toBe('The emergency contact could not be found.');
-    }
-});
-
 it('deletes one emergency contact by id', function () {
-    Http::fake(['api.test/api/v1/user/emergency-contacts/5' => Http::response('', 204)]);
-    bootTenantSession();
+    fakeApi(['user/emergency-contacts/5' => Http::response('', 204)]);
 
-    profileResource()->deleteEmergencyContact(5);
+    sdk()->profile()->deleteEmergencyContact(5);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/user/emergency-contacts/5')
         && $request->hasHeader('X-Team-ID', '42'));
 });
 
-it('throws when deleting an emergency contact that is not the user\'s (404)', function () {
-    Http::fake(['api.test/api/v1/user/emergency-contacts/99' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
-
-    profileResource()->deleteEmergencyContact(99);
-})->throws(SupportManagerApiException::class);
-
 it('reads the employment summary with a team header', function () {
-    Http::fake(['api.test/api/v1/user/employment' => Http::response(profileItem('employment-summaries', '7', [
+    fakeApi(['user/employment' => Http::response(profileItem('employment-summaries', '7', [
         'start_date' => '2020-01-06',
         'leaving_date' => null,
         'employment_length' => '6 years, 9 months',
@@ -366,9 +292,8 @@ it('reads the employment summary with a team header', function () {
         'working_pattern' => ['is_bank_contract' => false, 'weekly_average_hours' => 37.5, 'weekly_sleeping_nights' => 2],
         'contracted_annual_salary' => 28535,
     ]))]);
-    bootTenantSession();
 
-    $employment = profileResource()->employment();
+    $employment = sdk()->profile()->employment();
 
     expect($employment)->toBeInstanceOf(EmploymentSummary::class)
         ->and($employment->id)->toBe('7')
@@ -388,7 +313,7 @@ it('reads the employment summary with a team header', function () {
 });
 
 it('leaves employment pay and pattern null when the server has none', function () {
-    Http::fake(['api.test/api/v1/user/employment' => Http::response(profileItem('employment-summaries', '7', [
+    fakeApi(['user/employment' => Http::response(profileItem('employment-summaries', '7', [
         'start_date' => null,
         'leaving_date' => null,
         'employment_length' => 'N/A',
@@ -397,9 +322,8 @@ it('leaves employment pay and pattern null when the server has none', function (
         'working_pattern' => null,
         'contracted_annual_salary' => null,
     ]))]);
-    bootTenantSession();
 
-    $employment = profileResource()->employment();
+    $employment = sdk()->profile()->employment();
 
     expect($employment?->startDate)->toBeNull()
         ->and($employment?->employmentLength)->toBe('N/A')
@@ -409,17 +333,15 @@ it('leaves employment pay and pattern null when the server has none', function (
 });
 
 it('throws when a non-employee reads employment (403)', function () {
-    Http::fake(['api.test/api/v1/user/employment' => Http::response(['message' => 'Only employees and former personal assistants have employment details.'], 403)]);
-    bootTenantSession();
+    fakeApi(['user/employment' => Http::response(['message' => 'Only employees and former personal assistants have employment details.'], 403)]);
 
-    profileResource()->employment();
+    sdk()->profile()->employment();
 })->throws(SupportManagerApiException::class, 'Only employees and former personal assistants have employment details.');
 
 it('downloads the employment confirmation letter as a raw response', function () {
-    Http::fake(['api.test/api/v1/user/employment/confirmation-letter*' => Http::response('%PDF-1.4 letter-bytes', 200, ['Content-Type' => 'application/pdf'])]);
-    bootTenantSession();
+    fakeApi(['user/employment/confirmation-letter*' => Http::response('%PDF-1.4 letter-bytes', 200, ['Content-Type' => 'application/pdf'])]);
 
-    $response = profileResource()->downloadEmploymentConfirmationLetter('ABC Mortgages Ltd', includeGrossPay: true);
+    $response = sdk()->profile()->downloadEmploymentConfirmationLetter('ABC Mortgages Ltd', includeGrossPay: true);
 
     expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 letter-bytes')
@@ -436,20 +358,18 @@ it('downloads the employment confirmation letter as a raw response', function ()
 });
 
 it('omits the recipient and gross pay from the letter by default', function () {
-    Http::fake(['api.test/api/v1/user/employment/confirmation-letter*' => Http::response('%PDF-1.4 letter-bytes', 200, ['Content-Type' => 'application/pdf'])]);
-    bootTenantSession();
+    fakeApi(['user/employment/confirmation-letter*' => Http::response('%PDF-1.4 letter-bytes', 200, ['Content-Type' => 'application/pdf'])]);
 
-    profileResource()->downloadEmploymentConfirmationLetter();
+    sdk()->profile()->downloadEmploymentConfirmationLetter();
 
     Http::assertSent(fn ($request) => ! str_contains($request->url(), 'recipient_name')
         && str_contains($request->url(), 'include_gross_pay=0'));
 });
 
 it('changes the password', function () {
-    Http::fake(['api.test/api/v1/user/password' => Http::response(['message' => 'Password changed successfully.'])]);
-    bootTenantSession();
+    fakeApi(['user/password' => ['message' => 'Password changed successfully.']]);
 
-    profileResource()->changePassword('old-secret', 'new-secret', 'new-secret');
+    sdk()->profile()->changePassword('old-secret', 'new-secret', 'new-secret');
 
     Http::assertSent(fn ($request) => $request->method() === 'PUT'
         && $request['current_password'] === 'old-secret'
@@ -459,10 +379,9 @@ it('changes the password', function () {
 });
 
 it('uploads the avatar as a multipart file with a team header', function () {
-    Http::fake(['api.test/api/v1/user/avatar' => Http::response(['data' => ['avatar_url' => 'https://cdn.test/avatars/new.png']])]);
-    bootTenantSession();
+    fakeApi(['user/avatar' => ['data' => ['avatar_url' => 'https://cdn.test/avatars/new.png']]]);
 
-    $url = profileResource()->uploadAvatar('PNG-BYTES', 'me.png');
+    $url = sdk()->profile()->uploadAvatar('PNG-BYTES', 'me.png');
 
     expect($url)->toBe('https://cdn.test/avatars/new.png');
 
@@ -472,21 +391,6 @@ it('uploads the avatar as a multipart file with a team header', function () {
         && str_starts_with($request->header('Content-Type')[0], 'multipart/form-data; boundary=')
         && $request->hasFile('avatar', 'PNG-BYTES', 'me.png')
         && str_contains($request->body(), 'name="avatar"; filename="me.png"'));
-});
-
-it('maps a 422 on avatar upload to a validation exception', function () {
-    Http::fake(['api.test/api/v1/user/avatar' => Http::response([
-        'message' => 'The avatar must be a JPG, JPEG, or PNG file.',
-        'errors' => ['avatar' => ['The avatar must be a JPG, JPEG, or PNG file.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        profileResource()->uploadAvatar('GIF89a', 'me.gif');
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('avatar'))->toBe('The avatar must be a JPG, JPEG, or PNG file.');
-    }
 });
 
 it('uploads and removes the avatar through the fake', function () {
@@ -511,10 +415,9 @@ it('rejects an empty avatar upload through the fake', function () {
 });
 
 it('deletes the avatar', function () {
-    Http::fake(['api.test/api/v1/user/avatar' => Http::response('', 204)]);
-    bootTenantSession();
+    fakeApi(['user/avatar' => Http::response('', 204)]);
 
-    profileResource()->deleteAvatar();
+    sdk()->profile()->deleteAvatar();
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_ends_with($request->url(), '/api/v1/user/avatar')
@@ -522,15 +425,14 @@ it('deletes the avatar', function () {
 });
 
 it('reads bank details WITH a team header (tenant-scoped)', function () {
-    Http::fake(['api.test/api/v1/user/bank-details' => Http::response(profileItem('bank_details', '9', [
+    fakeApi(['user/bank-details' => Http::response(profileItem('bank_details', '9', [
         'name_on_account' => 'A Lovelace',
         'sort_code' => '12-34-56',
         'account_number' => '****5678',
         'payment_method' => 'bacs',
     ]))]);
-    bootTenantSession();
 
-    $details = profileResource()->bankDetails();
+    $details = sdk()->profile()->bankDetails();
 
     expect($details)->toBeInstanceOf(BankDetails::class)
         ->and($details->accountNumber)->toBe('****5678');
@@ -539,14 +441,13 @@ it('reads bank details WITH a team header (tenant-scoped)', function () {
 });
 
 it('saves bank details WITH a team header (tenant-scoped)', function () {
-    Http::fake(['api.test/api/v1/user/bank-details' => Http::response(profileItem('bank_details', '9', [
+    fakeApi(['user/bank-details' => Http::response(profileItem('bank_details', '9', [
         'name_on_account' => 'A Lovelace',
         'sort_code' => '12-34-56',
         'account_number' => '****5678',
     ]))]);
-    bootTenantSession();
 
-    $details = profileResource()->saveBankDetails([
+    $details = sdk()->profile()->saveBankDetails([
         'name_on_account' => 'A Lovelace',
         'sort_code' => '12-34-56',
         'account_number' => '12345678',

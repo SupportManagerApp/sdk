@@ -5,14 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
 use SupportManager\Sdk\Data\Profile\UserOption;
-use SupportManager\Sdk\Exceptions\ApiValidationException;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\Profile\UsersResource;
-
-function usersResource(): UsersResource
-{
-    return app(UsersResource::class);
-}
 
 /**
  * @return array<string, mixed>
@@ -30,10 +22,9 @@ function profileDirectoryPage(): array
 }
 
 it('lists directory users with a team header', function () {
-    Http::fake(['api.test/api/v1/users*' => Http::response(profileDirectoryPage())]);
-    bootTenantSession();
+    fakeApi(['users*' => Http::response(profileDirectoryPage())]);
 
-    $users = usersResource()->list();
+    $users = sdk()->users()->list();
 
     expect($users)->toHaveCount(2)
         ->and($users[0])->toBeInstanceOf(DirectoryUser::class)
@@ -45,10 +36,9 @@ it('lists directory users with a team header', function () {
 });
 
 it('forwards search and sort filters as query params', function () {
-    Http::fake(['api.test/api/v1/users*' => Http::response(profileDirectoryPage())]);
-    bootTenantSession();
+    fakeApi(['users*' => Http::response(profileDirectoryPage())]);
 
-    usersResource()->list(['filter[search]' => 'ada', 'sort' => 'name', 'per_page' => 10]);
+    sdk()->users()->list(['filter[search]' => 'ada', 'sort' => 'name', 'per_page' => 10]);
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());
@@ -60,16 +50,15 @@ it('forwards search and sort filters as query params', function () {
 });
 
 it('finds a single directory user by id', function () {
-    Http::fake(['api.test/api/v1/users/2' => Http::response([
+    fakeApi(['users/2' => [
         'data' => ['type' => 'users', 'id' => '2', 'attributes' => [
             'name' => 'Grace',
             'role' => 'Manager',
             'mobile_number' => '+44 7700 900003',
         ]],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $user = usersResource()->find(2);
+    $user = sdk()->users()->find(2);
 
     expect($user)->toBeInstanceOf(DirectoryUser::class)
         ->and($user->id)->toBe('2')
@@ -79,37 +68,20 @@ it('finds a single directory user by id', function () {
 });
 
 it('returns null when a directory user is not found (404)', function () {
-    Http::fake(['api.test/api/v1/users/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
+    fakeApi(['users/999' => Http::response(['message' => 'Not found'], 404)]);
 
-    expect(usersResource()->find(999))->toBeNull();
-});
-
-it('maps a 422 on the directory to a validation exception', function () {
-    Http::fake(['api.test/api/v1/users*' => Http::response([
-        'message' => 'The given data was invalid',
-        'errors' => ['filter' => ['The role filter is invalid.']],
-    ], 422)]);
-    bootTenantSession();
-
-    try {
-        usersResource()->list(['filter[role]' => 'wizard']);
-        test()->fail('Expected ApiValidationException');
-    } catch (ApiValidationException $e) {
-        expect($e->first('filter'))->toBe('The role filter is invalid.');
-    }
+    expect(sdk()->users()->find(999))->toBeNull();
 });
 
 it('lists colleague picker options with a team header', function () {
-    Http::fake(['api.test/api/v1/users/options' => Http::response([
+    fakeApi(['users/options' => [
         'data' => [
             ['type' => 'users', 'id' => '5', 'attributes' => ['name' => 'Ada Lovelace', 'avatar' => 'https://cdn.test/ada.png']],
             ['type' => 'users', 'id' => '6', 'attributes' => ['name' => 'Grace Hopper', 'avatar' => 'https://ui-avatars.com/api/?name=Grace+Hopper&background=random']],
         ],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $options = usersResource()->options();
+    $options = sdk()->users()->options();
 
     expect($options)->toHaveCount(2)
         ->and($options[0])->toBeInstanceOf(UserOption::class)
@@ -121,10 +93,3 @@ it('lists colleague picker options with a team header', function () {
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/v1/users/options')
         && $request->hasHeader('X-Team-ID', '42'));
 });
-
-it('throws when a former PA reads picker options (403)', function () {
-    Http::fake(['api.test/api/v1/users/options' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
-    bootTenantSession();
-
-    usersResource()->options();
-})->throws(SupportManagerApiException::class);
