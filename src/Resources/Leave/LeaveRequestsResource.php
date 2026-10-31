@@ -26,7 +26,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveRequests()->approve(7);
  * ```
  *
- * @extends resource<LeaveRequest>
+ * @extends Resource<LeaveRequest>
  */
 final class LeaveRequestsResource extends Resource
 {

@@ -23,7 +23,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shiftRequests()->cancel($requestId);
  * ```
  *
- * @extends resource<ShiftRequest>
+ * @extends Resource<ShiftRequest>
  */
 final class ShiftRequestsResource extends Resource
 {

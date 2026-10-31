@@ -20,7 +20,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shiftApplications()->cancel($applicationId);
  * ```
  *
- * @extends resource<ShiftApplication>
+ * @extends Resource<ShiftApplication>
  */
 final class ShiftApplicationsResource extends Resource
 {

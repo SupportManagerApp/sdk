@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shoppingList()->togglePurchased(7);
  * ```
  *
- * @extends resource<ShoppingListItem>
+ * @extends Resource<ShoppingListItem>
  */
 final class ShoppingListItemsResource extends Resource
 {

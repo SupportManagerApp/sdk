@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::payRuns()->all();
  * ```
  *
- * @extends resource<PayRun>
+ * @extends Resource<PayRun>
  */
 final class PayRunsResource extends Resource
 {

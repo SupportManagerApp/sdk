@@ -24,7 +24,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::documents()->download(7)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Document>
+ * @extends Resource<Document>
  */
 final class DocumentsResource extends Resource
 {

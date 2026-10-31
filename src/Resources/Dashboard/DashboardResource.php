@@ -28,7 +28,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::dashboard()->capabilities()->usesModule(OptionalModule::Accidents);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DashboardLayout>
+ * @extends Resource<DashboardLayout>
  */
 final class DashboardResource extends Resource
 {

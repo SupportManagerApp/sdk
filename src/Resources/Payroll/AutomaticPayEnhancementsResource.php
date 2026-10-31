@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::automaticPayEnhancements()->update(['bank_holiday_enhancement_id' => 3]);
  * ```
  *
- * @extends resource<AutomaticPayEnhancementSettings>
+ * @extends Resource<AutomaticPayEnhancementSettings>
  */
 final class AutomaticPayEnhancementsResource extends Resource
 {

@@ -24,7 +24,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::p45s()->find(1);
  * ```
  *
- * @extends resource<P45>
+ * @extends Resource<P45>
  */
 final class P45sResource extends Resource
 {

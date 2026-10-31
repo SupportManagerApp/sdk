@@ -24,7 +24,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveNotWorkingNotices()->withdraw(12);
  * ```
  *
- * @extends resource<NotWorkingNotice>
+ * @extends Resource<NotWorkingNotice>
  */
 final class NotWorkingNoticesResource extends Resource
 {

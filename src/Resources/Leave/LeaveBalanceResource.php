@@ -30,7 +30,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveBalance()->calculate(['start_date' => '2026-07-01', 'type' => 'Whole Days'])->balanceAfterRequest->hours;
  * ```
  *
- * @extends resource<LeaveBalance>
+ * @extends Resource<LeaveBalance>
  */
 final class LeaveBalanceResource extends Resource
 {

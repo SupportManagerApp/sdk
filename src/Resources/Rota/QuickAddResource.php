@@ -32,7 +32,7 @@ use SupportManager\Sdk\Resources\Resource;
  * }
  * ```
  *
- * @extends resource<QuickAddParse>
+ * @extends Resource<QuickAddParse>
  */
 final class QuickAddResource extends Resource
 {

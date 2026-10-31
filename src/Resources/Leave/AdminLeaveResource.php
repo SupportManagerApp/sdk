@@ -24,7 +24,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveAdmin()->bulkApprove([1, 2, 3]);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<LeaveRequest>
+ * @extends Resource<LeaveRequest>
  */
 final class AdminLeaveResource extends Resource
 {

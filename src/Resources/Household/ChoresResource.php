@@ -31,7 +31,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::chores()->markNotNeeded([7, 8]);
  * ```
  *
- * @extends resource<Chore>
+ * @extends Resource<Chore>
  */
 final class ChoresResource extends Resource
 {

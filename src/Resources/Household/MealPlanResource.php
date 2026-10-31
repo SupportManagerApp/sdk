@@ -24,7 +24,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::mealPlan()->removeDay('monday');
  * ```
  *
- * @extends resource<MealPlan>
+ * @extends Resource<MealPlan>
  */
 final class MealPlanResource extends Resource
 {

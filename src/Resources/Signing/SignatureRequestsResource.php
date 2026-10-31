@@ -32,7 +32,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::signatureRequests()->downloadSigned(12)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<SignatureRequest>
+ * @extends Resource<SignatureRequest>
  */
 final class SignatureRequestsResource extends Resource
 {

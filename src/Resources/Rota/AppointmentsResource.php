@@ -29,7 +29,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::appointments()->destroy($id);
  * ```
  *
- * @extends resource<Appointment>
+ * @extends Resource<Appointment>
  */
 final class AppointmentsResource extends Resource
 {

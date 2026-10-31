@@ -28,7 +28,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::users()->options();
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DirectoryUser>
+ * @extends Resource<DirectoryUser>
  */
 final class UsersResource extends Resource
 {

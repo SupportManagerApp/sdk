@@ -46,7 +46,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::profile()->saveEmergencyContacts([['name' => 'Jane Doe', ...]]);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Profile>
+ * @extends Resource<Profile>
  */
 final class ProfileResource extends Resource
 {

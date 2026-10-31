@@ -26,7 +26,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::rotaCalendar()->regenerateFeed();
  * ```
  *
- * @extends resource<BankHoliday>
+ * @extends Resource<BankHoliday>
  */
 final class CalendarResource extends Resource
 {

@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::leaveAdjustments()->mine(['year' => 2026]);
  * ```
  *
- * @extends resource<ManualAdjustment>
+ * @extends Resource<ManualAdjustment>
  */
 final class ManualAdjustmentsResource extends Resource
 {

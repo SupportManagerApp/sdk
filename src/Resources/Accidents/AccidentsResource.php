@@ -31,7 +31,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::accidents()->recordSubjectDeclaration(7, 'Alex Visitor');
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<AccidentReport>
+ * @extends Resource<AccidentReport>
  */
 final class AccidentsResource extends Resource
 {

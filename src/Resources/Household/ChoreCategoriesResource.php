@@ -19,7 +19,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::choreCategories()->query()->sort('name')->get();
  * ```
  *
- * @extends resource<ChoreCategory>
+ * @extends Resource<ChoreCategory>
  */
 final class ChoreCategoriesResource extends Resource
 {
