@@ -150,7 +150,7 @@ it('lists seeded applications with their nested shift and cancels one', function
         ->and($page->items()[0]->status)->toBe('Pending')
         ->and($page->items()[0]->rotaEntry?->id)->toBe('1');
 
-    SupportManager::shiftApplications()->cancel(1);
+    SupportManager::shiftApplications()->destroy(1);
 
     expect(SupportManager::shiftApplications()->all()->total())->toBe(1);
 });
@@ -432,12 +432,12 @@ it('cancels only a pending shift request', function () {
 
     $approved = SupportManager::shiftRequests()->query()->filter('status', 'Approved')->get()->items()[0];
 
-    SupportManager::shiftRequests()->cancel(1);
+    SupportManager::shiftRequests()->destroy(1);
 
     expect(SupportManager::shiftRequests()->all()->total())->toBe(1)
         ->and($approved->canDelete)->toBeFalse()
         ->and($approved->rotaEntryId)->toBe(100)
-        ->and(fn () => SupportManager::shiftRequests()->cancel(2))->toThrow(SupportManagerApiException::class);
+        ->and(fn () => SupportManager::shiftRequests()->destroy(2))->toThrow(SupportManagerApiException::class);
 });
 
 it('lists sleepover start options', function () {
@@ -490,14 +490,14 @@ it('routes sleepover segments away from the per-shift apply and cancel', functio
 
     SupportManager::shiftBlocks()->apply(1);
 
-    expect(fn () => SupportManager::shiftApplications()->cancel(1))->toThrow(ApiValidationException::class)
+    expect(fn () => SupportManager::shiftApplications()->destroy(1))->toThrow(ApiValidationException::class)
         ->and(fn () => SupportManager::shiftBlocks()->apply(1, '8pm'))->toThrow(ApiValidationException::class);
 });
 
 it('refuses to cancel an application that is no longer pending', function () {
     SupportManager::fake()->seed(ShiftApplicationFactory::new()->approved());
 
-    expect(fn () => SupportManager::shiftApplications()->cancel(1))->toThrow(ApiValidationException::class);
+    expect(fn () => SupportManager::shiftApplications()->destroy(1))->toThrow(ApiValidationException::class);
 });
 
 it('updates an appointment, re-spanning a move and forgetting viewers when made public', function () {

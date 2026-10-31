@@ -52,7 +52,7 @@ it('creates, updates and deletes a shopping list item', function () {
     $updated = SupportManager::shoppingList()->update($created->id, ['name' => 'Bread']);
     expect($updated->name)->toBe('Bread');
 
-    SupportManager::shoppingList()->delete($created->id);
+    SupportManager::shoppingList()->destroy($created->id);
     expect(SupportManager::shoppingList()->all()->total())->toBe(1);
 });
 

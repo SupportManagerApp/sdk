@@ -205,7 +205,7 @@ it('reads the employment summary and downloads the confirmation letter', functio
         ->and($employment->workingPattern?->weeklyAverageHours)->toBe(37.5)
         ->and($employment->contractedAnnualSalary)->toBe(28535.0);
 
-    $letter = SupportManager::profile()->employmentConfirmationLetter('ABC Mortgages Ltd');
+    $letter = SupportManager::profile()->downloadEmploymentConfirmationLetter('ABC Mortgages Ltd');
 
     expect($letter)->toBeInstanceOf(Download::class)
         ->and($letter->body())->toBe('%PDF-1.4 confirmation-letter-bytes')
@@ -216,7 +216,7 @@ it('refuses employment details to a user without any', function () {
     SupportManager::fake()->seed(ProfileFactory::new()->withoutEmployment());
 
     expect(fn () => SupportManager::profile()->employment())->toThrow(SupportManagerApiException::class)
-        ->and(fn () => SupportManager::profile()->employmentConfirmationLetter())->toThrow(SupportManagerApiException::class);
+        ->and(fn () => SupportManager::profile()->downloadEmploymentConfirmationLetter())->toThrow(SupportManagerApiException::class);
 });
 
 it('changes the password and removes the avatar without error', function () {
