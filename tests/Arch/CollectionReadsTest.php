@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use SupportManager\Sdk\Http\ResourceQuery;
 use SupportManager\Sdk\Resources\Concerns\Findable;
 use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
@@ -144,4 +145,20 @@ it('catches a find() the platform has no route for', function () {
     expect(showOperation('household/chores'))->toBeNull()
         ->and(showOperation('household/shopping-list'))->toBeNull()
         ->and(showOperation('payroll/payslips'))->toBe('GET /payroll/payslips/{id}');
+});
+
+it('keeps ResourceQuery to builders and GET {path} terminals', function () {
+    // query() is checked above against GET {path} only, so nothing on the
+    // query it returns may reach another route. find() used to: it read
+    // {path}/{id}, so chores()->query()->find(1) could call a show route the
+    // platform does not have. A new public method here must read GET {path}
+    // too (through fetch()); add it to this list once it does.
+    $public = array_map(
+        static fn (ReflectionMethod $method): string => $method->getName(),
+        Codebase::ownPublicMethods(ResourceQuery::class),
+    );
+
+    sort($public);
+
+    expect($public)->toBe(['collect', 'filter', 'first', 'get', 'include', 'lazy', 'page', 'params', 'perPage', 'sort']);
 });

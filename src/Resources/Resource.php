@@ -107,10 +107,10 @@ abstract class Resource
     abstract protected function hydrate(ResourceObject $object): mixed;
 
     /**
-     * A fluent query against this resource's collection. Protected: the
-     * public `query()`, `all()` and `find()` come from the {@see Listable} and
-     * {@see Findable} traits, which a resource uses only when the platform
-     * has the route.
+     * A fluent query against this resource's collection, `GET {path}`.
+     * Protected: the public `query()` and `all()` come from the {@see Listable}
+     * trait, and `find()` (which is not a query) from {@see Findable}, which a
+     * resource uses only when the platform has the route.
      *
      * @return ResourceQuery<T>
      */

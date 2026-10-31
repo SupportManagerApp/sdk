@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\CarJourneys\CarJourney;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
+use SupportManager\Sdk\Http\ResourceQuery;
 
 function journeyPage(int $page, int $lastPage): array
 {
@@ -239,4 +242,46 @@ it('maps a 400 for a privileged-only filter to an api exception', function () {
         expect($e->getCode())->toBe(400)
             ->and($e->getMessage())->toContain('not allowed');
     }
+});
+
+it('maps a 500 from find() to an api exception carrying the status', function () {
+    fakeApi(['car-journeys/7' => Http::response(['message' => 'Server Error'], 500)]);
+
+    expect(fn () => sdk()->journeys()->find(7))
+        ->toThrow(fn (SupportManagerApiException $e) => expect($e->getCode())->toBe(500));
+});
+
+it('maps a connection failure in find() to an api exception', function () {
+    fakeApi(['car-journeys/7' => fn () => throw new ConnectionException('Connection refused')]);
+
+    expect(fn () => sdk()->journeys()->find(7))
+        ->toThrow(SupportManagerApiException::class, 'Unable to reach SupportManager.');
+});
+
+it('offers no find() on a query, so query() can only read the collection', function () {
+    expect(sdk()->journeys()->query())->toBeInstanceOf(ResourceQuery::class)
+        ->and(method_exists(ResourceQuery::class, 'find'))->toBeFalse();
+});
+
+it('only ever reads GET {path} from a query, whatever links.next says', function () {
+    $page = journeyPage(1, 2);
+    $page['links']['next'] = 'https://api.test/api/v1/car-journeys/ongoing?page=2';
+
+    fakeApi(['car-journeys*' => Http::sequence()
+        ->push($page)->push(journeyPage(2, 2))
+        ->push(journeyPage(1, 1))
+        ->push(journeyPage(1, 2))->push(journeyPage(2, 2))
+        ->push(journeyPage(1, 1)),
+    ]);
+
+    $query = sdk()->journeys()->query()->filter('ongoing', true)->perPage(1);
+    $query->get()->next();
+    $query->collect();
+    $query->lazy()->all();
+    $query->first();
+
+    $sent = Http::recorded()->map(fn (array $pair): string => $pair[0]->method().' '.parse_url($pair[0]->url(), PHP_URL_PATH))->unique()->values()->all();
+
+    expect($sent)->toBe(['GET /api/v1/car-journeys']);
+    Http::assertSent(fn (Request $request) => str_contains(urldecode($request->url()), 'page=2'));
 });

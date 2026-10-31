@@ -21,6 +21,12 @@ use SupportManager\Sdk\Concerns\MapsApiErrors;
  * a base query can be safely branched and reused. (`include()` is deprecated:
  * no platform endpoint allows includes, so it sends nothing.)
  *
+ * Every terminal method (`get()`, `collect()`, `lazy()`, `first()`) reads
+ * `GET {path}` and nothing else, and {@see Paginated::next()} re-runs the same
+ * query with another `page`, so a query can only reach the collection route
+ * that `Listable` is checked against. A single record by id is not a query:
+ * that is `Findable::find()`, on the resources whose platform has the route.
+ *
  * Terminal methods run the request through {@see AuthenticatedApi::tenant()} —
  * inheriting current-team scoping and transparent token renewal — decode the
  * JSON:API {@see Document}, and hand each resource object to the resource's
@@ -228,25 +234,6 @@ final class ResourceQuery
     }
 
     /**
-     * Fetch a single resource by id from `{path}/{id}`, or null on a 404.
-     *
-     * @return T|null
-     */
-    public function find(string|int $id): mixed
-    {
-        $uri = $this->path.'/'.$id;
-        $response = $this->send($uri, fn ($request) => $request->get($uri), allowStatuses: [404]);
-
-        if ($response->status() === 404) {
-            return null;
-        }
-
-        $resource = Document::fromArray($response->json() ?? [])->resource();
-
-        return $resource === null ? null : ($this->hydrator)($resource);
-    }
-
-    /**
      * @param  array<string, mixed>  $params
      */
     private function fetch(array $params): Document
@@ -262,9 +249,8 @@ final class ResourceQuery
      * authentication calls do.
      *
      * @param  Closure(\Illuminate\Http\Client\PendingRequest): Response  $callback
-     * @param  list<int>  $allowStatuses
      */
-    private function send(string $uri, Closure $callback, array $allowStatuses = []): Response
+    private function send(string $uri, Closure $callback): Response
     {
         try {
             $response = $this->api->tenant($callback);
@@ -272,7 +258,7 @@ final class ResourceQuery
             throw $this->throwForConnectionFailure($e, $uri);
         }
 
-        $this->throwForErrorResponse($response, $uri, $allowStatuses);
+        $this->throwForErrorResponse($response, $uri);
 
         return $response;
     }
