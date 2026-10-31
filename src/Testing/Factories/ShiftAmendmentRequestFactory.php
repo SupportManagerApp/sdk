@@ -35,7 +35,7 @@ final class ShiftAmendmentRequestFactory extends Factory
     public function definition(int $index): array
     {
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 7,
             'rota_entry_id' => $index + 1,
             'proposed_start' => '2026-06-06T15:00:00+01:00',

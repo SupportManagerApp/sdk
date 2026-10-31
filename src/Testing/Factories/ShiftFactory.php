@@ -78,7 +78,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'type' => 'Contracted Hours',
             'type_label' => 'Contracted Hours',
             'start' => '2026-06-06T09:00:00Z',
@@ -148,7 +148,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::post('rota/shifts', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('rota/shifts', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $input = $request->data();
                 $missing = array_values(array_filter(
                     ['assignee_id', 'date', 'start_time'],
@@ -156,10 +156,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 ));
 
                 if ($missing !== []) {
-                    return Http::response([
-                        'message' => 'The information provided was invalid.',
-                        'errors' => array_fill_keys($missing, ['This field is required.']),
-                    ], 422);
+                    return Json::validation(array_fill_keys($missing, 'This field is required.'), Json::INVALID);
                 }
 
                 $start = self::wallClock((string) $input['date'], (string) $input['start_time']);
@@ -177,7 +174,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
 
                 $shift = $store->append('rota/shifts', [
                     'id' => $store->nextId('rota/shifts'),
-                    'team_id' => 42,
+                    'team_id' => $fake->teamId(),
                     'user_id' => (int) $input['assignee_id'],
                     'type' => $type,
                     'type_label' => $type,
@@ -208,50 +205,42 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 )), 0, $limit);
 
                 // Never paginated: the whole answer is the one body.
-                return Http::response(['data' => Json::collection('rota_entries', $records)['data'], 'meta' => [
-                    'team_id' => 42,
+                return Http::response(Json::flat(Json::collection('rota_entries', $records)['data'], [
+                    'team_id' => $fake->teamId(),
                     'mode' => in_array($query['mode'] ?? null, ['scheduled', 'team', 'available'], true) ? $query['mode'] : 'scheduled',
                     'days' => max(1, min((int) ($query['days'] ?? 2), 30)),
                     'limit' => $limit,
-                ]]);
+                ]));
             }),
 
-            FakeRoute::get('rota/shifts/today', static function (RecordStore $store): mixed {
-                $records = array_values(array_filter(
+            FakeRoute::collection('rota/shifts/today', static fn (RecordStore $store): array => array_values(array_filter(
+                $store->all('rota/shifts'),
+                static fn (array $r): bool => (bool) ($r['_today'] ?? false),
+            ))),
+
+            // Only this endpoint counts applications (withCount for privileged users).
+            FakeRoute::collection('rota/shifts/available', static fn (RecordStore $store): array => array_map(
+                static fn (array $r): array => [...$r, 'shift_applications_count' => $r['_applications_count'] ?? 0],
+                array_values(array_filter(
                     $store->all('rota/shifts'),
-                    static fn (array $r): bool => (bool) ($r['_today'] ?? false),
-                ));
-
-                return Http::response(Json::collection('rota_entries', $records));
-            }),
-
-            FakeRoute::get('rota/shifts/available', static function (RecordStore $store): mixed {
-                // Only this endpoint counts applications (withCount for privileged users).
-                $records = array_map(
-                    static fn (array $r): array => [...$r, 'shift_applications_count' => $r['_applications_count'] ?? 0],
-                    array_values(array_filter(
-                        $store->all('rota/shifts'),
-                        static fn (array $r): bool => (bool) ($r['is_available'] ?? false),
-                    )),
-                );
-
-                return Http::response(Json::collection('rota_entries', $records));
-            }),
+                    static fn (array $r): bool => (bool) ($r['is_available'] ?? false),
+                )),
+            )),
 
             FakeRoute::post('rota/shifts/{id}/apply', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $shift = $store->find('rota/shifts', $matches[1]);
 
                 if ($shift === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 if (($shift['shift_block_id'] ?? null) !== null) {
-                    return Http::response(['message' => self::SLEEPOVER_SEGMENT_MESSAGE], 422);
+                    return Json::message(self::SLEEPOVER_SEGMENT_MESSAGE, 422);
                 }
 
                 $application = [
                     'id' => $store->nextId('rota/shift-applications'),
-                    'team_id' => 42,
+                    'team_id' => $fake->teamId(),
                     'status' => 'Pending',
                     'start_time' => self::clockTime($shift['start'] ?? null),
                     'end_time' => self::clockTime($shift['end'] ?? null),
@@ -268,11 +257,11 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(Json::collection('shift_applications', [$application]), 201);
             }),
 
-            FakeRoute::post('rota/shifts/{id}/amendment-requests', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('rota/shifts/{id}/amendment-requests', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $shift = $store->find('rota/shifts', $matches[1]);
 
                 if ($shift === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 $input = $request->data();
@@ -282,15 +271,12 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
                 ));
 
                 if ($missing !== []) {
-                    return Http::response([
-                        'message' => 'The information provided was invalid.',
-                        'errors' => array_fill_keys($missing, ['This field is required.']),
-                    ], 422);
+                    return Json::validation(array_fill_keys($missing, 'This field is required.'), Json::INVALID);
                 }
 
                 foreach ($store->all('rota/shift-amendment-requests') as $existing) {
                     if ((string) ($existing['rota_entry_id'] ?? '') === (string) $shift['id'] && ($existing['status'] ?? null) === 'Pending') {
-                        return Http::response(['message' => 'This action is unauthorized.'], 403);
+                        return Json::forbidden();
                     }
                 }
 
@@ -305,7 +291,7 @@ final class ShiftFactory extends Factory implements ProvidesFakeRoutes
 
                 $amendment = $store->append('rota/shift-amendment-requests', [
                     'id' => $store->nextId('rota/shift-amendment-requests'),
-                    'team_id' => 42,
+                    'team_id' => $fake->teamId(),
                     'user_id' => 7,
                     'rota_entry_id' => (int) $shift['id'],
                     'proposed_start' => $start->format(DATE_ATOM),

@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Rota\NestedResource;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -74,38 +75,38 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('rota/shift-blocks/{id}/start-options', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::get('rota/shift-blocks/{id}/start-options', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $block = $store->find('rota/shift-blocks', $matches[1]);
 
                 if ($block === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
-                return Http::response(['data' => $block['start_options'] ?? [], 'meta' => ['team_id' => 42]]);
+                /** @var list<array<string, mixed>> $options */
+                $options = $block['start_options'] ?? [];
+
+                return Http::response(Json::flat($options, ['team_id' => $fake->teamId()]));
             }),
 
-            FakeRoute::post('rota/shift-blocks/{id}/application', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('rota/shift-blocks/{id}/application', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 if ($store->find('rota/shift-blocks', $matches[1]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 $startTime = $request->data()['start_time'] ?? null;
 
                 if ($startTime !== null && (! is_string($startTime) || preg_match('/^\d{2}:\d{2}$/', $startTime) !== 1)) {
-                    return Http::response([
-                        'message' => 'The information provided was invalid.',
-                        'errors' => ['start_time' => ['The start time must be in HH:MM format.']],
-                    ], 422);
+                    return Json::validation(['start_time' => 'The start time must be in HH:MM format.'], Json::INVALID);
                 }
 
                 $segments = self::segments($store, $matches[1]);
 
                 if ($segments === [] || array_filter($segments, static fn (array $shift): bool => ! ($shift['is_available'] ?? false)) !== []) {
-                    return Http::response(['message' => 'This sleepover is not open for application.'], 422);
+                    return Json::message('This sleepover is not open for application.', 422);
                 }
 
                 if (self::pendingApplications($store, $matches[1]) !== []) {
-                    return Http::response(['message' => 'You have already applied for this sleepover.'], 422);
+                    return Json::message('You have already applied for this sleepover.', 422);
                 }
 
                 $applications = [];
@@ -113,7 +114,7 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
                 foreach ($segments as $position => $shift) {
                     $applications[] = $store->append('rota/shift-applications', [
                         'id' => $store->nextId('rota/shift-applications'),
-                        'team_id' => 42,
+                        'team_id' => $fake->teamId(),
                         'status' => 'Pending',
                         // A later start trims the evening, the first segment.
                         'start_time' => $position === 0 && $startTime !== null ? $startTime : ShiftFactory::clockTime($shift['start'] ?? null),
@@ -131,26 +132,26 @@ final class ShiftBlockFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response([
                     ...Json::collection('shift_applications', $applications),
                     'message' => "Your application for the sleepover ({$count} parts) has been submitted for review.",
-                    'meta' => ['team_id' => 42],
+                    'meta' => ['team_id' => $fake->teamId()],
                 ], 201);
             }),
 
-            FakeRoute::delete('rota/shift-blocks/{id}/application', static function (RecordStore $store, array $matches): mixed {
+            FakeRoute::delete('rota/shift-blocks/{id}/application', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 if ($store->find('rota/shift-blocks', $matches[1]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 $pending = self::pendingApplications($store, $matches[1]);
 
                 if ($pending === []) {
-                    return Http::response(['message' => 'You have no pending application for this sleepover.'], 422);
+                    return Json::message('You have no pending application for this sleepover.', 422);
                 }
 
                 foreach ($pending as $application) {
                     $store->delete('rota/shift-applications', (string) $application['id']);
                 }
 
-                return Http::response(['message' => 'Your sleepover application has been withdrawn.', 'meta' => ['team_id' => 42]]);
+                return Json::message('Your sleepover application has been withdrawn.', meta: ['team_id' => $fake->teamId()]);
             }),
         ];
     }
