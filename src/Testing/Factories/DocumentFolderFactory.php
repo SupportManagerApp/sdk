@@ -45,7 +45,7 @@ final class DocumentFolderFactory extends Factory implements ProvidesFakeRoutes
         return [
             'name' => "Folder {$number}",
             'description' => 'Team files',
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'scope' => 'team',
             'user_id' => null,
             'parent_id' => null,
@@ -79,7 +79,7 @@ final class DocumentFolderFactory extends Factory implements ProvidesFakeRoutes
                 $folder = $store->find('documents/document-folders', $matches[1]);
 
                 if ($folder === null) {
-                    return Http::response(['message' => 'Not found'], 404);
+                    return Json::notFound();
                 }
 
                 return Http::response(Json::item('document_folders', [

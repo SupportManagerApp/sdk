@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Testing\Factories;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Concerns\FakesComplianceRecords;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -52,7 +53,7 @@ final class DriversLicenceCheckFactory extends Factory implements ProvidesFakeRo
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => $number,
             'user' => ['id' => $number, 'name' => "Employee {$number}"],
             'drivers_licence_number' => "DL-{$number}",
@@ -102,27 +103,21 @@ final class DriversLicenceCheckFactory extends Factory implements ProvidesFakeRo
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::post('compliance/drivers-licence-checks', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('compliance/drivers-licence-checks', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $fields = self::submittedFields($request);
 
                 if (($fields['declaration_accepted'] ?? false) !== true) {
-                    return Http::response([
-                        'message' => 'You must accept the declaration to continue.',
-                        'errors' => ['declaration_accepted' => ['You must accept the declaration to continue.']],
-                    ], 422);
+                    return Json::validation(['declaration_accepted' => 'You must accept the declaration to continue.']);
                 }
 
-                return self::saveOwnRecord($store, 'compliance/drivers-licence-checks', 'drivers_licence_checks', self::ownRecord($store, 'compliance/drivers-licence-checks'), [
+                return self::saveOwnRecord($store, $fake, 'compliance/drivers-licence-checks', 'drivers_licence_checks', self::ownRecord($store, 'compliance/drivers-licence-checks'), [
                     'drivers_licence_number' => $fields['drivers_licence_number'] ?? null,
                     'check_code' => $fields['check_code'] ?? null,
                     'declaration_accepted' => true,
                 ]);
             }),
 
-            FakeRoute::get('compliance/drivers-licence-checks/{id}/check-result-document', static fn (RecordStore $store, array $matches): mixed => self::downloadPayload(
-                $store->find('compliance/drivers-licence-checks', $matches[1])['check_result_document'] ?? null,
-                "drivers-licence-checks/{$matches[1]}",
-            )),
+            FakeRoute::downloadLink('compliance/drivers-licence-checks/{id}/check-result-document', 'check_result_document'),
         ];
     }
 }
