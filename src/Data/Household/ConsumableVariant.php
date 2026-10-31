@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * One size of a {@see Consumable} and its stock level. Mirrors an entry of the
  * platform's `ConsumableResource` `variants` list; `isLowStock` is the server's
@@ -24,12 +26,6 @@ final readonly class ConsumableVariant
      */
     public static function fromArray(array $data): self
     {
-        return new self(
-            id: (int) ($data['id'] ?? 0),
-            size: (string) ($data['size'] ?? ''),
-            quantity: (int) ($data['quantity'] ?? 0),
-            minimumStock: (int) ($data['minimum_stock'] ?? 0),
-            isLowStock: (bool) ($data['is_low_stock'] ?? false),
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }

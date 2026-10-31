@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Data\Household;
 
+use SupportManager\Sdk\Data\Hydration\Attributes\From;
+use SupportManager\Sdk\Data\Hydration\Hydrator;
+
 /**
  * The team's weekly meal plan — one meal per day. Mirrors the platform's
  * `MealPlanResource` attributes, which nest the seven days under a `days` key.
@@ -13,12 +16,19 @@ final readonly class MealPlan
 {
     public function __construct(
         public ?int $teamId,
+        #[From('days.monday')]
         public ?string $monday,
+        #[From('days.tuesday')]
         public ?string $tuesday,
+        #[From('days.wednesday')]
         public ?string $wednesday,
+        #[From('days.thursday')]
         public ?string $thursday,
+        #[From('days.friday')]
         public ?string $friday,
+        #[From('days.saturday')]
         public ?string $saturday,
+        #[From('days.sunday')]
         public ?string $sunday,
         public ?string $updatedAt,
     ) {}
@@ -28,21 +38,6 @@ final readonly class MealPlan
      */
     public static function fromArray(array $data): self
     {
-        /** @var array<string, mixed> $days */
-        $days = is_array($data['days'] ?? null) ? $data['days'] : [];
-
-        $day = static fn (string $name): ?string => isset($days[$name]) ? (string) $days[$name] : null;
-
-        return new self(
-            teamId: isset($data['team_id']) ? (int) $data['team_id'] : null,
-            monday: $day('monday'),
-            tuesday: $day('tuesday'),
-            wednesday: $day('wednesday'),
-            thursday: $day('thursday'),
-            friday: $day('friday'),
-            saturday: $day('saturday'),
-            sunday: $day('sunday'),
-            updatedAt: isset($data['updated_at']) ? (string) $data['updated_at'] : null,
-        );
+        return Hydrator::hydrate(self::class, $data);
     }
 }
