@@ -6,7 +6,6 @@ namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Data\Rota\SleepoverStartOption;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -41,24 +40,7 @@ final class ShiftBlocksResource extends Resource
      */
     public function startOptions(string|int $id): array
     {
-        $uri = "{$this->path()}/{$id}/start-options";
-        $response = $this->get($uri);
-
-        $this->throwForErrorResponse($response, $uri);
-
-        /** @var array<array-key, mixed> $data */
-        $data = $response->json('data') ?? [];
-
-        $options = [];
-
-        foreach ($data as $row) {
-            if (is_array($row)) {
-                /** @var array<string, mixed> $row */
-                $options[] = SleepoverStartOption::fromArray($row);
-            }
-        }
-
-        return $options;
+        return $this->dataList($this->get("{$this->path()}/{$id}/start-options"), SleepoverStartOption::class);
     }
 
     /**
@@ -72,12 +54,7 @@ final class ShiftBlocksResource extends Resource
      */
     public function apply(string|int $id, ?string $startTime = null): array
     {
-        $uri = "{$this->path()}/{$id}/application";
-        $response = $this->post($uri, $startTime === null ? [] : ['start_time' => $startTime]);
-
-        $this->throwForErrorResponse($response, $uri);
-
-        return array_map($this->hydrate(...), Document::fromArray($response->json() ?? [])->resources());
+        return $this->collection($this->post("{$this->path()}/{$id}/application", $startTime === null ? [] : ['start_time' => $startTime]));
     }
 
     /**
@@ -87,9 +64,7 @@ final class ShiftBlocksResource extends Resource
      */
     public function cancel(string|int $id): void
     {
-        $uri = "{$this->path()}/{$id}/application";
-
-        $this->throwForErrorResponse($this->delete($uri), $uri);
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}/application"));
     }
 
     protected function path(): string

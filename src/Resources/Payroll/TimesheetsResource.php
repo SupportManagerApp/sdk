@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Payroll;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Payroll\Timesheet;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -14,7 +14,7 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * The collection (`query()`, `find()`, `all()`) — filterable by `user_id`,
  * `status`, `year`, `month` and sortable by `process_date`/`created_at`/`status`
- * — plus a raw PDF `download()`.
+ * — plus a PDF `download()`.
  *
  * ```php
  * SupportManager::timesheets()->query()->filter('status', 'submitted')->get();
@@ -25,13 +25,13 @@ use SupportManager\Sdk\Resources\Resource;
 final class TimesheetsResource extends Resource
 {
     /**
-     * Download a timesheet as a PDF. Returns the raw binary {@see Response} — the
-     * body is the PDF, not a JSON:API document, so it is intentionally not
-     * hydrated into a DTO.
+     * Download a timesheet as a PDF. The response body is the PDF itself, so it
+     * comes back as a {@see Download} rather than a DTO; an error response
+     * throws.
      */
-    public function download(string|int $id): Response
+    public function download(string|int $id): Download
     {
-        return $this->get("payroll/timesheets/{$id}/download");
+        return $this->downloadFile("payroll/timesheets/{$id}/download");
     }
 
     protected function path(): string

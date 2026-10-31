@@ -9,7 +9,6 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Override;
 use SupportManager\Sdk\Data\Teams\Team;
-use SupportManager\Sdk\Http\Document;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -43,15 +42,8 @@ final class TeamsResource extends Resource
     #[Override]
     public function all(): Paginated
     {
-        $response = $this->sendUntenanted(fn (PendingRequest $request): Response => $request->get($this->path()));
-        $this->throwForErrorResponse($response, $this->path());
-
-        $document = Document::fromArray($response->json() ?? []);
-
-        return new Paginated(
-            items: array_map($this->hydrate(...), $document->resources()),
-            meta: $document->meta(),
-            links: $document->links(),
+        return $this->paginated(
+            $this->sendUntenanted(fn (PendingRequest $request): Response => $request->get($this->path())),
         );
     }
 
@@ -60,12 +52,11 @@ final class TeamsResource extends Resource
      */
     public function count(): int
     {
-        $response = $this->sendUntenanted(
+        $data = $this->raw($this->sendUntenanted(
             fn (PendingRequest $request): Response => $request->get("{$this->path()}/count"),
-        );
-        $this->throwForErrorResponse($response, $this->path());
+        ));
 
-        return (int) $response->json('data.count', 0);
+        return (int) ($data['count'] ?? 0);
     }
 
     protected function path(): string

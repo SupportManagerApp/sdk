@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\Payslip;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Resources\Payroll\PayslipsResource;
 
 function payslips(): PayslipsResource
@@ -200,7 +201,7 @@ it('downloads a payslip PDF as a raw response', function () {
 
     $response = payslips()->download(9);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 payslip-bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf');
+        ->and($response->mimeType())->toBe('application/pdf');
 });

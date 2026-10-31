@@ -110,8 +110,8 @@ it('returns the raw download payload response', function () {
 
     $response = documentsResource()->download(7);
 
-    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/7.pdf')
-        ->and($response->json('data.filename'))->toBe('NDA');
+    expect($response->url)->toBe('https://s3.test/signed/7.pdf')
+        ->and($response->filename)->toBe('NDA');
 });
 
 it('maps a 422 on the documents path to a validation exception', function () {

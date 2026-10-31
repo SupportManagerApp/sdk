@@ -16,6 +16,7 @@ use SupportManager\Sdk\Data\Profile\WorkingPattern;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Resources\Profile\ProfileResource;
 use SupportManager\Sdk\Testing\Factories\ProfileFactory;
 
@@ -420,9 +421,9 @@ it('downloads the employment confirmation letter as a raw response', function ()
 
     $response = profileResource()->employmentConfirmationLetter('ABC Mortgages Ltd', includeGrossPay: true);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 letter-bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf');
+        ->and($response->mimeType())->toBe('application/pdf');
 
     Http::assertSent(function ($request) {
         $url = urldecode($request->url());

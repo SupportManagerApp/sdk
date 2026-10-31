@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\P60;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Resources\Payroll\P60sResource;
 
 function payrollP60s(): P60sResource
@@ -118,6 +119,6 @@ it('downloads a P60 PDF as a raw response', function () {
 
     $response = payrollP60s()->download(4);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 p60-bytes');
 });

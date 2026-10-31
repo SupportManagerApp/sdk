@@ -15,6 +15,7 @@ use SupportManager\Sdk\Data\Profile\UserOption;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Testing\Factories\DirectoryUserFactory;
 use SupportManager\Sdk\Testing\Factories\ProfileFactory;
 
@@ -206,16 +207,16 @@ it('reads the employment summary and downloads the confirmation letter', functio
 
     $letter = SupportManager::profile()->employmentConfirmationLetter('ABC Mortgages Ltd');
 
-    expect($letter->status())->toBe(200)
+    expect($letter)->toBeInstanceOf(Download::class)
         ->and($letter->body())->toBe('%PDF-1.4 confirmation-letter-bytes')
-        ->and($letter->header('Content-Type'))->toBe('application/pdf');
+        ->and($letter->mimeType())->toBe('application/pdf');
 });
 
 it('refuses employment details to a user without any', function () {
     SupportManager::fake()->seed(ProfileFactory::new()->withoutEmployment());
 
     expect(fn () => SupportManager::profile()->employment())->toThrow(SupportManagerApiException::class)
-        ->and(SupportManager::profile()->employmentConfirmationLetter()->status())->toBe(403);
+        ->and(fn () => SupportManager::profile()->employmentConfirmationLetter())->toThrow(SupportManagerApiException::class);
 });
 
 it('changes the password and removes the avatar without error', function () {

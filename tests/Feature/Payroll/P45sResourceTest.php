@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\P45;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Resources\Payroll\P45sResource;
 use SupportManager\Sdk\Testing\Factories\P45Factory;
 
@@ -143,7 +145,7 @@ it('downloads a P45 PDF as a raw response with a team header', function () {
 
     $response = payrollP45s()->download(4);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 p45-bytes');
 
     Http::assertSent(fn ($request) => $request->hasHeader('X-Team-ID', '42'));
@@ -178,8 +180,8 @@ it('downloads a seeded P45 PDF through the fake', function () {
     $response = payrollP45s()->download(1);
 
     expect($response->body())->toBe('%PDF-1.4 p45-bytes')
-        ->and($response->header('Content-Type'))->toBe('application/pdf')
-        ->and(payrollP45s()->download(999)->status())->toBe(404);
+        ->and($response->mimeType())->toBe('application/pdf')
+        ->and(fn () => payrollP45s()->download(999))->toThrow(SupportManagerApiException::class);
 });
 
 it('marks a seeded P45 viewed when it is opened or downloaded', function () {

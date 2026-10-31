@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Household;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\ShoppingListItem;
 use SupportManager\Sdk\Http\ResourceObject;
@@ -55,11 +54,9 @@ final class ShoppingListItemsResource extends Resource
      */
     public function delete(string|int $id, array $data = []): Response
     {
-        $uri = "household/shopping-list/{$id}";
+        $response = parent::delete("household/shopping-list/{$id}", $data);
 
-        $response = $this->tenant(fn (PendingRequest $request) => $request->delete($uri, $data));
-
-        $this->throwForErrorResponse($response, $uri);
+        $this->throwForErrorResponse($response);
 
         return $response;
     }

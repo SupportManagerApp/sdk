@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Rota;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -32,11 +30,7 @@ final class ShiftApplicationsResource extends Resource
      */
     public function cancel(string|int $id): void
     {
-        $response = $this->tenant(
-            fn (PendingRequest $request): Response => $request->delete("rota/shift-applications/{$id}"),
-        );
-
-        $this->throwForErrorResponse($response, "rota/shift-applications/{$id}");
+        $this->throwForErrorResponse($this->delete("{$this->path()}/{$id}"));
     }
 
     /**

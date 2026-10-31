@@ -7,6 +7,7 @@ use SupportManager\Sdk\Data\Compliance\DriversLicenceCheck;
 use SupportManager\Sdk\Data\Compliance\RightToWork;
 use SupportManager\Sdk\Enums\Compliance\PrimaryDocumentType;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
 use SupportManager\Sdk\Testing\Factories\DBSCheckFactory;
 use SupportManager\Sdk\Testing\Factories\DriversLicenceCheckFactory;
@@ -143,9 +144,9 @@ it('downloads a stored DBS certificate and 404s when none is uploaded', function
 
     $response = SupportManager::dbsChecks()->downloadCertificate(1);
 
-    expect($response->json('data.filename'))->toBe('dbs.pdf')
-        ->and($response->json('data.download_url'))->toStartWith('https://s3.test/signed/')
-        ->and(SupportManager::dbsChecks()->downloadCertificate(2)->status())->toBe(404);
+    expect($response->filename)->toBe('dbs.pdf')
+        ->and($response->url)->toStartWith('https://s3.test/signed/')
+        ->and(fn () => SupportManager::dbsChecks()->downloadCertificate(2))->toThrow(SupportManagerApiException::class);
 });
 
 it('submits right to work records with the type-dependent rules', function () {
@@ -180,9 +181,9 @@ it('submits right to work records with the type-dependent rules', function () {
 it('downloads right to work documents and 404s for a missing one', function () {
     SupportManager::fake()->seed(RightToWorkFactory::new()->withDocuments('passport.pdf', null));
 
-    expect(SupportManager::rightToWork()->downloadPrimaryDocument(1)->json('data.filename'))->toBe('passport.pdf')
-        ->and(SupportManager::rightToWork()->downloadSupportingDocument(1)->status())->toBe(404)
-        ->and(SupportManager::rightToWork()->downloadPrimaryDocument(999)->status())->toBe(404);
+    expect(SupportManager::rightToWork()->downloadPrimaryDocument(1)->filename)->toBe('passport.pdf')
+        ->and(fn () => SupportManager::rightToWork()->downloadSupportingDocument(1))->toThrow(SupportManagerApiException::class)
+        ->and(fn () => SupportManager::rightToWork()->downloadPrimaryDocument(999))->toThrow(SupportManagerApiException::class);
 });
 
 it('submits driving licence details and requires the declaration', function () {
@@ -201,5 +202,5 @@ it('submits driving licence details and requires the declaration', function () {
 it('downloads a drivers licence check result document', function () {
     SupportManager::fake()->seed(DriversLicenceCheckFactory::new()->withCheckResultDocument());
 
-    expect(SupportManager::driversLicenceChecks()->downloadCheckResultDocument(1)->json('data.filename'))->toBe('result.pdf');
+    expect(SupportManager::driversLicenceChecks()->downloadCheckResultDocument(1)->filename)->toBe('result.pdf');
 });

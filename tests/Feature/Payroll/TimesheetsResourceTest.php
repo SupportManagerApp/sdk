@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Payroll\Timesheet;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Resources\Payroll\TimesheetsResource;
 
 function payrollTimesheets(): TimesheetsResource
@@ -117,6 +118,6 @@ it('downloads a timesheet PDF as a raw response', function () {
 
     $response = payrollTimesheets()->download(3);
 
-    expect($response->status())->toBe(200)
+    expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 timesheet-bytes');
 });

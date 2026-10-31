@@ -30,13 +30,21 @@ trait MapsApiErrors
      * quietly when the response is successful (or its status is explicitly
      * allowed, e.g. a 404 a caller treats as "absent").
      *
+     * The `$context` only labels the warning logged for an unexpected status;
+     * it never reaches the exception message. Omitted, it defaults to the
+     * request's path (e.g. `/api/v1/tasks/count`), which is what a caller would
+     * otherwise type by hand.
+     *
+     * @param  string|null  $context  A label for the log entry; defaults to the request path.
      * @param  list<int>  $allowStatuses  Statuses to treat as non-errors.
      */
-    protected function throwForErrorResponse(Response $response, string $context, array $allowStatuses = []): void
+    protected function throwForErrorResponse(Response $response, ?string $context = null, array $allowStatuses = []): void
     {
         if ($response->successful() || in_array($response->status(), $allowStatuses, true)) {
             return;
         }
+
+        $context ??= $response->effectiveUri()?->getPath() ?? 'request';
 
         $status = $response->status();
         $body = $response->json() ?? [];

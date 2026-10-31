@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Payroll;
 
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Payroll\Payslip;
+use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
 
@@ -14,11 +14,12 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * The collection (`query()`, `find()`, `all()`) — filterable by `user_id`,
  * `year`, `month` and sortable by `process_date`/`created_at` — plus the
- * non-RESTful `latest()` upcoming payslip and a raw PDF `download()`.
+ * non-RESTful `latest()` upcoming payslip and a PDF `download()`.
  *
  * ```php
  * SupportManager::payslips()->query()->filter('year', 2026)->sort('-process_date')->get();
  * SupportManager::payslips()->latest();
+ * SupportManager::payslips()->download(9)->saveTo(storage_path('payslips'));
  * ```
  *
  * @extends resource<Payslip>
@@ -34,13 +35,13 @@ final class PayslipsResource extends Resource
     }
 
     /**
-     * Download a payslip as a PDF. Returns the raw binary {@see Response} — the
-     * body is the PDF, not a JSON:API document, so it is intentionally not
-     * hydrated into a DTO.
+     * Download a payslip as a PDF. The response body is the PDF itself, so it
+     * comes back as a {@see Download} (bytes, filename, `saveTo()`) rather than
+     * a DTO. An error response (e.g. a 403 for someone else's payslip) throws.
      */
-    public function download(string|int $id): Response
+    public function download(string|int $id): Download
     {
-        return $this->get("payroll/payslips/{$id}/download");
+        return $this->downloadFile("payroll/payslips/{$id}/download");
     }
 
     protected function path(): string

@@ -32,9 +32,7 @@ final class PoliciesResource extends Resource
      */
     public function acknowledge(string|int $id): void
     {
-        $response = $this->post("documents/policies/{$id}/acknowledge");
-
-        $this->throwForErrorResponse($response, "documents/policies/{$id}/acknowledge");
+        $this->throwForErrorResponse($this->post("documents/policies/{$id}/acknowledge"));
     }
 
     protected function path(): string

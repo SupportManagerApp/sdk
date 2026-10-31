@@ -199,6 +199,6 @@ it('returns the raw primary and supporting document download payload responses',
     ]);
     bootTenantSession();
 
-    expect(complianceRightToWork()->downloadPrimaryDocument(7)->json('data.download_url'))->toBe('https://s3.test/signed/primary.pdf')
-        ->and(complianceRightToWork()->downloadSupportingDocument(7)->json('data.filename'))->toBe('supporting.pdf');
+    expect(complianceRightToWork()->downloadPrimaryDocument(7)->url)->toBe('https://s3.test/signed/primary.pdf')
+        ->and(complianceRightToWork()->downloadSupportingDocument(7)->filename)->toBe('supporting.pdf');
 });

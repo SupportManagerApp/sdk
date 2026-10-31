@@ -210,8 +210,8 @@ it('returns the raw certificate download payload response', function () {
 
     $response = complianceDbsChecks()->downloadCertificate(7);
 
-    expect($response->json('data.download_url'))->toBe('https://s3.test/signed/dbs.pdf')
-        ->and($response->json('data.filename'))->toBe('certificate.pdf');
+    expect($response->url)->toBe('https://s3.test/signed/dbs.pdf')
+        ->and($response->filename)->toBe('certificate.pdf');
     Http::assertSent(fn ($request) => $request->method() === 'GET'
         && $request->hasHeader('X-Team-ID', '42'));
 });
