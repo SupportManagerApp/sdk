@@ -44,6 +44,8 @@ final class ShoppingListItemFactory extends Factory implements ProvidesFakeRoute
             'quantity' => 2,
             'needs_purchasing' => true,
             'is_maybe' => false,
+            'section' => 'dairy_eggs_and_chilled',
+            'notes' => null,
             'last_purchased_on' => null,
             'requested_by' => ['id' => 9, 'name' => 'Ada'],
             'created_at' => '2026-01-01T09:00:00Z',

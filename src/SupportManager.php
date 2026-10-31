@@ -16,6 +16,7 @@ use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
 use SupportManager\Sdk\Resources\Household\ChoreCategoriesResource;
 use SupportManager\Sdk\Resources\Household\ChoresResource;
+use SupportManager\Sdk\Resources\Household\ConsumablesResource;
 use SupportManager\Sdk\Resources\Household\KeysafeResource;
 use SupportManager\Sdk\Resources\Household\MealPlanResource;
 use SupportManager\Sdk\Resources\Household\ShoppingListItemsResource;
@@ -224,6 +225,12 @@ final class SupportManager
     public function choreCategories(): ChoreCategoriesResource
     {
         return $this->resource(ChoreCategoriesResource::class);
+    }
+
+    /** Household — consumables and their variants' stock. */
+    public function consumables(): ConsumablesResource
+    {
+        return $this->resource(ConsumablesResource::class);
     }
 
     /** Household — the weekly meal plan (singleton). */

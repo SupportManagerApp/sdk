@@ -136,3 +136,17 @@ it('maps a 422 to a validation exception', function () {
         expect($e->first('name'))->toBe('The name field is required.');
     }
 });
+
+it('hydrates the section and notes and filters by purchased today', function () {
+    Http::fake(['api.test/api/v1/household/shopping-list*' => Http::response([
+        'data' => [householdShoppingItem('1', ['section' => 'dairy_eggs_and_chilled', 'notes' => 'The blue Lurpak, 500g'])],
+        'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],
+    ])]);
+    bootTenantSession();
+
+    $item = householdShoppingList()->query()->filter('purchased_today', true)->get()->items()[0];
+
+    expect($item->section)->toBe('dairy_eggs_and_chilled')
+        ->and($item->notes)->toBe('The blue Lurpak, 500g');
+    Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'filter[purchased_today]=1'));
+});

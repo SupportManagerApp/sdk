@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Resources\Household;
 
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\MealPlan;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
@@ -15,9 +14,10 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * There is one meal plan per team, so this resource hand-rolls typed `show()`,
  * `update()` and `removeDay()` methods rather than exposing `query()`/`find()`.
- * The platform's `MealPlanResource` is a plain Laravel resource, so the body is
- * `{data: {team_id, days: {...}, updated_at}}` — NOT a JSON:API document with
- * `attributes`. We therefore parse `data` directly instead of via `item()`.
+ * The platform's `MealPlanResource` is a JSON:API resource (`meal_plans`), so
+ * each body is `{data: {type, id, attributes: {team_id, days: {...},
+ * updated_at}}}` and hydrates via `item()` like any other resource. The `id` is
+ * an empty string until the team first saves a plan.
  *
  * ```php
  * SupportManager::mealPlan()->update(['monday' => 'Pasta']);
@@ -33,7 +33,7 @@ final class MealPlanResource extends Resource
      */
     public function show(): ?MealPlan
     {
-        return $this->plan($this->get('household/meal-plan'));
+        return $this->item($this->get('household/meal-plan'));
     }
 
     /**
@@ -44,7 +44,7 @@ final class MealPlanResource extends Resource
      */
     public function update(array $days): ?MealPlan
     {
-        return $this->plan($this->patch('household/meal-plan', $days));
+        return $this->item($this->patch('household/meal-plan', $days));
     }
 
     /**
@@ -54,7 +54,7 @@ final class MealPlanResource extends Resource
     {
         $uri = "household/meal-plan/days/{$day}";
 
-        return $this->plan(
+        return $this->item(
             $this->tenant(fn (PendingRequest $request) => $request->delete($uri)),
         );
     }
@@ -67,22 +67,5 @@ final class MealPlanResource extends Resource
     protected function hydrate(ResourceObject $object): MealPlan
     {
         return MealPlan::fromArray($object->flat());
-    }
-
-    /**
-     * Parse the singleton's flat (non-JSON:API) `data` body into a DTO.
-     */
-    private function plan(Response $response): ?MealPlan
-    {
-        $this->throwForErrorResponse($response, 'household/meal-plan');
-
-        /** @var array<string, mixed> $body */
-        $body = $response->json() ?? [];
-
-        if (! isset($body['data']) || ! is_array($body['data'])) {
-            return null;
-        }
-
-        return MealPlan::fromArray($body['data']);
     }
 }

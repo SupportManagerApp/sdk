@@ -78,3 +78,16 @@ it('maps a 422 on chore categories to a validation exception', function () {
         expect($e->first('filter'))->toBe('The color filter is invalid.');
     }
 });
+
+it('hydrates the due chores count', function () {
+    Http::fake(['api.test/api/v1/household/chore-categories*' => Http::response([
+        'data' => [householdChoreCategory('1', ['due_chores_count' => 2])],
+        'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 15, 'total' => 1],
+    ])]);
+    bootTenantSession();
+
+    $category = householdChoreCategories()->all()->items()[0];
+
+    expect($category->choresCount)->toBe(4)
+        ->and($category->dueChoresCount)->toBe(2);
+});
