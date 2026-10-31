@@ -62,7 +62,7 @@ final class PayRunFactory extends Factory implements ProvidesFakeRoutes
             // Flat paginated index: type null so rows are emitted verbatim, with
             // a team_id alongside the page meta the platform sends.
             FakeRoute::get('payroll/pay-runs', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
-                return $fake->paginate('payroll/pay-runs', null, $store->all('payroll/pay-runs'), $request, ['team_id' => 42]);
+                return $fake->paginate('payroll/pay-runs', null, $store->all('payroll/pay-runs'), $request, ['team_id' => $fake->teamId()]);
             }),
         ];
     }

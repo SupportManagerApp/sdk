@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
-use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake monthly timesheets.
@@ -38,7 +36,7 @@ final class TimesheetFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => 7,
             'user' => ['id' => 7, 'name' => "Employee {$number}"],
             'process_date' => '2026-06-30T00:00:00Z',
@@ -65,13 +63,7 @@ final class TimesheetFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('payroll/timesheets/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->find('payroll/timesheets', $matches[1]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                return Http::response('%PDF-1.4 timesheet-bytes', 200, ['Content-Type' => 'application/pdf']);
-            }),
+            FakeRoute::download('payroll/timesheets/{id}/download', '%PDF-1.4 timesheet-bytes'),
         ];
     }
 }

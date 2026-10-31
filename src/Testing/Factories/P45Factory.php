@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
-use SupportManager\Sdk\Testing\RecordStore;
 
 /**
  * Fake leaver P45 documents.
@@ -40,7 +38,7 @@ final class P45Factory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'employee_id' => 7,
             'employee' => ['id' => 7, 'name' => "Employee {$number}"],
             'tax_year' => '2025-26',
@@ -83,21 +81,8 @@ final class P45Factory extends Factory implements ProvidesFakeRoutes
     {
         return [
             // Opening or downloading marks the P45 viewed, as the platform does.
-            FakeRoute::get('payroll/p45s/{id}', static function (RecordStore $store, array $matches): mixed {
-                $record = $store->update('payroll/p45s', $matches[1], ['viewed' => true]);
-
-                return $record === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('p45s', $record));
-            }),
-
-            FakeRoute::get('payroll/p45s/{id}/download', static function (RecordStore $store, array $matches): mixed {
-                if ($store->update('payroll/p45s', $matches[1], ['viewed' => true]) === null) {
-                    return Http::response(['message' => 'Not found'], 404);
-                }
-
-                return Http::response('%PDF-1.4 p45-bytes', 200, ['Content-Type' => 'application/pdf']);
-            }),
+            FakeRoute::action('GET', 'payroll/p45s/{id}', static fn (): array => ['viewed' => true]),
+            FakeRoute::download('payroll/p45s/{id}/download', '%PDF-1.4 p45-bytes', changes: ['viewed' => true]),
         ];
     }
 }

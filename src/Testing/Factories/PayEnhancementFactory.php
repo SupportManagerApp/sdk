@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
@@ -54,13 +53,13 @@ final class PayEnhancementFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('payroll/pay-enhancements', static function (RecordStore $store): mixed {
+            FakeRoute::collection('payroll/pay-enhancements', static function (RecordStore $store): array {
                 $records = $store->all('payroll/pay-enhancements');
 
                 usort($records, static fn (array $a, array $b): int => strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
 
-                return Http::response(Json::collection('pay_enhancements', $records, ['team_id' => 42]));
-            }),
+                return $records;
+            }, teamMeta: true),
         ];
     }
 }
