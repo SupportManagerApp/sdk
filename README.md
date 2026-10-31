@@ -213,12 +213,133 @@ SupportManager::journeys()->start();      // mutates the store
 tenant-scoped calls work without a login. Generic CRUD (list with pagination,
 find, create, update, delete) is inferred from each resource's path; non-RESTful
 actions and flat (non-JSON:API) endpoints are described by the factory itself
-(`SupportManager\Sdk\Testing\Factory` + `ProvidesFakeRoutes`). See
-`tests/Feature/Testing/FakeTest.php` for the full surface.
+(`SupportManager\Sdk\Testing\Factory` + `ProvidesFakeRoutes`). Every module
+ships a factory in `SupportManager\Sdk\Testing\Factories`. See
+`tests/Feature/Testing/` for the full surface.
 
-> Reference factories ship for CarJourneys, Notifications (flat filter +
-> `unread_count`) and the Keysafe flat singleton. The remaining resources follow
-> the same recipe.
+### Teams
+
+The fake acts as team `42` (`Fake::DEFAULT_TEAM_ID`) until you call
+`actingAsTeam()`. Records seeded afterwards belong to that team, records
+created through the fake are stamped with it, and every `meta.team_id` the fake
+answers reports it. Records already seeded keep their team, so switch first:
+
+```php
+SupportManager::fake()->actingAsTeam(7)->seed(LeaveRequestFactory::new());
+
+SupportManager::leaveRequests()->find(1)->teamId;    // 7
+LeaveRequestFactory::new()->forTeam(3);              // pin one factory to another team
+```
+
+### Errors
+
+Programmed failures run through the SDK's real error mapping:
+
+```php
+SupportManager::fake()->fail('car-journeys*', 503);
+SupportManager::fake()->failValidation('car-journeys', ['driver_name' => 'Required'], method: 'POST');
+SupportManager::fake()->unreachable();
+```
+
+### Writing a factory
+
+A factory names its endpoint (`path()`), its JSON:API type (`type()`, the
+platform's own, e.g. `rota_entries`, or null for a flat `{data}` endpoint) and
+one record's defaults (`definition()`). Read the team from `$this->teamId()`
+rather than writing a literal. For the endpoints generic REST can't infer,
+implement `ProvidesFakeRoutes`. These `FakeRoute` builders cover the common
+shapes and read the factory's path and type for you:
+
+| Builder | Answers |
+|---|---|
+| `FakeRoute::action($method, 'things/{id}/approve', fn (array $record, Request $request): array => [...])` | Merges the changes into the stored record and answers it as an item, or a 404. Return a response instead of an array to refuse, e.g. `Json::forbidden()`. |
+| `FakeRoute::download('things/{id}/download', $bytes, $mime = 'application/pdf', $filename = null, changes: [])` | Raw bytes, read back as a `Download`, or a 404. |
+| `FakeRoute::downloadLink('things/{id}/file', 'file_attribute')` | A signed `{download_url, filename, expires_at}` link, read back as a `DownloadLink`, or a 404 when there's no file. |
+| `FakeRoute::collection('things/today', fn (RecordStore $store): array => [...], teamMeta: false)` | An unpaginated collection in the factory's dialect. |
+| `FakeRoute::flat('things/summary', fn (RecordStore $store): array => [...], teamMeta: false)` | A plain `{data, meta?}` envelope, for singleton reads. |
+
+Anything else is a plain `FakeRoute::get()`/`post()`/`patch()`/`put()`/`delete()`.
+Its handler gets `(RecordStore $store, array $matches, Request $request, Fake $fake, Registration $registration)`,
+and can declare only the leading parameters it uses. Build its answer with `Json`:
+`Json::item()`, `Json::collection()`, `Json::flat($data, $meta)`, `Json::notFound()`,
+`Json::forbidden()`, `Json::validation($errors, $message)`, `Json::message($message, $status)`.
+`$fake->teamId()`, `$fake->query($request)`, `$fake->filter($records, $request)`
+and `$fake->paginate(...)` cover the rest. Keys starting with `_` are fake
+bookkeeping (e.g. a `_today` flag a state sets for a route to filter on), and
+`Json` never sends them.
+
+For example, a host app's factory for a resource it registered itself:
+
+```php
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\Request;
+use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
+use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
+use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
+use SupportManager\Sdk\Testing\RecordStore;
+
+final class IncidentFactory extends Factory implements ProvidesFakeRoutes
+{
+    public function path(): string
+    {
+        return 'incidents';
+    }
+
+    public function type(): string
+    {
+        return 'incidents';
+    }
+
+    public function definition(int $index): array
+    {
+        return [
+            'team_id' => $this->teamId(),
+            'title' => 'Incident '.($index + 1),
+            'status' => 'open',
+            'report' => null,
+        ];
+    }
+
+    public function closed(): static
+    {
+        return $this->state(['status' => 'closed', 'report' => 'report.pdf']);
+    }
+
+    public function fakeRoutes(): array
+    {
+        return [
+            // Close an open incident; closing one twice is refused.
+            FakeRoute::action('PATCH', 'incidents/{id}/close', static fn (array $incident, Request $request): array|PromiseInterface => $incident['status'] === 'closed'
+                ? Json::validation(['status' => 'This incident is already closed.'])
+                : ['status' => 'closed', 'closing_note' => $request->data()['note'] ?? null]),
+
+            FakeRoute::downloadLink('incidents/{id}/report', 'report'),
+
+            FakeRoute::collection('incidents/open', static fn (RecordStore $store): array => array_values(array_filter(
+                $store->all('incidents'),
+                static fn (array $incident): bool => $incident['status'] === 'open',
+            )), teamMeta: true),
+
+            FakeRoute::flat('incidents/summary', static fn (RecordStore $store): array => [
+                'open' => count(array_filter($store->all('incidents'), static fn (array $incident): bool => $incident['status'] === 'open')),
+            ]),
+
+            // Anything bespoke is an ordinary handler.
+            FakeRoute::post('incidents/{id}/escalate', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                return $store->find('incidents', $matches[1]) === null
+                    ? Json::notFound()
+                    : Json::message('Escalated.', meta: ['team_id' => $fake->teamId()]);
+            }),
+        ];
+    }
+}
+```
+
+Fake responses are checked against the platform's OpenAPI spec like any other
+(see [Contract tests](#contract-tests)), so a factory for a first-party
+resource has to stay spec-valid.
 
 ## Tests
 
