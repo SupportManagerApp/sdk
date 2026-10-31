@@ -11,19 +11,22 @@ namespace SupportManager\Sdk\Http;
  * JSON:API splits the identifier out of the attribute bag and always serialises
  * it as a string. {@see self::flat()} folds `id` (and `type`) back in so a DTO's
  * `fromArray()` can read every field from one associative array, the same way it
- * would a flat payload.
+ * would a flat payload. A resource-level `meta` member (e.g. the platform's
+ * `meta.can` permission flags) rides along under a `meta` key when present.
  */
 final readonly class ResourceObject
 {
     /**
      * @param  array<string, mixed>  $attributes
      * @param  array<string, mixed>  $relationships
+     * @param  array<string, mixed>  $meta
      */
     public function __construct(
         public ?string $type,
         public ?string $id,
         public array $attributes,
         public array $relationships = [],
+        public array $meta = [],
     ) {}
 
     /**
@@ -36,6 +39,7 @@ final readonly class ResourceObject
             id: isset($data['id']) ? (string) $data['id'] : null,
             attributes: $data['attributes'] ?? [],
             relationships: $data['relationships'] ?? [],
+            meta: is_array($data['meta'] ?? null) ? $data['meta'] : [],
         );
     }
 
@@ -46,7 +50,8 @@ final readonly class ResourceObject
 
     /**
      * The resource as one associative array — `id` and `type` merged in alongside
-     * the attributes — ready to hand to a DTO's `fromArray()`.
+     * the attributes, plus any resource-level `meta` — ready to hand to a DTO's
+     * `fromArray()`.
      *
      * @return array<string, mixed>
      */
@@ -56,6 +61,7 @@ final readonly class ResourceObject
             'id' => $this->id,
             'type' => $this->type,
             ...$this->attributes,
+            ...($this->meta === [] ? [] : ['meta' => $this->meta]),
         ];
     }
 }
