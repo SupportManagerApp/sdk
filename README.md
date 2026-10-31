@@ -177,7 +177,7 @@ SupportManager::accidents()->recordSubjectDeclaration(7, 'Alex Visitor');
 
 ### Dashboard
 
-`SupportManager::dashboard()` has two methods. `layout()` (`/dashboard`) returns
+`SupportManager::dashboard()` has three methods. `layout()` (`/dashboard`) returns
 the widget placements, quick links and alerts, but not the widget contents:
 fetch those from each widget's own module resource, and skip widget keys you
 don't recognise. `capabilities()` (`/capabilities`) returns the user's role,
@@ -185,10 +185,22 @@ the team's subscription, plan features, optional modules and own-page
 navigation. It still answers when the team has no subscription, so check
 `subscribed` before calling anything else.
 
+`weather()` (`/dashboard/weather`) is the content of the `dashboard.weather`
+widget: a `WeatherForecast` with the `current` weather and the coming `days`,
+each with a `WeatherCondition`. It returns null while the platform has no
+forecast, so hide the widget then. No module gates it, but former PAs get a
+403. The `household.bin-day` widget's content comes from
+`SupportManager::binDay()->show()` (`/household/bin-day`), a
+`BinCollectionSchedule` of each `BinType`'s next collection. The web app shows
+that widget only while `hasBinsDueTomorrow()`. It is part of the Household
+module, so it throws a 404 while the team has Household switched off.
+
 ```php
 SupportManager::dashboard()->layout()->widgets;
 SupportManager::dashboard()->capabilities()->usesModule(OptionalModule::Accidents);
 SupportManager::dashboard()->capabilities()->hasPlanFeature(PlanFeature::ESigning);
+SupportManager::dashboard()->weather()?->current->condition;    // WeatherCondition::PartlyCloudy
+SupportManager::binDay()->show()->binsDueTomorrow;              // [BinType::Rubbish, BinType::Food]
 ```
 
 ### E-signing
