@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Testing\Factories;
 
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
-use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -51,7 +49,7 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => $number,
             'user' => ['id' => $number, 'name' => "User {$number}"],
             'start_date' => '2026-07-01T08:00:00Z',
@@ -119,48 +117,21 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
                     }
                 }
 
-                $filters = $fake->query($request)['filter'] ?? [];
-
-                foreach (is_array($filters) ? $filters : [] as $key => $value) {
-                    $records = array_values(array_filter(
-                        $records,
-                        static fn (array $record): bool => isset($record[$key]) && (string) $record[$key] === (string) $value,
-                    ));
-                }
-
-                return $fake->paginate('leave/requests', 'leave_requests', $records, $request, ['status_counts' => $counts]);
+                return $fake->paginate('leave/requests', 'leave_requests', $fake->filter($records, $request), $request, ['status_counts' => $counts]);
             }),
 
-            FakeRoute::patch('leave/requests/{id}/approve', static function (RecordStore $store, array $matches): mixed {
-                $updated = $store->update('leave/requests', $matches[1], ['status' => 'Approved']);
+            FakeRoute::action('PATCH', 'leave/requests/{id}/approve', static fn (): array => ['status' => 'Approved']),
 
-                return $updated === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('leave_requests', $updated));
-            }),
-
-            FakeRoute::patch('leave/requests/{id}/reject', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::action('PATCH', 'leave/requests/{id}/reject', static function (array $leave, Request $request): array {
                 $comments = $request->data()['approver_comments'] ?? null;
-                $updated = $store->update('leave/requests', $matches[1], [
-                    'status' => 'Rejected',
-                    'approver_comments' => is_string($comments) ? $comments : null,
-                ]);
 
-                return $updated === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('leave_requests', $updated));
+                return ['status' => 'Rejected', 'approver_comments' => is_string($comments) ? $comments : null];
             }),
 
-            FakeRoute::patch('leave/requests/{id}/cancel', static function (RecordStore $store, array $matches): mixed {
-                $updated = $store->update('leave/requests', $matches[1], [
-                    'status' => 'Cancelled',
-                    'meta' => ['can' => self::can(editDates: false, cancel: false)],
-                ]);
-
-                return $updated === null
-                    ? Http::response(['message' => 'Not found'], 404)
-                    : Http::response(Json::item('leave_requests', $updated));
-            }),
+            FakeRoute::action('PATCH', 'leave/requests/{id}/cancel', static fn (): array => [
+                'status' => 'Cancelled',
+                'meta' => ['can' => self::can(editDates: false, cancel: false)],
+            ]),
         ];
     }
 

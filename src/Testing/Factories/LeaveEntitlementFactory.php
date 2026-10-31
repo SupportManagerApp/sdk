@@ -35,7 +35,7 @@ final class LeaveEntitlementFactory extends Factory
         $number = $index + 1;
 
         return [
-            'team_id' => 42,
+            'team_id' => $this->teamId(),
             'user_id' => $number,
             'user' => ['id' => $number, 'name' => "User {$number}"],
             'working_pattern_id' => 2,
