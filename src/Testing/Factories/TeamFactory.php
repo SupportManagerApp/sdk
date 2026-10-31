@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing\Factories;
 
-use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
@@ -61,12 +60,8 @@ final class TeamFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
-            FakeRoute::get('user/teams', static fn (RecordStore $store): mixed => Http::response(
-                Json::collection('teams', $store->all('user/teams')),
-            )),
-            FakeRoute::get('user/teams/count', static fn (RecordStore $store): mixed => Http::response(
-                Json::item(null, ['count' => count($store->all('user/teams'))]),
-            )),
+            FakeRoute::collection('user/teams', static fn (RecordStore $store): array => $store->all('user/teams')),
+            FakeRoute::flat('user/teams/count', static fn (RecordStore $store): array => ['count' => count($store->all('user/teams'))]),
         ];
     }
 }

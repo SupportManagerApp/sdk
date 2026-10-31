@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Enums\Accidents\AccidentSubjectCapacity;
 use SupportManager\Sdk\Testing\Factory;
+use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
 use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
@@ -116,34 +117,31 @@ final class AccidentReportFactory extends Factory implements ProvidesFakeRoutes
                 return Http::response(Json::item('accident_reports', $record), 201);
             }),
 
-            FakeRoute::post('accidents/{id}/subject-declaration', static function (RecordStore $store, array $matches, Request $request): mixed {
+            FakeRoute::post('accidents/{id}/subject-declaration', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
                 $record = $store->find('accidents', $matches[1]);
 
                 if ($record === null) {
-                    return Http::response(['message' => 'Not Found'], 404);
+                    return Json::notFound('Not Found');
                 }
 
                 /** @var array{user_id?: int|null} $subject */
                 $subject = $record['subject'] ?? [];
 
                 if (($subject['user_id'] ?? null) !== null && $subject['user_id'] === self::REPORTER['user_id']) {
-                    return self::unprocessable('The person who had the accident recorded it, so their declaration is already on the report.');
+                    return self::unprocessable('The person who had the accident recorded it, so their declaration is already on the report.', $fake);
                 }
 
                 /** @var array{declared_at?: string|null} $declaration */
                 $declaration = $record['subject_declaration'] ?? [];
 
                 if (($declaration['declared_at'] ?? null) !== null) {
-                    return self::unprocessable('The person who had the accident has already confirmed this report.');
+                    return self::unprocessable('The person who had the accident has already confirmed this report.', $fake);
                 }
 
                 $name = mb_trim((string) ($request->data()['subject_declared_name'] ?? ''));
 
                 if ($name === '') {
-                    return Http::response([
-                        'message' => 'The subject declared name field is required.',
-                        'errors' => ['subject_declared_name' => ['The subject declared name field is required.']],
-                    ], 422);
+                    return Json::validation(['subject_declared_name' => 'The subject declared name field is required.']);
                 }
 
                 $updated = $store->update('accidents', $matches[1], [
@@ -199,8 +197,8 @@ final class AccidentReportFactory extends Factory implements ProvidesFakeRoutes
      * The platform's plain 422 refusal, which carries a message but no
      * per-field errors.
      */
-    private static function unprocessable(string $message): mixed
+    private static function unprocessable(string $message, Fake $fake): mixed
     {
-        return Http::response(['message' => $message, 'meta' => ['team_id' => 42]], 422);
+        return Json::message($message, 422, ['team_id' => $fake->teamId()]);
     }
 }
