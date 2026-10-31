@@ -110,6 +110,25 @@
         "array $modules",
         "array $navigation"
     ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\CurrentWeather": [
+        "int $temperature",
+        "int $feelsLike",
+        "SupportManager\\Sdk\\Enums\\Dashboard\\WeatherCondition $condition",
+        "string $conditionLabel",
+        "string $icon",
+        "bool $isDaytime",
+        "int $windSpeedMph"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\DailyWeather": [
+        "string $date",
+        "string $dayName",
+        "SupportManager\\Sdk\\Enums\\Dashboard\\WeatherCondition $condition",
+        "string $conditionLabel",
+        "string $icon",
+        "int $high",
+        "int $low",
+        "int $rainChance"
+    ],
     "SupportManager\\Sdk\\Data\\Dashboard\\DashboardAlert": [
         "string $description",
         "int $count",
@@ -144,6 +163,11 @@
         "string $label",
         "?string $icon",
         "?string $routeName"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\WeatherForecast": [
+        "string $location",
+        "SupportManager\\Sdk\\Data\\Dashboard\\CurrentWeather $current",
+        "array $days"
     ],
     "SupportManager\\Sdk\\Data\\DevLoginTeam": [
         "int $id",
