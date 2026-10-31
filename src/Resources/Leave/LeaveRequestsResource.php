@@ -108,6 +108,6 @@ final class LeaveRequestsResource extends Resource
 
     protected function hydrate(ResourceObject $object): LeaveRequest
     {
-        return LeaveRequest::fromArray($object->flat(), $object->meta);
+        return LeaveRequest::fromArray($object->flat());
     }
 }

@@ -114,6 +114,6 @@ final class SignatureRequestsResource extends Resource
 
     protected function hydrate(ResourceObject $object): SignatureRequest
     {
-        return SignatureRequest::fromArray($object->flat(), $object->meta);
+        return SignatureRequest::fromArray($object->flat());
     }
 }

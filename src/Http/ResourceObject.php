@@ -11,8 +11,15 @@ namespace SupportManager\Sdk\Http;
  * JSON:API splits the identifier out of the attribute bag and always serialises
  * it as a string. {@see self::flat()} folds `id` (and `type`) back in so a DTO's
  * `fromArray()` can read every field from one associative array, the same way it
- * would a flat payload. A resource-level `meta` member (e.g. the platform's
- * `meta.can` permission flags) rides along under a `meta` key when present.
+ * would a flat payload.
+ *
+ * A resource-level `meta` member (e.g. the platform's `meta.can` permission
+ * flags) rides along in {@see self::flat()} under a `meta` key when present.
+ * That is the one way DTOs receive it: `fromArray()` always takes the single
+ * flat array, and a DTO reads a flag with
+ * {@see \SupportManager\Sdk\Data\Hydration\Attributes\Can} (`meta.can.*`) or
+ * any other meta key with {@see \SupportManager\Sdk\Data\Hydration\Attributes\Meta}.
+ * {@see self::$meta} stays available for callers that want the block itself.
  */
 final readonly class ResourceObject
 {
@@ -50,8 +57,8 @@ final readonly class ResourceObject
 
     /**
      * The resource as one associative array — `id` and `type` merged in alongside
-     * the attributes, plus any resource-level `meta` — ready to hand to a DTO's
-     * `fromArray()`.
+     * the attributes, plus any resource-level `meta` under `meta` — ready to hand
+     * to a DTO's `fromArray()`.
      *
      * @return array<string, mixed>
      */

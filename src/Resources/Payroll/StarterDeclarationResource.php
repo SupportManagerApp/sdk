@@ -105,6 +105,6 @@ final class StarterDeclarationResource extends Resource
         $data = $response->json('data');
         $meta = $response->json('meta');
 
-        return is_array($data) ? StarterDeclaration::fromArray($data, is_array($meta) ? $meta : []) : null;
+        return is_array($data) ? StarterDeclaration::fromArray([...$data, 'meta' => is_array($meta) ? $meta : []]) : null;
     }
 }

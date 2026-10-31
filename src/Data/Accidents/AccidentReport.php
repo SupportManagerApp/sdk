@@ -57,11 +57,10 @@ final readonly class AccidentReport
 
     /**
      * @param  array<string, mixed>  $data  A flattened JSON:API resource object.
-     * @param  array<string, mixed>  $meta  The resource object's own `meta` member.
      */
-    public static function fromArray(array $data, array $meta = []): self
+    public static function fromArray(array $data): self
     {
-        return Hydrator::hydrate(self::class, [...$data, 'meta' => $meta]);
+        return Hydrator::hydrate(self::class, $data);
     }
 
     /**

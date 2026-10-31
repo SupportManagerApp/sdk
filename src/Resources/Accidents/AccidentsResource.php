@@ -73,6 +73,6 @@ final class AccidentsResource extends Resource
 
     protected function hydrate(ResourceObject $object): AccidentReport
     {
-        return AccidentReport::fromArray($object->flat(), $object->meta);
+        return AccidentReport::fromArray($object->flat());
     }
 }

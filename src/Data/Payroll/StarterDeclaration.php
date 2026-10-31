@@ -43,11 +43,10 @@ final readonly class StarterDeclaration
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data  The response `data` block.
-     * @param  array<string, mixed>  $meta  The response `meta` block.
+     * @param  array<string, mixed>  $data  The response `data` block, with the response `meta` under a `meta` key.
      */
-    public static function fromArray(array $data, array $meta = []): self
+    public static function fromArray(array $data): self
     {
-        return Hydrator::hydrate(self::class, [...$data, 'meta' => $meta]);
+        return Hydrator::hydrate(self::class, $data);
     }
 }
