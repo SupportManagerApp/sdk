@@ -50,6 +50,9 @@ use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftBlocksResource;
 use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
+use SupportManager\Sdk\Resources\Security\SocialAccountsResource;
+use SupportManager\Sdk\Resources\Security\TrustedDevicesResource;
+use SupportManager\Sdk\Resources\Security\TwoFactorResource;
 use SupportManager\Sdk\Resources\Signing\SignatureRequestsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
@@ -311,6 +314,24 @@ final class SupportManager
     public function deviceTokens(): DeviceTokensResource
     {
         return $this->resource(DeviceTokensResource::class);
+    }
+
+    /** Security — the current user's linked social sign-in accounts (non-tenant). */
+    public function socialAccounts(): SocialAccountsResource
+    {
+        return $this->resource(SocialAccountsResource::class);
+    }
+
+    /** Security — the current user's trusted devices, with revoke (non-tenant). */
+    public function trustedDevices(): TrustedDevicesResource
+    {
+        return $this->resource(TrustedDevicesResource::class);
+    }
+
+    /** Security — the current user's authenticator app and backup codes (non-tenant). */
+    public function twoFactor(): TwoFactorResource
+    {
+        return $this->resource(TwoFactorResource::class);
     }
 
     /** Teams — the teams the current user belongs to (non-tenant). */

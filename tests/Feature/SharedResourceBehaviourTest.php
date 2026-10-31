@@ -49,6 +49,9 @@ use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftBlocksResource;
 use SupportManager\Sdk\Resources\Rota\ShiftRequestsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
+use SupportManager\Sdk\Resources\Security\SocialAccountsResource;
+use SupportManager\Sdk\Resources\Security\TrustedDevicesResource;
+use SupportManager\Sdk\Resources\Security\TwoFactorResource;
 use SupportManager\Sdk\Resources\Signing\SignatureRequestsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
@@ -115,6 +118,9 @@ function sharedResourceCalls(): array
         'profile' => ['profile', ProfileResource::class, fn (ProfileResource $r) => $r->deleteEmergencyContact(99), 'DELETE', 'user/emergency-contacts/99', []],
         'users' => ['users', UsersResource::class, fn (UsersResource $r) => $r->options(), 'GET', 'users/options', []],
         'device tokens' => ['deviceTokens', DeviceTokensResource::class, fn (DeviceTokensResource $r) => $r->destroy(999), 'DELETE', 'push-notifications/tokens/999', []],
+        'social accounts' => ['socialAccounts', SocialAccountsResource::class, fn (SocialAccountsResource $r) => $r->link('google', 'ya29.token'), 'POST', 'user/social-accounts/google', ['tenant' => false]],
+        'trusted devices' => ['trustedDevices', TrustedDevicesResource::class, fn (TrustedDevicesResource $r) => $r->destroy(999), 'DELETE', 'user/trusted-devices/999', ['tenant' => false]],
+        'two-factor' => ['twoFactor', TwoFactorResource::class, fn (TwoFactorResource $r) => $r->confirmTotpSetup('123456'), 'POST', 'user/two-factor/totp/confirm', ['tenant' => false]],
         'appointments' => ['appointments', AppointmentsResource::class, fn (AppointmentsResource $r) => $r->update(4, ['title' => 'Mine now']), 'PATCH', 'rota/appointments/4', []],
         'rota calendar' => ['rotaCalendar', CalendarResource::class, fn (CalendarResource $r) => $r->regenerateFeed(), 'POST', 'rota/calendar-feed/token', []],
         'quick add' => ['quickAdd', QuickAddResource::class, fn (QuickAddResource $r) => $r->parse('dentist tuesday'), 'POST', 'rota/quick-add/parse', []],
