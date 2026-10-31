@@ -7,10 +7,12 @@ namespace SupportManager\Sdk;
 use BadMethodCallException;
 use Illuminate\Contracts\Container\Container;
 use SupportManager\Sdk\Client\SupportManagerClient;
+use SupportManager\Sdk\Resources\Accidents\AccidentsResource;
 use SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource;
 use SupportManager\Sdk\Resources\Compliance\DBSChecksResource;
 use SupportManager\Sdk\Resources\Compliance\DriversLicenceChecksResource;
 use SupportManager\Sdk\Resources\Compliance\RightToWorkResource;
+use SupportManager\Sdk\Resources\Dashboard\DashboardResource;
 use SupportManager\Sdk\Resources\Documents\DocumentFoldersResource;
 use SupportManager\Sdk\Resources\Documents\DocumentsResource;
 use SupportManager\Sdk\Resources\Documents\PoliciesResource;
@@ -42,6 +44,7 @@ use SupportManager\Sdk\Resources\Rota\CalendarResource;
 use SupportManager\Sdk\Resources\Rota\QuickAddResource;
 use SupportManager\Sdk\Resources\Rota\ShiftApplicationsResource;
 use SupportManager\Sdk\Resources\Rota\ShiftsResource;
+use SupportManager\Sdk\Resources\Signing\SignatureRequestsResource;
 use SupportManager\Sdk\Resources\Tasks\TasksResource;
 use SupportManager\Sdk\Resources\Teams\TeamsResource;
 use SupportManager\Sdk\Session\AuthSession;
@@ -154,6 +157,12 @@ final class SupportManager
     // is just sugar over resource(); host apps can still register their own under
     // a fluent name via register()/__call.
 
+    /** Accidents — the team's accident book, with subject declarations. */
+    public function accidents(): AccidentsResource
+    {
+        return $this->resource(AccidentsResource::class);
+    }
+
     /** Car journeys — team vehicle trip tracking. */
     public function journeys(): CarJourneysResource
     {
@@ -176,6 +185,12 @@ final class SupportManager
     public function driversLicenceChecks(): DriversLicenceChecksResource
     {
         return $this->resource(DriversLicenceChecksResource::class);
+    }
+
+    /** Dashboard — the dashboard layout and the user's capabilities in the team. */
+    public function dashboard(): DashboardResource
+    {
+        return $this->resource(DashboardResource::class);
     }
 
     /** Documents — stored documents, with download. */
@@ -284,6 +299,12 @@ final class SupportManager
     public function teams(): TeamsResource
     {
         return $this->resource(TeamsResource::class);
+    }
+
+    /** Signing — documents sent to the user to fill in and sign. */
+    public function signatureRequests(): SignatureRequestsResource
+    {
+        return $this->resource(SignatureRequestsResource::class);
     }
 
     /** Tasks — the dashboard onboarding/compliance task list. */
