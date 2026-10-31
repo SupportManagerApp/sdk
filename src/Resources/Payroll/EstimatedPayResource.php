@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::estimatedPay()->show(['year' => 2026, 'month' => 6]);
  * ```
  *
- * @extends resource<EstimatedPay>
+ * @extends Resource<EstimatedPay>
  */
 final class EstimatedPayResource extends Resource
 {

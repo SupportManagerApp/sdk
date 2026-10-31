@@ -32,7 +32,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shifts()->requestAmendment($shiftId, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']);
  * ```
  *
- * @extends resource<Shift>
+ * @extends Resource<Shift>
  */
 final class ShiftsResource extends Resource
 {

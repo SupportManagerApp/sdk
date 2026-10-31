@@ -36,8 +36,8 @@ function probe_downloads(
 ): void {
     // File bodies.
     assertType(Download::class, $payslips->download(1));
-    assertType(Download::class, $profile->employmentConfirmationLetter());
-    assertType(Download::class, $signing->file(1));
+    assertType(Download::class, $profile->downloadEmploymentConfirmationLetter());
+    assertType(Download::class, $signing->downloadOriginal(1));
     assertType('string|null', $payslips->download(1)->filename());
     assertType('string', $payslips->download(1)->saveTo('/tmp'));
 

@@ -19,7 +19,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::payEnhancements()->create(['name' => 'Sunday', 'enhancement_factor' => '0.50']);
  * ```
  *
- * @extends resource<PayEnhancement>
+ * @extends Resource<PayEnhancement>
  */
 final class PayEnhancementsResource extends Resource
 {

@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shiftAmendmentRequests()->query()->filter('rota_entry_id', $shiftId)->get();
  * ```
  *
- * @extends resource<ShiftAmendmentRequest>
+ * @extends Resource<ShiftAmendmentRequest>
  */
 final class ShiftAmendmentRequestsResource extends Resource
 {

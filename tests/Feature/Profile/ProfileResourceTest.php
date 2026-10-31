@@ -419,7 +419,7 @@ it('downloads the employment confirmation letter as a raw response', function ()
     Http::fake(['api.test/api/v1/user/employment/confirmation-letter*' => Http::response('%PDF-1.4 letter-bytes', 200, ['Content-Type' => 'application/pdf'])]);
     bootTenantSession();
 
-    $response = profileResource()->employmentConfirmationLetter('ABC Mortgages Ltd', includeGrossPay: true);
+    $response = profileResource()->downloadEmploymentConfirmationLetter('ABC Mortgages Ltd', includeGrossPay: true);
 
     expect($response)->toBeInstanceOf(Download::class)
         ->and($response->body())->toBe('%PDF-1.4 letter-bytes')
@@ -439,7 +439,7 @@ it('omits the recipient and gross pay from the letter by default', function () {
     Http::fake(['api.test/api/v1/user/employment/confirmation-letter*' => Http::response('%PDF-1.4 letter-bytes', 200, ['Content-Type' => 'application/pdf'])]);
     bootTenantSession();
 
-    profileResource()->employmentConfirmationLetter();
+    profileResource()->downloadEmploymentConfirmationLetter();
 
     Http::assertSent(fn ($request) => ! str_contains($request->url(), 'recipient_name')
         && str_contains($request->url(), 'include_gross_pay=0'));

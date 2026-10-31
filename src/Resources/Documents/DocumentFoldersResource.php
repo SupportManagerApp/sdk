@@ -23,7 +23,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::documentFolders()->find(7)->ancestors; // [['id' => 1, 'name' => 'HR'], …]
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<DocumentFolder>
+ * @extends Resource<DocumentFolder>
  */
 final class DocumentFoldersResource extends Resource
 {

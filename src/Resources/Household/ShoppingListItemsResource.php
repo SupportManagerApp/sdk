@@ -13,7 +13,7 @@ use SupportManager\Sdk\Resources\Resource;
  * The shared household shopping list.
  *
  * The collection (`query()`, `find()`, `all()`) plus writes — `create()`,
- * `update()`, `delete()` — and the `togglePurchased()` action that flips an
+ * `update()`, `destroy()` — and the `togglePurchased()` action that flips an
  * item's needs-purchasing flag. The platform exposes no `show` route, so single
  * items come from the collection rather than a by-id GET.
  *
@@ -22,7 +22,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::shoppingList()->togglePurchased(7);
  * ```
  *
- * @extends resource<ShoppingListItem>
+ * @extends Resource<ShoppingListItem>
  */
 final class ShoppingListItemsResource extends Resource
 {
@@ -47,14 +47,26 @@ final class ShoppingListItemsResource extends Resource
     }
 
     /**
-     * Remove an item from the list. The base helper's signature is preserved for
-     * LSP, but callers pass just the id: `->delete(5)`.
+     * Remove an item from the list (`DELETE household/shopping-list/{id}`).
+     */
+    public function destroy(string|int $id): void
+    {
+        $this->throwForErrorResponse(parent::delete("{$this->path()}/{$id}"));
+    }
+
+    /**
+     * Overrides the base `delete()` request helper, and returns its response,
+     * only so that existing callers of `->delete($id)` keep working.
+     *
+     * @deprecated Use {@see self::destroy()}, the name every resource gives a DELETE of one record.
      *
      * @param  array<string, mixed>  $data
      */
     public function delete(string|int $id, array $data = []): Response
     {
-        $response = parent::delete("household/shopping-list/{$id}", $data);
+        $this->deprecated(__FUNCTION__, 'destroy');
+
+        $response = parent::delete("{$this->path()}/{$id}", $data);
 
         $this->throwForErrorResponse($response);
 

@@ -107,7 +107,7 @@ it('deletes a shopping list item', function () {
     Http::fake(['api.test/api/v1/household/shopping-list/5' => Http::response(['message' => 'Shopping list item deleted successfully.'])]);
     bootTenantSession();
 
-    householdShoppingList()->delete(5);
+    householdShoppingList()->destroy(5);
 
     Http::assertSent(fn ($request) => $request->method() === 'DELETE'
         && str_contains($request->url(), 'household/shopping-list/5'));

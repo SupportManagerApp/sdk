@@ -34,7 +34,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::journeys()->create(['driver_name' => 'Ada', 'trip_start' => '2026-06-06T09:00:00Z']);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<CarJourney>
+ * @extends Resource<CarJourney>
  */
 final class CarJourneysResource extends Resource
 {

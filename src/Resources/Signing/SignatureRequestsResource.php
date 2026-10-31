@@ -18,8 +18,8 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * `all()` lists the user's own requests (the inbox by default, or the ones
  * they have signed); `find()` fetches one with its fields and consent
- * statement (and marks it viewed). The signing flow is `file()` for the
- * original PDF, `saveValues()` as the user fills fields in, then `sign()`;
+ * statement (and marks it viewed). The signing flow is `downloadOriginal()`
+ * for the original PDF, `saveValues()` as the user fills fields in, then `sign()`;
  * `downloadSigned()` gets a short-lived link to the completed copy. Preparing
  * and sending documents is web-only. The platform 404s every endpoint while
  * the team has E-signing switched off.
@@ -32,7 +32,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::signatureRequests()->downloadSigned(12)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<SignatureRequest>
+ * @extends Resource<SignatureRequest>
  */
 final class SignatureRequestsResource extends Resource
 {
@@ -55,9 +55,19 @@ final class SignatureRequestsResource extends Resource
      * the host can draw the fields over it. The response body is the PDF
      * itself, so it comes back as a {@see Download}; an error response throws.
      */
-    public function file(string|int $id): Download
+    public function downloadOriginal(string|int $id): Download
     {
         return $this->downloadFile("{$this->path()}/{$id}/file");
+    }
+
+    /**
+     * @deprecated Use {@see self::downloadOriginal()}; every method that returns a file is named download*.
+     */
+    public function file(string|int $id): Download
+    {
+        $this->deprecated(__FUNCTION__, 'downloadOriginal');
+
+        return $this->downloadOriginal($id);
     }
 
     /**

@@ -28,7 +28,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::teams()->count();
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Team>
+ * @extends Resource<Team>
  */
 final class TeamsResource extends Resource
 {

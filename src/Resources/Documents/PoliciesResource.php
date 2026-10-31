@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::policies()->acknowledge(7);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Policy>
+ * @extends Resource<Policy>
  */
 final class PoliciesResource extends Resource
 {

@@ -20,7 +20,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::timesheets()->query()->filter('status', 'submitted')->get();
  * ```
  *
- * @extends resource<Timesheet>
+ * @extends Resource<Timesheet>
  */
 final class TimesheetsResource extends Resource
 {

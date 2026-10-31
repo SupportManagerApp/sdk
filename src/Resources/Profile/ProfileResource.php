@@ -46,7 +46,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::profile()->saveEmergencyContacts([['name' => 'Jane Doe', ...]]);
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<Profile>
+ * @extends Resource<Profile>
  */
 final class ProfileResource extends Resource
 {
@@ -202,7 +202,7 @@ final class ProfileResource extends Resource
      * @param  string|null  $recipientName  Who the letter is addressed to; the platform defaults to "To Whom It May Concern".
      * @param  bool  $includeGrossPay  Include gross pay from the last three finalised payslips.
      */
-    public function employmentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Download
+    public function downloadEmploymentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Download
     {
         $query = ['include_gross_pay' => $includeGrossPay ? 1 : 0];
 
@@ -211,6 +211,16 @@ final class ProfileResource extends Resource
         }
 
         return $this->downloadFile('user/employment/confirmation-letter', $query);
+    }
+
+    /**
+     * @deprecated Use {@see self::downloadEmploymentConfirmationLetter()}; every method that returns a file is named download*.
+     */
+    public function employmentConfirmationLetter(?string $recipientName = null, bool $includeGrossPay = false): Download
+    {
+        $this->deprecated(__FUNCTION__, 'downloadEmploymentConfirmationLetter');
+
+        return $this->downloadEmploymentConfirmationLetter($recipientName, $includeGrossPay);
     }
 
     /**

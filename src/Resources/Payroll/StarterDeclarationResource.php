@@ -35,7 +35,7 @@ use SupportManager\Sdk\Resources\Resource;
  * ], $upload->get(), $upload->getClientOriginalName());
  * ```
  *
- * @extends resource<StarterDeclaration>
+ * @extends Resource<StarterDeclaration>
  */
 final class StarterDeclarationResource extends Resource
 {

@@ -1,0 +1,917 @@
+{
+    "SupportManager\\Sdk\\Data\\Accidents\\AccidentReport": [
+        "string $id",
+        "int $reportNumber",
+        "bool $riddorReportable",
+        "?int $subjectUserId",
+        "string $subjectName",
+        "?string $subjectOccupation",
+        "?int $reporterUserId",
+        "string $reporterName",
+        "?string $happenedAt",
+        "string $location",
+        "string $howItHappened",
+        "?string $cause",
+        "?string $injuryDetails",
+        "?string $reporterDeclaredName",
+        "?string $reporterDeclaredAt",
+        "?string $subjectDeclaredName",
+        "?string $subjectDeclaredAt",
+        "?SupportManager\\Sdk\\Data\\Accidents\\AccidentRiddorOutcome $riddor",
+        "bool $canRecordSubjectDeclaration",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Accidents\\AccidentRiddorOutcome": [
+        "?string $howReported",
+        "?string $declaredName",
+        "?string $declaredAt"
+    ],
+    "SupportManager\\Sdk\\Data\\AuthTokens": [
+        "string $accessToken",
+        "string $refreshToken",
+        "string $tokenType",
+        "int $expiresIn",
+        "?SupportManager\\Sdk\\Data\\AuthenticatedUser $user = null",
+        "?string $deviceToken = null"
+    ],
+    "SupportManager\\Sdk\\Data\\AuthenticatedUser": [
+        "int $id",
+        "string $name",
+        "string $email"
+    ],
+    "SupportManager\\Sdk\\Data\\CarJourneys\\CarJourney": [
+        "string $id",
+        "string $driverName",
+        "string $tripStart",
+        "?string $tripEnd",
+        "bool $isOngoing",
+        "?int $durationMinutes",
+        "?string $comments",
+        "?int $userId",
+        "?string $userName",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $canUpdate = false",
+        "bool $canDelete = false"
+    ],
+    "SupportManager\\Sdk\\Data\\Compliance\\DBSCheck": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $dateOfIssue",
+        "?string $certificateNumber",
+        "?string $certificate",
+        "?string $checkResult",
+        "?string $notes",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $canUpdate = false",
+        "bool $canDownload = false"
+    ],
+    "SupportManager\\Sdk\\Data\\Compliance\\DriversLicenceCheck": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $driversLicenceNumber",
+        "?string $checkCode",
+        "bool $declarationAccepted",
+        "?string $checkResult",
+        "?string $checkResultDocument",
+        "?string $notes",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $canUpdate = false",
+        "bool $canDownload = false"
+    ],
+    "SupportManager\\Sdk\\Data\\Compliance\\RightToWork": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $primaryDocumentType",
+        "?string $primaryDocument",
+        "?string $supportingDocument",
+        "?string $shareCode",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $canUpdate = false",
+        "bool $canDownload = false"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\Capabilities": [
+        "?string $role",
+        "bool $isPrivileged",
+        "bool $isEmployee",
+        "bool $isFormerPa",
+        "bool $subscribed",
+        "array $planFeatures",
+        "array $modules",
+        "array $navigation"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\DashboardAlert": [
+        "string $description",
+        "int $count",
+        "?string $location",
+        "?string $icon",
+        "string $url"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\DashboardLayout": [
+        "array $widgets",
+        "array $quickLinks",
+        "array $alerts"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\DashboardQuickLink": [
+        "string $label",
+        "?string $description",
+        "?string $icon",
+        "?string $color",
+        "string $url"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\DashboardWidget": [
+        "string $key",
+        "string $width",
+        "int $priority"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\NavigationArea": [
+        "string $key",
+        "string $label",
+        "?string $icon",
+        "array $items"
+    ],
+    "SupportManager\\Sdk\\Data\\Dashboard\\NavigationItem": [
+        "string $label",
+        "?string $icon",
+        "?string $routeName"
+    ],
+    "SupportManager\\Sdk\\Data\\DevLoginTeam": [
+        "int $id",
+        "string $slug",
+        "string $name",
+        "?string $role = null",
+        "?string $status = null"
+    ],
+    "SupportManager\\Sdk\\Data\\DevLoginUser": [
+        "int $id",
+        "string $name",
+        "string $email",
+        "array $teams = []"
+    ],
+    "SupportManager\\Sdk\\Data\\DeviceVerificationChallenge": [
+        "string $verificationToken",
+        "int $expiresIn",
+        "array $methods",
+        "?int $userId = null",
+        "?string $userName = null"
+    ],
+    "SupportManager\\Sdk\\Data\\DeviceVerificationMethod": [
+        "string $method",
+        "string $label",
+        "string $description",
+        "?string $maskedDestination = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Documents\\Document": [
+        "string $id",
+        "string $name",
+        "?SupportManager\\Sdk\\Enums\\Documents\\DocumentScope $scope",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?int $documentFolderId",
+        "?string $documentFolderName",
+        "?int $uploadedById",
+        "?string $uploadedByName",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Documents\\DocumentFolder": [
+        "string $id",
+        "string $name",
+        "?string $description",
+        "?int $teamId",
+        "?int $parentId",
+        "?int $documentsCount",
+        "?int $childrenCount",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?SupportManager\\Sdk\\Enums\\Documents\\DocumentScope $scope = null",
+        "?int $userId = null",
+        "array $ancestors = []"
+    ],
+    "SupportManager\\Sdk\\Data\\Documents\\Policy": [
+        "string $id",
+        "string $title",
+        "?string $slug",
+        "?string $contentHtml",
+        "?SupportManager\\Sdk\\Enums\\Documents\\PolicyCategory $category",
+        "?string $categoryLabel",
+        "?string $version",
+        "?string $effectiveDate",
+        "?string $reviewDate",
+        "bool $isActive",
+        "?int $teamId",
+        "?int $createdById",
+        "?string $createdByName",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?string $acknowledgedAt = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\Chore": [
+        "string $id",
+        "string $name",
+        "?string $description",
+        "SupportManager\\Sdk\\Enums\\Household\\ChoreFrequency $frequency",
+        "string $frequencyLabel",
+        "?int $customFrequencyDays",
+        "?string $lastCompleted",
+        "?string $snoozedUntil",
+        "bool $isSnoozed",
+        "?int $completedById",
+        "?string $completedByName",
+        "?int $daysSinceCompletion",
+        "bool $isOverdue",
+        "bool $shouldHighlight",
+        "?int $teamId",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?string $normalizedName = null",
+        "?int $categoryId = null",
+        "?string $categoryName = null",
+        "?string $categoryColor = null",
+        "?string $categoryIcon = null",
+        "?string $snoozedAt = null",
+        "?int $snoozedById = null",
+        "?string $snoozedByName = null",
+        "?string $plannedFor = null",
+        "bool $canUpdate = false",
+        "bool $canDelete = false"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\ChoreCategory": [
+        "string $id",
+        "string $name",
+        "?string $color",
+        "?string $icon",
+        "?int $choresCount",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?int $dueChoresCount = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\Consumable": [
+        "string $id",
+        "string $name",
+        "array $variants",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\ConsumableVariant": [
+        "int $id",
+        "string $size",
+        "int $quantity",
+        "int $minimumStock",
+        "bool $isLowStock"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\Keysafe": [
+        "bool $hasCode",
+        "bool $canEdit",
+        "?string $code"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\MealPlan": [
+        "?int $teamId",
+        "?string $monday",
+        "?string $tuesday",
+        "?string $wednesday",
+        "?string $thursday",
+        "?string $friday",
+        "?string $saturday",
+        "?string $sunday",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Household\\ShoppingListItem": [
+        "string $id",
+        "string $name",
+        "?int $quantity",
+        "bool $needsPurchasing",
+        "bool $isMaybe",
+        "?string $lastPurchasedOn",
+        "?int $requestedById",
+        "?string $requestedByName",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?string $section = null",
+        "?string $notes = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveAmount": [
+        "float $hours",
+        "float $sleeps"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveBalance": [
+        "?int $year",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveBalanceLine $hours",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveBalanceLine $sleeps",
+        "?SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementBreakdown $breakdown"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveBalanceLine": [
+        "float $entitlement",
+        "float $pending",
+        "float $approved",
+        "float $remaining",
+        "?array $percentages"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveCalculation": [
+        "?int $year",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveAmount $requirement",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveBalance $currentBalance",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveAmount $balanceAfterRequest"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlement": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?int $workingPatternId",
+        "?string $workingPatternName",
+        "?string $effectiveFrom",
+        "?string $effectiveUntil",
+        "float $hoursHoliday",
+        "float $sleepingNightsHoliday",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementBreakdown": [
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementSource $contract",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementSource $overtime",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementSource $toil",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementSource $adjustments",
+        "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementSource $total"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveEntitlementSource": [
+        "float $hours",
+        "float $sleeps",
+        "?bool $hasData"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveRequest": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $startDate",
+        "?string $endDate",
+        "?SupportManager\\Sdk\\Enums\\Leave\\LeaveDurationType $type",
+        "?string $typeLabel",
+        "?string $leaveType",
+        "?string $leaveTypeLabel",
+        "?SupportManager\\Sdk\\Enums\\Leave\\LeaveStatus $status",
+        "float $hours",
+        "float $sleeps",
+        "?string $requesterComments",
+        "?string $approverComments",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?bool $canEditDates",
+        "?bool $canCancel",
+        "?bool $canRequestReapproval"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\LeaveYears": [
+        "array $years",
+        "?int $minimum",
+        "?int $maximum",
+        "int $current",
+        "array $locked",
+        "array $labels"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\ManualAdjustment": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?int $leaveYear",
+        "float $hoursAdjustment",
+        "float $sleepsAdjustment",
+        "?string $reason",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\ManualAdjustmentSummary": [
+        "?int $year",
+        "array $adjustments",
+        "float $totalHoursAdjustment",
+        "float $totalSleepsAdjustment"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\NotWorkingNotice": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $startDate",
+        "?string $endDate",
+        "?string $lastDayOff",
+        "?SupportManager\\Sdk\\Enums\\Leave\\LeaveDurationType $durationType",
+        "?SupportManager\\Sdk\\Enums\\Leave\\LeaveStatus $status",
+        "?string $note",
+        "bool $givenAtShortNotice",
+        "?int $shiftsNeedingCoverCount",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?bool $canWithdraw"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\OvertimeLog": [
+        "?int $year",
+        "array $months",
+        "SupportManager\\Sdk\\Data\\Leave\\OvertimeMonth $totals"
+    ],
+    "SupportManager\\Sdk\\Data\\Leave\\OvertimeMonth": [
+        "?int $id",
+        "?string $monthEndDate",
+        "float $hoursWorked",
+        "float $hoursAccrued",
+        "float $sleepsWorked",
+        "float $sleepsAccrued"
+    ],
+    "SupportManager\\Sdk\\Data\\Notifications\\Notification": [
+        "string $id",
+        "string $type",
+        "array $data",
+        "?string $readAt",
+        "?string $createdAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\AutomaticPayEnhancementSettings": [
+        "?int $bankHolidayEnhancementId",
+        "?int $christmasEnhancementId",
+        "?int $holidayCoverEnhancementId",
+        "?int $sicknessCoverEnhancementId"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\DeductionLine": [
+        "string $description",
+        "float $amount"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\EstimatedPay": [
+        "int $year",
+        "int $month",
+        "?string $monthLabel",
+        "array $hours",
+        "array $sleeps",
+        "array $enhancements",
+        "array $grandTotal",
+        "?float $grossPay",
+        "?float $netPay",
+        "?float $deductionsTotal",
+        "?SupportManager\\Sdk\\Data\\Payroll\\EstimatedPayDeductions $deductions"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\EstimatedPayDeductions": [
+        "float $incomeTax",
+        "float $nationalInsurance",
+        "float $pension",
+        "float $studentLoan",
+        "float $postgraduateLoan",
+        "array $corrections",
+        "array $earningsOrders"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\P45": [
+        "string $id",
+        "?int $teamId",
+        "?int $employeeId",
+        "?string $employeeName",
+        "?string $taxYear",
+        "?string $leavingDate",
+        "?string $taxCode",
+        "bool $week1Month1",
+        "?int $monthNumber",
+        "bool $studentLoanDeductionsContinue",
+        "float $totalPayToDate",
+        "float $totalTaxToDate",
+        "?float $thisEmploymentPay",
+        "?float $thisEmploymentTax",
+        "?string $publishedAt",
+        "bool $viewed",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\P60": [
+        "string $id",
+        "?int $teamId",
+        "?int $employeeId",
+        "?string $employeeName",
+        "?string $taxYear",
+        "?string $payrollNumber",
+        "bool $downloadAvailable",
+        "?string $publishedAt",
+        "bool $viewed",
+        "array $payDetails",
+        "array $niContributions",
+        "array $statutoryPayments",
+        "array $otherDetails",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\PayEnhancement": [
+        "string $id",
+        "string $name",
+        "?string $description",
+        "?string $enhancementFactor",
+        "?string $enhancementFactorLabel",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\PayRun": [
+        "string $monthKey",
+        "?string $monthLabel",
+        "?string $processDate",
+        "int $payslipCount",
+        "int $publishedCount",
+        "string $status",
+        "float $totalGross",
+        "float $totalNet"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\Payslip": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $processDate",
+        "?string $payPeriodStart",
+        "?string $payPeriodEnd",
+        "?string $taxCode",
+        "?string $niLetter",
+        "float $totalGross",
+        "float $taxableGross",
+        "float $niableGross",
+        "?string $netPayFormatted",
+        "?string $deductionsTotalFormatted",
+        "string $status",
+        "?string $publishedAt",
+        "?string $firstOpenedAt",
+        "array $payments",
+        "array $deductions",
+        "array $periodTotals",
+        "array $ytdTotals",
+        "?string $employerName",
+        "?string $employerPayeReference",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\PayslipLine": [
+        "string $description",
+        "float $total",
+        "?float $hours = null",
+        "?float $rate = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\StarterDeclaration": [
+        "?string $niNumber",
+        "?string $taxFormType",
+        "?string $starterDeclarationCircumstances",
+        "?string $leavingDate",
+        "?float $totalPayToDate",
+        "?float $totalTaxToDate",
+        "?string $finalPayPeriodType",
+        "?int $finalPayPeriodNumber",
+        "?string $taxFormUrl",
+        "?string $nationalInsuranceLetter",
+        "?string $studentLoanPlan",
+        "bool $postgraduateLoan",
+        "?string $taxCode",
+        "bool $week1Month1",
+        "?string $updatedAt",
+        "bool $canUpdate"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\Timesheet": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $processDate",
+        "string $status",
+        "?string $comments",
+        "bool $hasVariations",
+        "float $grossPay",
+        "?string $shiftHoursTotal",
+        "?int $sleepCount",
+        "?string $additionalPaymentsTotal",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\Address": [
+        "string $id",
+        "string $addressLineOne",
+        "?string $addressLineTwo",
+        "?string $addressLineThree",
+        "string $town",
+        "?string $county",
+        "string $postcode",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\AddressSuggestion": [
+        "string $id",
+        "string $address"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\BankDetails": [
+        "string $id",
+        "string $nameOnAccount",
+        "string $sortCode",
+        "?string $accountNumber",
+        "?string $paymentMethod",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\DirectoryUser": [
+        "string $id",
+        "string $name",
+        "?string $avatar",
+        "?string $role",
+        "?string $mobileNumber"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\EmergencyContact": [
+        "string $id",
+        "string $name",
+        "string $relationship",
+        "string $phoneNumber",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\EmploymentSummary": [
+        "string $id",
+        "?string $startDate",
+        "?string $leavingDate",
+        "string $employmentLength",
+        "string $contractType",
+        "?SupportManager\\Sdk\\Data\\Profile\\RateOfPay $currentRateOfPay",
+        "?SupportManager\\Sdk\\Data\\Profile\\WorkingPattern $workingPattern",
+        "?float $contractedAnnualSalary"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\Profile": [
+        "string $id",
+        "?string $title",
+        "string $name",
+        "?string $email",
+        "?string $avatar",
+        "?string $mobileNumber",
+        "?string $dateOfBirth",
+        "?string $gender",
+        "?string $niNumber",
+        "bool $showBirthdayOnRoster",
+        "bool $isViewOnly",
+        "?SupportManager\\Sdk\\Data\\Profile\\Address $address",
+        "array $emergencyContacts",
+        "array $teams",
+        "bool $hasSecondFactor",
+        "?string $createdAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\RateOfPay": [
+        "float $hourlyRate",
+        "float $sleepingNightRate",
+        "?string $startDate"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\SuggestedAddress": [
+        "string $addressLineOne",
+        "?string $addressLineTwo",
+        "?string $addressLineThree",
+        "string $town",
+        "?string $county",
+        "string $postcode"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\User": [
+        "string $id",
+        "string $name",
+        "?string $email",
+        "?string $avatar",
+        "?string $role"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\UserOption": [
+        "string $id",
+        "string $name",
+        "?string $avatar"
+    ],
+    "SupportManager\\Sdk\\Data\\Profile\\WorkingPattern": [
+        "bool $isBankContract",
+        "float $weeklyAverageHours",
+        "float $weeklySleepingNights"
+    ],
+    "SupportManager\\Sdk\\Data\\PushNotifications\\DeviceToken": [
+        "string $id",
+        "string $token",
+        "SupportManager\\Sdk\\Enums\\PushNotifications\\DevicePlatform $platform",
+        "?string $lastUsedAt",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\PushNotifications\\PushNotificationStatus": [
+        "bool $hasTokens",
+        "int $tokenCount",
+        "bool $promptDismissed"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\Anniversary": [
+        "string $date",
+        "?int $userId",
+        "?string $userName",
+        "?int $years"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\Appointment": [
+        "string $id",
+        "?int $teamId",
+        "?string $title",
+        "?string $location",
+        "?string $notes",
+        "bool $isVirtual",
+        "bool $isAllDay",
+        "bool $isPrivate",
+        "?int $createdBy",
+        "?array $viewerIds",
+        "?string $start",
+        "?string $end",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $canUpdate = false",
+        "bool $canDelete = false"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\BankHoliday": [
+        "string $date",
+        "string $name",
+        "?string $region"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\Birthday": [
+        "string $date",
+        "?int $userId",
+        "?string $userName"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\CalendarFeed": [
+        "?string $url"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\QuickAddAssigneeCandidate": [
+        "int $id",
+        "string $name",
+        "float $score"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\QuickAddParse": [
+        "?string $token",
+        "?SupportManager\\Sdk\\Enums\\Rota\\QuickAddStatus $status",
+        "?int $expiresIn",
+        "?SupportManager\\Sdk\\Data\\Rota\\QuickAddParseResult $result",
+        "?string $hint"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\QuickAddParseResult": [
+        "?SupportManager\\Sdk\\Enums\\Rota\\QuickAddIntent $intent",
+        "?string $title",
+        "?string $assigneeName",
+        "?int $assigneeId",
+        "array $assigneeCandidates",
+        "?string $date",
+        "?string $endDate",
+        "?string $startTime",
+        "?string $endTime",
+        "?int $durationMinutes",
+        "?string $location",
+        "bool $isVirtual",
+        "bool $isAllDay",
+        "bool $isSleepingNight",
+        "bool $isPrivate",
+        "array $tags",
+        "?string $notes",
+        "?float $confidence"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\Shift": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $userName",
+        "?string $userAvatar",
+        "?string $start",
+        "?string $end",
+        "?SupportManager\\Sdk\\Enums\\Rota\\EntryType $type",
+        "?string $typeLabel",
+        "float $duration",
+        "bool $isPublished",
+        "bool $isAvailable",
+        "bool $isSleepingNight",
+        "bool $isOvertime",
+        "?string $notes",
+        "?int $shiftApplicationsCount",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $isForToil = false",
+        "bool $isPrivate = false",
+        "?int $shiftBlockId = null",
+        "array $tags = []",
+        "?string $ownApplicationStatus = null",
+        "bool $canApply = false",
+        "bool $canRequestAmendment = false",
+        "?string $cannotApplyReason = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\ShiftAmendmentRequest": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?int $rotaEntryId",
+        "?string $proposedStart",
+        "?string $proposedEnd",
+        "?int $requestedPayEnhancementId",
+        "array $requestedTags",
+        "?string $reason",
+        "?string $status",
+        "?int $reviewedBy",
+        "?string $reviewedAt",
+        "?string $createdAt",
+        "?string $updatedAt"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\ShiftApplication": [
+        "string $id",
+        "?int $teamId",
+        "?string $status",
+        "?string $startTime",
+        "?string $endTime",
+        "?int $userId",
+        "?string $userName",
+        "?SupportManager\\Sdk\\Data\\Rota\\Shift $rotaEntry",
+        "?int $reviewedBy",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "?bool $isProvisional = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\ShiftRequest": [
+        "string $id",
+        "?int $teamId",
+        "?int $userId",
+        "?string $start",
+        "?string $end",
+        "?SupportManager\\Sdk\\Enums\\Rota\\EntryType $type",
+        "?string $typeLabel",
+        "?string $reason",
+        "?int $requestedPayEnhancementId",
+        "?string $status",
+        "?int $reviewedBy",
+        "?string $reviewedAt",
+        "?int $rotaEntryId",
+        "?string $createdAt",
+        "?string $updatedAt",
+        "bool $canDelete"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\SleepoverStartOption": [
+        "string $time",
+        "?string $label",
+        "bool $compliant",
+        "?string $reason"
+    ],
+    "SupportManager\\Sdk\\Data\\Signing\\SignatureRequest": [
+        "string $id",
+        "string $documentName",
+        "?SupportManager\\Sdk\\Enums\\Signing\\SigningStatus $documentStatus",
+        "?string $documentSentAt",
+        "?string $documentCompletedAt",
+        "?string $name",
+        "?string $email",
+        "?string $role",
+        "?string $sentAt",
+        "?string $viewedAt",
+        "?string $signedAt",
+        "?SupportManager\\Sdk\\Enums\\Signing\\SigningChannel $signedVia",
+        "array $fields",
+        "?string $consentStatement",
+        "bool $canSign",
+        "bool $canDownloadSigned"
+    ],
+    "SupportManager\\Sdk\\Data\\Signing\\SigningField": [
+        "string $id",
+        "?SupportManager\\Sdk\\Enums\\Signing\\FieldType $type",
+        "bool $isMine",
+        "bool $isRequired",
+        "int $page",
+        "float $x",
+        "float $y",
+        "float $width",
+        "float $height",
+        "?string $value"
+    ],
+    "SupportManager\\Sdk\\Data\\Tasks\\EmployeeTaskProgress": [
+        "int $userId",
+        "string $userName",
+        "?int $percentage",
+        "array $incompleteTasks",
+        "array $pendingTasks"
+    ],
+    "SupportManager\\Sdk\\Data\\Tasks\\Task": [
+        "string $key",
+        "string $label",
+        "string $description",
+        "string $icon",
+        "bool $completed",
+        "SupportManager\\Sdk\\Enums\\Tasks\\TaskCompletionRole $completionRole",
+        "?string $completionRoleLabel",
+        "int $priority"
+    ],
+    "SupportManager\\Sdk\\Data\\Tasks\\TaskCount": [
+        "int $count",
+        "int $myTasks",
+        "int $managerInbox"
+    ],
+    "SupportManager\\Sdk\\Data\\Tasks\\TaskProgress": [
+        "int $percentage",
+        "int $completed",
+        "int $total"
+    ],
+    "SupportManager\\Sdk\\Data\\Teams\\Team": [
+        "string $id",
+        "string $name",
+        "?string $role",
+        "?string $slug"
+    ]
+}

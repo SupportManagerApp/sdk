@@ -27,7 +27,7 @@ use SupportManager\Sdk\Resources\Resource;
  * SupportManager::rightToWork()->downloadPrimaryDocument(42)->url;
  * ```
  *
- * @extends \SupportManager\Sdk\Resources\Resource<RightToWork>
+ * @extends Resource<RightToWork>
  */
 final class RightToWorkResource extends Resource
 {
