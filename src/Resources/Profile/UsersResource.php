@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Resources\Profile;
 use SupportManager\Sdk\Data\Profile\DirectoryUser;
 use SupportManager\Sdk\Data\Profile\UserOption;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -16,11 +17,10 @@ use SupportManager\Sdk\Resources\Resource;
  * The directory itself is for admins and managers only (anyone else gets a
  * 403); {@see self::options()} is the lighter list every current role can read.
  * All of it is tenant-scoped: the platform requires `X-Team-ID` on these
- * routes (a 422 "Invalid or missing team" without it). It still hand-rolls
- * {@see self::list()} and {@see self::find()} — rather than the base
- * `query()`/`all()` — for its flat Spatie filter params and null-on-404
- * lookup, but routes them through the tenant-scoped base helpers so each
- * carries the current team's id.
+ * routes (a 422 "Invalid or missing team" without it). Besides the usual
+ * `query()`/`all()`, it hand-rolls {@see self::list()}, for raw Spatie query
+ * params, and {@see self::find()}, for a null-on-404 lookup, routing both
+ * through the tenant-scoped base helpers so each carries the current team's id.
  *
  * ```php
  * SupportManager::users()->list(['search' => 'ada']);
@@ -32,6 +32,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class UsersResource extends Resource
 {
+    /** @use Listable<DirectoryUser> */
+    use Listable;
+
     /**
      * The directory, optionally filtered (`filter[search]`, `filter[role]`),
      * sorted (`sort=name,-created_at`) or paginated (`per_page`).

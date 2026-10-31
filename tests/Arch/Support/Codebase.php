@@ -66,14 +66,17 @@ final class Codebase
 
     /**
      * The concrete resource classes, i.e. everything under `src/Resources`
-     * except the base {@see Resource}.
+     * except the base {@see Resource} and the traits in `src/Resources/Concerns`.
      *
      * @return list<class-string<Resource<mixed>>>
      */
     public static function resources(): array
     {
         /** @var list<class-string<Resource<mixed>>> */
-        return array_values(array_filter(self::classes('Resources'), static fn (string $class): bool => $class !== Resource::class));
+        return array_values(array_filter(
+            self::classes('Resources'),
+            static fn (string $class): bool => $class !== Resource::class && ! str_starts_with($class, 'SupportManager\\Sdk\\Resources\\Concerns\\'),
+        ));
     }
 
     /**

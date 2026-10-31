@@ -14,15 +14,4 @@ declare(strict_types=1);
  * reports entries that are no longer needed.
  */
 
-return [
-    [
-        'operation' => 'GET /household/chores/{chore}',
-        'missing' => true,
-        'reason' => 'ChoresResource inherits Resource::find(), but the platform registers chores with apiResource(...)->except([\'show\']) (src/Household/Routes/api.php), so a real find() gets a 405 and throws. Tests: ChoresResourceTest, HouseholdFakeTest.',
-    ],
-    [
-        'operation' => 'GET /household/shopping-list/{shoppingListItem}',
-        'missing' => true,
-        'reason' => 'ShoppingListItemsResource inherits Resource::find(), but the platform registers the shopping list with apiResource(...)->except([\'show\']) (src/Household/Routes/api.php), so a real find() gets a 405 and throws. Tests: ShoppingListItemsResourceTest, HouseholdFakeTest.',
-    ],
-];
+return [];

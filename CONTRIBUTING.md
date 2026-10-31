@@ -118,8 +118,18 @@ Put new constructor parameters at the end, with defaults. See
 
 A resource lives in `src/Resources/<Module>/<Name>Resource.php`. It is `final`,
 extends `Resources\Resource`, and names its DTO in an `@extends` tag. It
-declares its collection path and how to hydrate one JSON:API resource object,
-and gets `query()`, `find()` and `all()` for free:
+declares its collection path and how to hydrate one JSON:API resource object.
+
+Collection reads are opt-in. Use the `Resources\Concerns\Listable` trait for
+`query()` and `all()` only when the platform lists a JSON:API collection at
+`GET {path}` with the Spatie grammar, and `Resources\Concerns\Findable` for
+`find($id)` only when it shows one record at `GET {path}/{id}`. Check the
+route file: `apiResource(...)->except(['show'])` has no show route, and a
+singleton such as `household/keysafe` has neither. When the index has another
+shape (a plain `{data}` list, its own query parameters), write an `all()` that
+reads it instead of using `Listable`. The signing inbox takes a `status`
+parameter rather than Spatie filters, so it has its own `all()` and only
+`Findable`:
 
 ```php
 /**
@@ -127,6 +137,9 @@ and gets `query()`, `find()` and `all()` for free:
  */
 final class SignatureRequestsResource extends Resource
 {
+    /** @use Findable<SignatureRequest> */
+    use Findable;
+
     public function sign(string|int $id, bool $agreesToSignElectronically): ?SignatureRequest
     {
         return $this->item($this->post("{$this->path()}/{$id}/sign", [
@@ -285,7 +298,7 @@ Resource methods are named by what they do on the platform:
 
 | The method | Name it |
 | --- | --- |
-| Lists, finds or queries the collection | `all()`, `find($id)`, `query()` (inherited) |
+| Lists, finds or queries the collection | `all()`, `find($id)`, `query()` (from `Listable`/`Findable`, or the resource's own when the route has another shape) |
 | Reads a singleton | `show()` |
 | Creates or updates a record | `create($data)`, `update($id, $data)` |
 | Issues `DELETE {path}/{id}` for one record | `destroy($id)` |
@@ -366,6 +379,11 @@ groups, because its `meta` group used to rewrite `Resource<…>` to the
 - `tests/Arch/LayersTest.php`: `src/` doesn't depend on `tests/`, only
   `SupportManager::fake()` reaches into `src/Testing`, fake factories are final
   and extend `Testing\Factory`, and every PHP file declares strict types.
+- `tests/Arch/CollectionReadsTest.php`: a resource with `find()` has
+  `GET {path}/{id}` in the spec, and one with `all()` or `query()` has
+  `GET {path}`. Where the method comes from `Findable` or `Listable`, the
+  spec's 200 must also be a JSON:API item or collection, which is what those
+  traits read.
 - `tests/Arch/WiringTest.php`: every resource has exactly one accessor on
   `SupportManager` and a matching facade `@method`, and neither has orphans.
 - `tests/Contract/`: every faked request and response matches the OpenAPI

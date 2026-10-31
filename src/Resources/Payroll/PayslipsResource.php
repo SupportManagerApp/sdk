@@ -7,6 +7,8 @@ namespace SupportManager\Sdk\Resources\Payroll;
 use SupportManager\Sdk\Data\Payroll\Payslip;
 use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -26,6 +28,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class PayslipsResource extends Resource
 {
+    /** @use Findable<Payslip> */
+    use Findable;
+
+    /** @use Listable<Payslip> */
+    use Listable;
+
     /**
      * The next upcoming published payslip, or null when there is none.
      */

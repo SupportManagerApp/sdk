@@ -6,14 +6,15 @@ namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
  * The authenticated user's applications for available shifts.
  *
  * Index-only collection (`query()`, `all()`) plus `destroy()`, which retracts
- * a pending application. The platform exposes no show route, so `find()` is
- * not used here.
+ * a pending application. The platform exposes no show route, so there is
+ * no `find()`.
  *
  * ```php
  * SupportManager::shiftApplications()->query()->filter('status', 'Pending')->get();
@@ -24,6 +25,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ShiftApplicationsResource extends Resource
 {
+    /** @use Listable<ShiftApplication> */
+    use Listable;
+
     /**
      * Retract a pending shift application (`DELETE rota/shift-applications/{id}`).
      * The platform returns only a confirmation message, so nothing is hydrated.

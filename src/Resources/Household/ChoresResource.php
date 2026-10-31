@@ -7,12 +7,14 @@ namespace SupportManager\Sdk\Resources\Household;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\Chore;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
  * Household chores.
  *
- * The collection (`query()`, `find()`, `all()`) plus writes — `create()`,
+ * The collection (`query()`, `all()`; there is no `find()`, as the platform
+ * registers chores without a `show` route) plus writes — `create()`,
  * `update()`, `destroy()`, limited to admins and managers — and the lifecycle
  * actions any team member may use: `complete()` (records who did it and when),
  * `snooze()` (hides it until a given date), and their bulk forms
@@ -35,6 +37,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ChoresResource extends Resource
 {
+    /** @use Listable<Chore> */
+    use Listable;
+
     /**
      * Create a new chore.
      *

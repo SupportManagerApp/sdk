@@ -7,7 +7,6 @@ namespace SupportManager\Sdk\Resources\Teams;
 use Closure;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Override;
 use SupportManager\Sdk\Data\Teams\Team;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Http\ResourceObject;
@@ -39,7 +38,6 @@ final class TeamsResource extends Resource
      *
      * @return Paginated<Team>
      */
-    #[Override]
     public function all(): Paginated
     {
         return $this->paginated(

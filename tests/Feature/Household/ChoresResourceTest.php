@@ -71,16 +71,9 @@ it('hydrates chores with the typed frequency enum and pagination', function () {
         ->and($page->hasMorePages())->toBeTrue();
 });
 
-it('finds a chore by id', function () {
-    fakeApi(['household/chores/7*' => ['data' => householdChore('7')]]);
-
-    expect(sdk()->chores()->find(7)->id)->toBe('7');
-});
-
-it('returns null when finding a missing chore (404)', function () {
-    fakeApi(['household/chores/999*' => Http::response(['message' => 'Not found'], 404)]);
-
-    expect(sdk()->chores()->find(999))->toBeNull();
+it('has no find(), because the platform registers chores without a show route', function () {
+    // apiResource('chores', ...)->except(['show']): GET household/chores/{id} is a 405.
+    expect(method_exists(sdk()->chores(), 'find'))->toBeFalse();
 });
 
 it('creates a chore', function () {

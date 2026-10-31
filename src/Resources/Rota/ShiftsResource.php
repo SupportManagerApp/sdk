@@ -8,6 +8,8 @@ use SupportManager\Sdk\Data\Rota\Shift;
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -36,6 +38,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ShiftsResource extends Resource
 {
+    /** @use Findable<Shift> */
+    use Findable;
+
+    /** @use Listable<Shift> */
+    use Listable;
+
     /**
      * Create a shift, returning the stored rota entry. The platform creates it
      * as published overtime (a sleeping night when `is_sleeping_night` is set);

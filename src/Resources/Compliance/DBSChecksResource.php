@@ -9,6 +9,8 @@ use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Compliance\DBSCheck;
 use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -30,6 +32,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class DBSChecksResource extends Resource
 {
+    /** @use Findable<DBSCheck> */
+    use Findable;
+
+    /** @use Listable<DBSCheck> */
+    use Listable;
+
     /**
      * Create or replace the authenticated user's own DBS check for the current
      * team, returning the stored record. Saving also completes the user's DBS

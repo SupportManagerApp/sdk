@@ -21,7 +21,7 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * Both endpoints return plain `{data, meta}` payloads (not JSON:API resource
  * objects), so they are read with {@see Resource::raw()} rather than through
- * the fluent {@see query()} builder.
+ * a fluent query; the resource has no `query()`, `find()` or `all()`.
  *
  * ```php
  * SupportManager::dashboard()->layout()->widgets;

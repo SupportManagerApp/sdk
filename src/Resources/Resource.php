@@ -17,14 +17,19 @@ use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Http\ResourceQuery;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 
 /**
  * Base class for a tenant-scoped domain resource (car journeys, rota,
  * household, dashboard widgets, …).
  *
  * A resource declares its collection {@see self::path()} and how to {@see
- * self::hydrate()} one JSON:API resource object into a DTO; everything else —
- * fluent querying, pagination, single-item fetches — comes from here. Every
+ * self::hydrate()} one JSON:API resource object into a DTO; the request and
+ * response helpers come from here. Collection reads are opt-in, because many
+ * platform collections have no index or no show route: use {@see Listable}
+ * for `query()` and `all()` over `GET {path}`, and {@see Findable} for
+ * `find($id)` over `GET {path}/{id}`, only where the platform has them. Every
  * call routes through {@see AuthenticatedApi::tenant()}, so each one inherits
  * current-team scoping and transparent token renewal. This is the seam through
  * which the SDK grows beyond authentication: a new module is one resource class
@@ -46,6 +51,9 @@ use SupportManager\Sdk\Http\ResourceQuery;
  * ```php
  * final class CarJourneysResource extends Resource
  * {
+ *     use Findable;   // find($id): the platform has GET car-journeys/{id}
+ *     use Listable;   // query(), all(): and GET car-journeys
+ *
  *     protected function path(): string
  *     {
  *         return 'car-journeys';
@@ -99,33 +107,16 @@ abstract class Resource
     abstract protected function hydrate(ResourceObject $object): mixed;
 
     /**
-     * Start a fluent query against this resource's collection.
+     * A fluent query against this resource's collection. Protected: the
+     * public `query()`, `all()` and `find()` come from the {@see Listable} and
+     * {@see Findable} traits, which a resource uses only when the platform
+     * has the route.
      *
      * @return ResourceQuery<T>
      */
-    public function query(): ResourceQuery
+    protected function newQuery(): ResourceQuery
     {
         return new ResourceQuery($this->api, $this->path(), $this->hydrate(...));
-    }
-
-    /**
-     * Fetch a single DTO by id, or null when it does not exist.
-     *
-     * @return T|null
-     */
-    public function find(string|int $id): mixed
-    {
-        return $this->query()->find($id);
-    }
-
-    /**
-     * Every DTO in the collection's first page.
-     *
-     * @return Paginated<T>
-     */
-    public function all(): Paginated
-    {
-        return $this->query()->get();
     }
 
     // ──────────────────────────────── Requests ────────────────────────────────

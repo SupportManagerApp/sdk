@@ -7,6 +7,8 @@ namespace SupportManager\Sdk\Resources\Payroll;
 use SupportManager\Sdk\Data\Payroll\P60;
 use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -25,6 +27,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class P60sResource extends Resource
 {
+    /** @use Findable<P60> */
+    use Findable;
+
+    /** @use Listable<P60> */
+    use Listable;
+
     /**
      * Download a P60 as a PDF. The response body is the PDF itself, so it comes
      * back as a {@see Download} rather than a DTO; an error response throws.

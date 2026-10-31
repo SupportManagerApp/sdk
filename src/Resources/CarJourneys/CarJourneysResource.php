@@ -7,6 +7,8 @@ namespace SupportManager\Sdk\Resources\CarJourneys;
 use SupportManager\Sdk\Data\CarJourneys\CarJourney;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -38,6 +40,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class CarJourneysResource extends Resource
 {
+    /** @use Findable<CarJourney> */
+    use Findable;
+
+    /** @use Listable<CarJourney> */
+    use Listable;
+
     /**
      * Create a journey record directly, returning the stored trip. Logging a
      * journey ends any journey still ongoing for the team (its `trip_end` is

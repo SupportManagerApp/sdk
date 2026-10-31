@@ -8,6 +8,7 @@ use SupportManager\Sdk\Data\PushNotifications\DeviceToken;
 use SupportManager\Sdk\Data\PushNotifications\PushNotificationStatus;
 use SupportManager\Sdk\Enums\PushNotifications\DevicePlatform;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -30,6 +31,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class DeviceTokensResource extends Resource
 {
+    /** @use Listable<DeviceToken> */
+    use Listable;
+
     /**
      * Register (or refresh) a device token for the current user and tenant,
      * returning the stored record. Re-registering an existing token moves it to
