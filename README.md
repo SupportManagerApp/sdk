@@ -172,12 +172,11 @@ SupportManager::dashboard()->capabilities()->hasPlanFeature(PlanFeature::ESignin
 (`/signing/requests`). `all()` lists the awaiting inbox, or
 `all(SignatureRequestStatus::Signed)` for the documents already signed.
 `find()` returns one request with its fields and consent statement, and marks
-it viewed. To sign, draw `file()` (the original PDF, as a `Download`),
-`saveValues()` as the user fills in fields, then `sign()` once they agree to the
-consent statement. `downloadSigned()` returns a `DownloadLink`, a short-lived
-link to the completed copy. Use
-`canSign` and `canDownloadSigned` (the request's `meta.can`) to decide what to
-offer.
+it viewed. To sign, draw `downloadOriginal()` (the original PDF, as a
+`Download`), `saveValues()` as the user fills in fields, then `sign()` once
+they agree to the consent statement. `downloadSigned()` returns a
+`DownloadLink`, a short-lived link to the completed copy. Use `canSign` and
+`canDownloadSigned` (the request's `meta.can`) to decide what to offer.
 
 ```php
 $request = SupportManager::signatureRequests()->find(12);

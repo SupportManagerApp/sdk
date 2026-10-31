@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use SupportManager\Sdk\Http\Download;
+use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Resources\Resource;
 use SupportManager\Sdk\Tests\Arch\Support\Codebase;
 
@@ -20,6 +22,20 @@ it('declares the DTO type with an @extends Resource<…> tag', function (string 
     // pseudo-type, which IDEs and other analysers read as "no generic".
     expect((string) (new ReflectionClass($resource))->getDocComment())
         ->toMatch('/@extends Resource<[\w\\\\]+>/', "{$resource} should declare `@extends Resource<TheDto>`.");
+})->with(fn () => Codebase::resources());
+
+it('names every method that returns a file download*()', function (string $resource) {
+    $misnamed = [];
+
+    foreach (Codebase::ownPublicMethods($resource) as $method) {
+        $returns = (string) $method->getReturnType();
+
+        if (! Codebase::isDeprecated($method) && in_array($returns, [Download::class, DownloadLink::class], true) && ! str_starts_with($method->getName(), 'download')) {
+            $misnamed[] = "{$method->getName()}() returns a file, so name it download*()";
+        }
+    }
+
+    expect($misnamed)->toBe([]);
 })->with(fn () => Codebase::resources());
 
 /*
