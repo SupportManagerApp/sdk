@@ -62,16 +62,9 @@ it('hydrates shopping list items with pagination metadata', function () {
         ->and($page->hasMorePages())->toBeTrue();
 });
 
-it('finds nothing via the collection since there is no show route', function () {
-    fakeApi(['household/shopping-list/9*' => ['data' => householdShoppingItem('9')]]);
-
-    expect(sdk()->shoppingList()->find(9)->id)->toBe('9');
-});
-
-it('returns null when finding a missing item (404)', function () {
-    fakeApi(['household/shopping-list/999*' => Http::response(['message' => 'Not found'], 404)]);
-
-    expect(sdk()->shoppingList()->find(999))->toBeNull();
+it('has no find(), because the platform registers the shopping list without a show route', function () {
+    // apiResource('shopping-list', ...)->except(['show']): GET household/shopping-list/{id} is a 405.
+    expect(method_exists(sdk()->shoppingList(), 'find'))->toBeFalse();
 });
 
 it('creates a shopping list item', function () {

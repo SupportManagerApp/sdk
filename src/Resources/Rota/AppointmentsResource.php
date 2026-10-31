@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\Appointment;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -33,6 +35,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class AppointmentsResource extends Resource
 {
+    /** @use Findable<Appointment> */
+    use Findable;
+
+    /** @use Listable<Appointment> */
+    use Listable;
+
     /**
      * Create an appointment, returning the stored record. A timed appointment
      * takes `date` and `start_time` (`H:i`); without an `end_time` it runs for

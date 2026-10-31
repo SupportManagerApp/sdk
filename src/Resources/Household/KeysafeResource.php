@@ -12,13 +12,13 @@ use SupportManager\Sdk\Resources\Resource;
  * The team's keysafe — a singleton, not a collection.
  *
  * `show()` and `update()` report whether a code is set and whether the caller
- * may edit it; `reveal()` returns the actual code (and is the only method that
- * populates `Keysafe::$code`). The platform's `KeysafeController` returns a flat
+ * may edit it; `reveal()` returns the code itself, as a string. The platform's
+ * `KeysafeController` returns a flat
  * `{data: {...}}` body — NOT a JSON:API document with `attributes` — so it is
  * read with {@see Resource::data()} rather than `item()`.
  *
  * ```php
- * SupportManager::keysafe()->reveal()->code;
+ * SupportManager::keysafe()->reveal();    // '1234', or null when no code is set
  * SupportManager::keysafe()->update('1234');
  * ```
  *
@@ -35,11 +35,16 @@ final class KeysafeResource extends Resource
     }
 
     /**
-     * Reveal the keysafe code (audited server-side). `code` is null when unset.
+     * Reveal the keysafe code, or null when none is set. The platform audits
+     * every reveal of a set code. Its body is only `{data: {code}}`, with no
+     * `has_code` or `can_edit`, so this returns the code rather than a
+     * {@see Keysafe}; call {@see self::show()} for those.
      */
-    public function reveal(): ?Keysafe
+    public function reveal(): ?string
     {
-        return $this->data($this->post("{$this->path()}/reveal"), Keysafe::class);
+        $code = $this->raw($this->post("{$this->path()}/reveal"))['code'] ?? null;
+
+        return is_string($code) && $code !== '' ? $code : null;
     }
 
     /**

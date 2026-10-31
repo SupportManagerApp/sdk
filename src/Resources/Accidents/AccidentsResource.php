@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Accidents;
 
 use SupportManager\Sdk\Data\Accidents\AccidentReport;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -35,6 +37,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class AccidentsResource extends Resource
 {
+    /** @use Findable<AccidentReport> */
+    use Findable;
+
+    /** @use Listable<AccidentReport> */
+    use Listable;
+
     /**
      * Record an accident, returning the stored report.
      *

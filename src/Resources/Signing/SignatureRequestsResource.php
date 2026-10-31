@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Signing;
 
-use Override;
 use SupportManager\Sdk\Data\Signing\SignatureRequest;
 use SupportManager\Sdk\Enums\Signing\SignatureRequestStatus;
 use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\Paginated;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -36,6 +36,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class SignatureRequestsResource extends Resource
 {
+    /** @use Findable<SignatureRequest> */
+    use Findable;
+
     /**
      * The current user's signature requests: still awaiting their signature
      * (oldest first, the default) or already signed (most recent first). The
@@ -44,7 +47,6 @@ final class SignatureRequestsResource extends Resource
      *
      * @return Paginated<SignatureRequest>
      */
-    #[Override]
     public function all(?SignatureRequestStatus $status = null): Paginated
     {
         return $this->paginated($this->get($this->path(), $status === null ? [] : ['status' => $status->value]));

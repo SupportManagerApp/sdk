@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Resources\Tasks;
 
-use Override;
 use SupportManager\Sdk\Data\Tasks\EmployeeTaskProgress;
 use SupportManager\Sdk\Data\Tasks\Task;
 use SupportManager\Sdk\Data\Tasks\TaskCount;
@@ -26,7 +25,7 @@ use SupportManager\Sdk\Resources\Resource;
  * These endpoints return plain `{data, meta}` payloads (not JSON:API resource
  * objects), so they are read with the base class's plain-body helpers
  * ({@see Resource::data()} and friends) rather than through the fluent
- * {@see query()} builder.
+ * `query()` builder, which this resource does not have.
  *
  * ```php
  * SupportManager::tasks()->all()->items();
@@ -45,7 +44,6 @@ final class TasksResource extends Resource
      *
      * @return Paginated<Task>
      */
-    #[Override]
     public function all(?bool $completed = null, ?TaskCompletionRole $role = null): Paginated
     {
         $query = [];

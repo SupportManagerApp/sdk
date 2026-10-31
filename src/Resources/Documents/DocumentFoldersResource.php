@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Documents;
 
 use SupportManager\Sdk\Data\Documents\DocumentFolder;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -27,6 +29,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class DocumentFoldersResource extends Resource
 {
+    /** @use Findable<DocumentFolder> */
+    use Findable;
+
+    /** @use Listable<DocumentFolder> */
+    use Listable;
+
     protected function path(): string
     {
         return 'documents/document-folders';

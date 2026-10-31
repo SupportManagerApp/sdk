@@ -92,6 +92,25 @@ it('logs in with a social provider token', function () {
         && $request['device_name'] === 'Test Device');
 });
 
+it('sends the trusted-device token on a social login', function () {
+    Http::fake([apiUrl('auth/social/google') => Http::response(['data' => issued_tokens()])]);
+
+    verification_client()->loginWithProvider('google', 'ya29.token', deviceToken: 'dvc_trusted');
+
+    // SocialAuthController checks trust through DeviceTokenService::getTokenFromRequest(),
+    // which reads this header.
+    Http::assertSent(fn ($request) => $request->hasHeader('X-Device-Token', 'dvc_trusted')
+        && $request['token'] === 'ya29.token');
+});
+
+it('sends no device token on a social login without one', function () {
+    Http::fake([apiUrl('auth/social/google') => Http::response(['data' => issued_tokens()])]);
+
+    verification_client()->loginWithProvider('google', 'ya29.token');
+
+    Http::assertSent(fn ($request) => ! $request->hasHeader('X-Device-Token'));
+});
+
 it('raises the device challenge from a social login', function () {
     Http::fake([apiUrl('auth/social/apple') => Http::response([
         'message' => 'Device verification required',

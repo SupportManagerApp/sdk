@@ -10,6 +10,8 @@ use SupportManager\Sdk\Data\Compliance\RightToWork;
 use SupportManager\Sdk\Enums\Compliance\PrimaryDocumentType;
 use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -31,6 +33,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class RightToWorkResource extends Resource
 {
+    /** @use Findable<RightToWork> */
+    use Findable;
+
+    /** @use Listable<RightToWork> */
+    use Listable;
+
     /**
      * Create or replace the authenticated user's own right-to-work record for
      * the current team, returning the stored record. Saving also completes the

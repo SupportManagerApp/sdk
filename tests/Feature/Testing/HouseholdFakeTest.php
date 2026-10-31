@@ -34,12 +34,14 @@ it('lists seeded shopping list items as DTOs', function () {
         ->and($page->total())->toBe(3);
 });
 
-it('finds a shopping list item by id and returns null for a miss', function () {
+it('reads one seeded shopping list item back from the collection, as there is no show route', function () {
     SupportManager::fake()->seed(ShoppingListItemFactory::new()->count(2));
 
-    expect(SupportManager::shoppingList()->find(2))->toBeInstanceOf(ShoppingListItem::class)
-        ->and(SupportManager::shoppingList()->find(2)->id)->toBe('2')
-        ->and(SupportManager::shoppingList()->find(999))->toBeNull();
+    $items = SupportManager::shoppingList()->query()->collect()->keyBy('id');
+
+    expect($items->get('2'))->toBeInstanceOf(ShoppingListItem::class)
+        ->and($items->get('2')->name)->toBe('Item 2')
+        ->and($items->get('999'))->toBeNull();
 });
 
 it('creates, updates and deletes a shopping list item', function () {
@@ -88,11 +90,13 @@ it('applies the overdue state to a seeded chore', function () {
         ->and($chore->shouldHighlight)->toBeTrue();
 });
 
-it('finds a chore by id and returns null for a miss', function () {
+it('reads one seeded chore back from the collection, as there is no show route', function () {
     SupportManager::fake()->seed(ChoreFactory::new()->count(2));
 
-    expect(SupportManager::chores()->find(1)->id)->toBe('1')
-        ->and(SupportManager::chores()->find(999))->toBeNull();
+    $chores = SupportManager::chores()->query()->collect()->keyBy('id');
+
+    expect($chores->get('1'))->toBeInstanceOf(Chore::class)
+        ->and($chores->get('999'))->toBeNull();
 });
 
 it('completes a chore', function () {

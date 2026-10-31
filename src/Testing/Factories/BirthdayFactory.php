@@ -17,7 +17,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  *
  * ```php
  * SupportManager::fake()->seed(BirthdayFactory::new()->count(2));
- * SupportManager::rotaCalendar()->birthdays();
+ * SupportManager::rotaCalendar()->birthdays('2026-06-01', '2026-06-30');
  * ```
  */
 final class BirthdayFactory extends Factory implements ProvidesFakeRoutes

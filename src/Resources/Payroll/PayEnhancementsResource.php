@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Payroll;
 
 use SupportManager\Sdk\Data\Payroll\PayEnhancement;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -23,6 +25,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class PayEnhancementsResource extends Resource
 {
+    /** @use Findable<PayEnhancement> */
+    use Findable;
+
+    /** @use Listable<PayEnhancement> */
+    use Listable;
+
     /**
      * Create a pay enhancement, returning the created record.
      *

@@ -23,7 +23,7 @@ use SupportManager\Sdk\Testing\RecordStore;
  * ```php
  * SupportManager::fake()->seed(KeysafeFactory::new()->withCode('4321'));
  * SupportManager::keysafe()->show()->hasCode;    // true
- * SupportManager::keysafe()->reveal()->code;     // '4321'
+ * SupportManager::keysafe()->reveal();           // '4321'
  * ```
  */
 final class KeysafeFactory extends Factory implements ProvidesFakeRoutes

@@ -107,6 +107,21 @@ $p60Attributes = static fn (bool $show): array => [
     ],
 ];
 
+$estimatedPayBreakdownLine = [
+    'type' => 'object',
+    'properties' => [
+        'type' => ['type' => 'string'],
+        'total_payroll_value' => $money,
+        'total_cost' => $money,
+        'after_close_payroll_value' => $money,
+        'after_close_cost' => $money,
+        'current_month_payroll_value' => $money,
+        'current_month_cost' => $money,
+    ],
+    'required' => ['type', 'total_payroll_value', 'total_cost'],
+];
+$estimatedPayBreakdownReason = 'PayrollReportManager::addTotalRows() adds after_close_payroll_value, after_close_cost, current_month_payroll_value and current_month_cost to a tooltip_breakdown row when part of it was worked after the previous payroll closed; EstimatedPayResource sends the rows as hours.breakdown/sleeps.breakdown, and the spec documents only type, total_payroll_value and total_cost (src/Payroll/Services/PayrollReportManager.php).';
+
 $wallClockReason = static fn (string $resource): string => "Platform sends process_date via ApiResource::wallClock() (toIso8601String, e.g. 2026-06-30T00:00:00+01:00), not a bare date; see src/Payroll/Http/Resources/{$resource}.php.";
 
 $nestedAddress = [
@@ -207,6 +222,8 @@ return [
         'schema' => ['type' => 'object', 'additionalProperties' => ['type' => 'array', 'items' => ['type' => 'string']]],
         'reason' => "CompleteTaskRequest validates user_id (nullable|integer|exists:team_user), so the FormRequest's 422 carries Laravel's errors bag, e.g. errors.user_id; see src/App/Tasks/Http/Requests/CompleteTaskRequest.php.",
     ],
+    ['operation' => 'GET /payroll/estimated-pay', 'in' => 200, 'pointer' => '/data/hours/breakdown/*', 'schema' => $estimatedPayBreakdownLine, 'reason' => $estimatedPayBreakdownReason],
+    ['operation' => 'GET /payroll/estimated-pay', 'in' => 200, 'pointer' => '/data/sleeps/breakdown/*', 'schema' => $estimatedPayBreakdownLine, 'reason' => $estimatedPayBreakdownReason],
     [
         'operation' => 'GET /payroll/timesheets',
         'in' => 200,

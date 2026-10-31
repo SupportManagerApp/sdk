@@ -19,7 +19,8 @@ use SupportManager\Sdk\Resources\Resource;
  *
  * Unlike the Spatie-backed collections, the index takes a single flat
  * `filter=unread|read` parameter rather than `filter[key]=value`, so the
- * filtered reads are explicit methods instead of the fluent {@see query()}.
+ * filtered reads are explicit methods instead of a fluent `query()`, which this
+ * resource does not have.
  *
  * ```php
  * SupportManager::notifications()->unread()->items();

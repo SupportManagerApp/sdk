@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Documents;
 
 use SupportManager\Sdk\Data\Documents\Policy;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -25,6 +27,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class PoliciesResource extends Resource
 {
+    /** @use Findable<Policy> */
+    use Findable;
+
+    /** @use Listable<Policy> */
+    use Listable;
+
     /**
      * Record that the current user has acknowledged a policy. The platform
      * responds with an acknowledgement receipt (not a Policy), so nothing is

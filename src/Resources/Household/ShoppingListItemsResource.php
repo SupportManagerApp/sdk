@@ -7,15 +7,16 @@ namespace SupportManager\Sdk\Resources\Household;
 use Illuminate\Http\Client\Response;
 use SupportManager\Sdk\Data\Household\ShoppingListItem;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
  * The shared household shopping list.
  *
- * The collection (`query()`, `find()`, `all()`) plus writes — `create()`,
+ * The collection (`query()`, `all()`) plus writes — `create()`,
  * `update()`, `destroy()` — and the `togglePurchased()` action that flips an
- * item's needs-purchasing flag. The platform exposes no `show` route, so single
- * items come from the collection rather than a by-id GET.
+ * item's needs-purchasing flag. The platform exposes no `show` route, so there is
+ * no `find()`: single items come from the collection.
  *
  * ```php
  * SupportManager::shoppingList()->query()->filter('needs_purchasing', true)->get();
@@ -26,6 +27,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ShoppingListItemsResource extends Resource
 {
+    /** @use Listable<ShoppingListItem> */
+    use Listable;
+
     /**
      * Add an item to the shopping list.
      *

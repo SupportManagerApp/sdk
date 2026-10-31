@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\ShiftRequest;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -15,7 +16,7 @@ use SupportManager\Sdk\Resources\Resource;
  * `status` and sortable by `created_at` or `start`, plus `create()` to ask for
  * an overtime shift and `destroy()` to withdraw one. Managers approve (creating
  * the shift) or reject requests on the web. The platform exposes no show
- * route, so `find()` is not used here.
+ * route, so there is no `find()`.
  *
  * ```php
  * SupportManager::shiftRequests()->create(['date' => '2026-11-20', 'start_time' => '09:00', 'end_time' => '17:00', 'type' => 'Overtime Hours']);
@@ -27,6 +28,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ShiftRequestsResource extends Resource
 {
+    /** @use Listable<ShiftRequest> */
+    use Listable;
+
     /**
      * Ask the managers for an overtime shift, returning the pending request.
      * A sleeping night is always worked 23:00 to 07:00, so for

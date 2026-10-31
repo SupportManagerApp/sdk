@@ -456,7 +456,18 @@
         "?float $grossPay",
         "?float $netPay",
         "?float $deductionsTotal",
-        "?SupportManager\\Sdk\\Data\\Payroll\\EstimatedPayDeductions $deductions"
+        "?SupportManager\\Sdk\\Data\\Payroll\\EstimatedPayDeductions $deductions",
+        "array $hoursBreakdown = []",
+        "array $sleepsBreakdown = []"
+    ],
+    "SupportManager\\Sdk\\Data\\Payroll\\EstimatedPayBreakdownLine": [
+        "string $type",
+        "float $totalValue",
+        "float $totalCost",
+        "?float $afterCloseValue = null",
+        "?float $afterCloseCost = null",
+        "?float $currentMonthValue = null",
+        "?float $currentMonthCost = null"
     ],
     "SupportManager\\Sdk\\Data\\Payroll\\EstimatedPayDeductions": [
         "float $incomeTax",

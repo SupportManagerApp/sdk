@@ -281,9 +281,7 @@ it('404s an unknown or unclaimed quick-add token', function () {
 it('reads the flat bank-holiday feed', function () {
     SupportManager::fake()->seed(BankHolidayFactory::new()->count(2));
 
-    $holidays = SupportManager::rotaCalendar()->bankHolidays([
-        'filter' => ['start_date' => '2026-01-01', 'end_date' => '2026-12-31'],
-    ]);
+    $holidays = SupportManager::rotaCalendar()->bankHolidays('2026-01-01', '2026-12-31');
 
     expect($holidays)->toHaveCount(2)
         ->and($holidays[0])->toBeInstanceOf(BankHoliday::class)
@@ -297,8 +295,8 @@ it('reads the flat birthday and anniversary feeds', function () {
         AnniversaryFactory::new()->count(1),
     );
 
-    $birthdays = SupportManager::rotaCalendar()->birthdays(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
-    $anniversaries = SupportManager::rotaCalendar()->anniversaries(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
+    $birthdays = SupportManager::rotaCalendar()->birthdays('2026-06-01', '2026-06-30');
+    $anniversaries = SupportManager::rotaCalendar()->anniversaries('2026-06-01', '2026-06-30');
 
     expect($birthdays)->toHaveCount(1)
         ->and($birthdays[0])->toBeInstanceOf(Birthday::class)

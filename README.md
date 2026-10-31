@@ -45,6 +45,12 @@ shared by every client app instead of reimplemented per platform:
 /** @extends \SupportManager\Sdk\Resources\Resource<Journey> */
 final class JourneysResource extends Resource
 {
+    /** @use Findable<Journey> */
+    use Findable;
+
+    /** @use Listable<Journey> */
+    use Listable;
+
     protected function path(): string
     {
         return 'journeys';
@@ -73,7 +79,20 @@ final class JourneysResource extends Resource
 }
 ```
 
-`query()`, `find()` and `all()` come for free. For a custom endpoint, issue the
+Collection reads are opt-in, because many platform collections have no index
+or no show route (`apiResource(...)->except(['show'])`, for one). Use
+`Resources\Concerns\Listable` for `query()` and `all()` when the platform lists
+a JSON:API collection at `GET {path}`, and `Resources\Concerns\Findable` for
+`find($id)` when it shows one at `GET {path}/{id}`. Leave them out otherwise:
+`tests/Arch/CollectionReadsTest.php` fails for a resource that offers one of
+these without the route in the spec.
+
+`query()` builds `filter[key]`, `sort`, `page` and `per_page`. Its `include()`
+is deprecated and does nothing: no platform endpoint allows Spatie includes,
+so the SDK no longer sends `include`, and the call only raises an
+`E_USER_DEPRECATED`. Remove it from your queries.
+
+For a custom endpoint, issue the
 request with `get()`, `post()`, `put()`, `patch()` or `delete()` (or `tenant()`
 for something like a multipart upload), then read the response with the helper
 that matches the body the platform sends. Every helper turns an error response

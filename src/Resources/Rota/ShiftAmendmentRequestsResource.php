@@ -6,6 +6,7 @@ namespace SupportManager\Sdk\Resources\Rota;
 
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -14,7 +15,7 @@ use SupportManager\Sdk\Resources\Resource;
  * Index-only collection (`query()`, `all()`), newest first, filterable by
  * `status` and `rota_entry_id`. A request is made against its shift with
  * {@see ShiftsResource::requestAmendment()}, and managers review it on the web.
- * The platform exposes no show route, so `find()` is not used here.
+ * The platform exposes no show route, so there is no `find()`.
  *
  * ```php
  * SupportManager::shiftAmendmentRequests()->query()->filter('status', 'Pending')->get();
@@ -25,6 +26,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ShiftAmendmentRequestsResource extends Resource
 {
+    /** @use Listable<ShiftAmendmentRequest> */
+    use Listable;
+
     protected function path(): string
     {
         return 'rota/shift-amendment-requests';

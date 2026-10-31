@@ -7,6 +7,8 @@ namespace SupportManager\Sdk\Resources\Documents;
 use SupportManager\Sdk\Data\Documents\Document;
 use SupportManager\Sdk\Http\DownloadLink;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -28,6 +30,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class DocumentsResource extends Resource
 {
+    /** @use Findable<Document> */
+    use Findable;
+
+    /** @use Listable<Document> */
+    use Listable;
+
     /**
      * A short-lived link to a document's file. The platform answers with
      * `{data: {download_url, filename, expires_at}}` rather than the file, so

@@ -6,6 +6,8 @@ namespace SupportManager\Sdk\Resources\Leave;
 
 use SupportManager\Sdk\Data\Leave\LeaveRequest;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Findable;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -30,6 +32,12 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class LeaveRequestsResource extends Resource
 {
+    /** @use Findable<LeaveRequest> */
+    use Findable;
+
+    /** @use Listable<LeaveRequest> */
+    use Listable;
+
     /**
      * Create a new leave request, returning the stored record.
      *

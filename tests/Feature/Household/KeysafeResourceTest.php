@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\Household\Keysafe;
+use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 
 it('shows the keysafe state from a flat data body', function () {
     fakeApi(['household/keysafe' => [
@@ -27,7 +28,7 @@ it('reveals the keysafe code', function () {
         'meta' => ['team_id' => 42],
     ]]);
 
-    expect(sdk()->keysafe()->reveal()->code)->toBe('1234');
+    expect(sdk()->keysafe()->reveal())->toBe('1234');
     Http::assertSent(fn ($request) => $request->method() === 'POST'
         && str_contains($request->url(), 'keysafe/reveal'));
 });
@@ -38,8 +39,14 @@ it('returns a null code when none is set', function () {
         'meta' => ['team_id' => 42],
     ]]);
 
-    expect(sdk()->keysafe()->reveal()->code)->toBeNull();
+    expect(sdk()->keysafe()->reveal())->toBeNull();
 });
+
+it('throws when the reveal is refused, rather than returning no code', function () {
+    fakeApi(['household/keysafe/reveal' => Http::response(['message' => 'This action is unauthorized.'], 403)]);
+
+    sdk()->keysafe()->reveal();
+})->throws(SupportManagerApiException::class, 'This action is unauthorized.');
 
 it('updates the keysafe code', function () {
     fakeApi(['household/keysafe' => [

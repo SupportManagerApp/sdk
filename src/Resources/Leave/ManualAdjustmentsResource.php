@@ -7,6 +7,7 @@ namespace SupportManager\Sdk\Resources\Leave;
 use SupportManager\Sdk\Data\Leave\ManualAdjustment;
 use SupportManager\Sdk\Data\Leave\ManualAdjustmentSummary;
 use SupportManager\Sdk\Http\ResourceObject;
+use SupportManager\Sdk\Resources\Concerns\Listable;
 use SupportManager\Sdk\Resources\Resource;
 
 /**
@@ -25,6 +26,9 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class ManualAdjustmentsResource extends Resource
 {
+    /** @use Listable<ManualAdjustment> */
+    use Listable;
+
     /**
      * The current user's own adjustments for the current leave year or the
      * given one, oldest first, with their totals. Not paginated.

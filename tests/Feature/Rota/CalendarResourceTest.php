@@ -17,9 +17,7 @@ it('reads flat bank holiday rows and forwards the date range filter', function (
         'meta' => ['team_id' => 42, 'region' => 'england-and-wales'],
     ]]);
 
-    $holidays = sdk()->rotaCalendar()->bankHolidays([
-        'filter' => ['start_date' => '2026-01-01', 'end_date' => '2026-12-31'],
-    ]);
+    $holidays = sdk()->rotaCalendar()->bankHolidays('2026-01-01', '2026-12-31');
 
     expect($holidays)->toHaveCount(2)
         ->and($holidays[0])->toBeInstanceOf(BankHoliday::class)
@@ -40,20 +38,42 @@ it('reads flat birthday rows', function () {
         'data' => [['date' => '2026-06-10', 'user_id' => 7, 'user_name' => 'Ada']],
     ]]);
 
-    $birthdays = sdk()->rotaCalendar()->birthdays(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
+    $birthdays = sdk()->rotaCalendar()->birthdays('2026-06-01', '2026-06-30');
 
     expect($birthdays)->toHaveCount(1)
         ->and($birthdays[0])->toBeInstanceOf(Birthday::class)
         ->and($birthdays[0]->userId)->toBe(7)
         ->and($birthdays[0]->userName)->toBe('Ada');
+    assertSentTo('GET', 'rota/birthdays', fn ($request) => str_contains(urldecode($request->url()), 'filter[start_date]=2026-06-01&filter[end_date]=2026-06-30'));
 });
+
+it('formats DateTimeInterface bounds as Y-m-d for every date feed', function (string $method, string $path) {
+    fakeApi([$path.'*' => ['data' => []]]);
+
+    $result = sdk()->rotaCalendar()->{$method}(new DateTimeImmutable('2026-06-01 09:30:00'), new DateTimeImmutable('2026-06-30 23:59:59'));
+
+    expect($result)->toBe([]);
+    assertSentTo('GET', $path, fn ($request) => str_contains(urldecode($request->url()), 'filter[start_date]=2026-06-01&filter[end_date]=2026-06-30'));
+})->with([
+    'bank holidays' => ['bankHolidays', 'rota/bank-holidays'],
+    'birthdays' => ['birthdays', 'rota/birthdays'],
+    'anniversaries' => ['anniversaries', 'rota/anniversaries'],
+]);
+
+it('requires both ends of the range, which the platform 422s without', function (string $method) {
+    $parameters = (new ReflectionMethod(sdk()->rotaCalendar(), $method))->getParameters();
+
+    expect(array_map(fn (ReflectionParameter $p): string => $p->getName(), $parameters))->toBe(['from', 'to'])
+        ->and($parameters[0]->isOptional())->toBeFalse()
+        ->and($parameters[1]->isOptional())->toBeFalse();
+})->with(['bankHolidays', 'birthdays', 'anniversaries']);
 
 it('reads flat anniversary rows including years of service', function () {
     fakeApi(['rota/anniversaries*' => [
         'data' => [['date' => '2026-06-12', 'user_id' => 8, 'user_name' => 'Grace', 'years' => 5]],
     ]]);
 
-    $anniversaries = sdk()->rotaCalendar()->anniversaries(['filter' => ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']]);
+    $anniversaries = sdk()->rotaCalendar()->anniversaries('2026-06-01', '2026-06-30');
 
     expect($anniversaries)->toHaveCount(1)
         ->and($anniversaries[0])->toBeInstanceOf(Anniversary::class)
