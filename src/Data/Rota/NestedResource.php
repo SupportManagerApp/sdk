@@ -15,7 +15,8 @@ namespace SupportManager\Sdk\Data\Rota;
 final readonly class NestedResource
 {
     /**
-     * Fold one nested resource into a flat `{id, ...attributes}` array.
+     * Fold one nested resource into a flat `{id, ...attributes}` array, keeping
+     * any resource-level `meta` under a `meta` key.
      *
      * @param  array<string, mixed>  $nested
      * @return array<string, mixed>
@@ -35,6 +36,7 @@ final readonly class NestedResource
         return [
             'id' => $object['id'] ?? null,
             ...$attributes,
+            ...(is_array($object['meta'] ?? null) ? ['meta' => $object['meta']] : []),
         ];
     }
 
