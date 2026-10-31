@@ -40,13 +40,14 @@ it('names every method that returns a file download*()', function (string $resou
 
 /*
  * A public method that issues `DELETE {path}/{id}`, the record itself, is
- * named destroy(), and a method named destroy() does exactly that. Deprecated
+ * named destroy(), and a method named destroy() does exactly that. A query
+ * string on the path (`{$id}?scope=…`) still deletes the record. Deprecated
  * aliases are exempt: they forward to destroy() under their old names.
  */
 it('names the DELETE of one record destroy()', function (string $resource) {
     $instance = (new ReflectionClass($resource))->newInstanceWithoutConstructor();
     $path = (new ReflectionMethod($resource, 'path'))->invoke($instance);
-    $deletesTheRecord = '/(?:\$this->|parent::)delete\(\s*"(?:\{\$this->path\(\)\}|'.preg_quote($path, '/').')\/\{\$id\}"\s*[,)]/';
+    $deletesTheRecord = '/(?:\$this->|parent::)delete\(\s*"(?:\{\$this->path\(\)\}|'.preg_quote($path, '/').')\/\{\$id\}(?:\?[^"]*)?"\s*[,)]/';
 
     $misnamed = [];
 
