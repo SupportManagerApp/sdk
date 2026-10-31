@@ -121,7 +121,7 @@ function sharedResourceCalls(): array
         'shift amendment requests' => ['shiftAmendmentRequests', ShiftAmendmentRequestsResource::class, fn (ShiftAmendmentRequestsResource $r) => $r->all(), 'GET', 'rota/shift-amendment-requests', []],
         'shift applications' => ['shiftApplications', ShiftApplicationsResource::class, fn (ShiftApplicationsResource $r) => $r->query()->get(), 'GET', 'rota/shift-applications', []],
         'shift blocks' => ['shiftBlocks', ShiftBlocksResource::class, fn (ShiftBlocksResource $r) => $r->startOptions(9), 'GET', 'rota/shift-blocks/9/start-options', []],
-        'shift requests' => ['shiftRequests', ShiftRequestsResource::class, fn (ShiftRequestsResource $r) => $r->cancel(12), 'DELETE', 'rota/shift-requests/12', []],
+        'shift requests' => ['shiftRequests', ShiftRequestsResource::class, fn (ShiftRequestsResource $r) => $r->destroy(12), 'DELETE', 'rota/shift-requests/12', []],
         'shifts' => ['shifts', ShiftsResource::class, fn (ShiftsResource $r) => $r->requestAmendment(51, ['proposed_start_time' => '15:00', 'proposed_end_time' => '23:00']), 'POST', 'rota/shifts/51/amendment-requests', []],
         'signature requests' => ['signatureRequests', SignatureRequestsResource::class, fn (SignatureRequestsResource $r) => $r->saveValues(12, ['sig-1' => null]), 'PUT', 'signing/requests/12/values', []],
         'tasks' => ['tasks', TasksResource::class, fn (TasksResource $r) => $r->complete('nope'), 'POST', 'tasks/nope/complete', []],
