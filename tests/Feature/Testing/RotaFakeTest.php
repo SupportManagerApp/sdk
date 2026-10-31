@@ -11,10 +11,12 @@ use SupportManager\Sdk\Data\Rota\QuickAddParse;
 use SupportManager\Sdk\Data\Rota\Shift;
 use SupportManager\Sdk\Data\Rota\ShiftAmendmentRequest;
 use SupportManager\Sdk\Data\Rota\ShiftApplication;
+use SupportManager\Sdk\Data\Rota\ShiftPayEnhancement;
 use SupportManager\Sdk\Data\Rota\ShiftRequest;
 use SupportManager\Sdk\Data\Rota\SleepoverStartOption;
 use SupportManager\Sdk\Enums\Rota\EntryType;
 use SupportManager\Sdk\Enums\Rota\QuickAddIntent;
+use SupportManager\Sdk\Enums\Rota\RecurringShiftScope;
 use SupportManager\Sdk\Exceptions\ApiValidationException;
 use SupportManager\Sdk\Exceptions\SupportManagerApiException;
 use SupportManager\Sdk\Facades\SupportManager;
@@ -23,12 +25,14 @@ use SupportManager\Sdk\Testing\Factories\AppointmentFactory;
 use SupportManager\Sdk\Testing\Factories\BankHolidayFactory;
 use SupportManager\Sdk\Testing\Factories\BirthdayFactory;
 use SupportManager\Sdk\Testing\Factories\CalendarFeedFactory;
+use SupportManager\Sdk\Testing\Factories\PayEnhancementFactory;
 use SupportManager\Sdk\Testing\Factories\QuickAddParseFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftAmendmentRequestFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftApplicationFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftBlockFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftFactory;
 use SupportManager\Sdk\Testing\Factories\ShiftRequestFactory;
+use SupportManager\Sdk\Testing\Json;
 
 // Host-style tests: seed factories, call the SDK normally, assert on DTOs.
 // No Http::fake(), no JSON:API envelopes by hand.
@@ -136,6 +140,209 @@ it('rejects a shift missing its required fields', function () {
 
     expect(fn () => SupportManager::shifts()->create(['date' => '2026-08-17']))
         ->toThrow(ApiValidationException::class);
+});
+
+it('creates a shift with a seeded pay enhancement, and rejects an unknown one', function () {
+    SupportManager::fake()->seed(PayEnhancementFactory::new()->count(1), ShiftFactory::new()->count(0));
+
+    $shift = SupportManager::shifts()->create([
+        'assignee_id' => 12,
+        'date' => '2026-08-17',
+        'start_time' => '09:00',
+        'pay_enhancement_id' => 1,
+        'is_pay_enhancement_private' => true,
+    ]);
+
+    expect($shift?->payEnhancement)->toEqual(new ShiftPayEnhancement(1, 'Enhancement 1', '0.50', true))
+        ->and(fn () => SupportManager::shifts()->create(['assignee_id' => 12, 'date' => '2026-08-17', 'start_time' => '09:00', 'pay_enhancement_id' => 99]))
+        ->toThrow(fn (ApiValidationException $e) => expect($e->first('pay_enhancement_id'))->toBe('The selected pay enhancement does not belong to this team.'));
+});
+
+// ── Shift admin ─────────────────────────────────────────────────────────────
+
+it('carries the manager meta.can flags and pay enhancement onto the shift', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new(),
+        ShiftFactory::new()->available()->manageable()->withPayEnhancement(4, 'Nights', '0.75', isPrivate: true),
+    );
+
+    $worker = SupportManager::shifts()->find(1);
+    $manager = SupportManager::shifts()->find(2);
+
+    expect($worker?->canUpdate)->toBeFalse()
+        ->and($worker->canDelete)->toBeFalse()
+        ->and($worker->canDuplicate)->toBeFalse()
+        ->and($worker->canAssign)->toBeFalse()
+        ->and($worker->payEnhancement)->toBeNull()
+        ->and($manager?->canUpdate)->toBeTrue()
+        ->and($manager->canDelete)->toBeTrue()
+        ->and($manager->canDuplicate)->toBeTrue()
+        ->and($manager->canAssign)->toBeTrue()
+        ->and($manager->canApply)->toBeTrue()
+        ->and($manager->payEnhancement)->toEqual(new ShiftPayEnhancement(4, 'Nights', '0.75', true));
+});
+
+it('refuses the manager actions on a shift whose meta.can flags are off', function () {
+    SupportManager::fake()->seed(ShiftFactory::new());
+
+    $forbidden = fn (SupportManagerApiException $e) => expect($e->status)->toBe(403);
+
+    expect(fn () => SupportManager::shifts()->update(1, ['end_time' => '18:00']))->toThrow($forbidden)
+        ->and(fn () => SupportManager::shifts()->destroy(1))->toThrow($forbidden)
+        ->and(fn () => SupportManager::shifts()->duplicate(1))->toThrow($forbidden)
+        ->and(fn () => SupportManager::shifts()->assign(1, 12))->toThrow($forbidden);
+});
+
+it('edits a shift, rolling an early end overnight and closing it once assigned', function () {
+    SupportManager::fake()->seed(
+        PayEnhancementFactory::new()->count(1),
+        ShiftFactory::new()->available()->manageable(),
+    );
+
+    $shift = SupportManager::shifts()->update(1, [
+        'start_time' => '22:00',
+        'end_time' => '06:00',
+        'user_id' => 12,
+        'pay_enhancement_id' => 1,
+        'tags' => ['Driving'],
+    ]);
+
+    expect($shift?->start)->toBe('2026-06-06T22:00:00+00:00')
+        ->and($shift->end)->toBe('2026-06-07T06:00:00+00:00')
+        ->and($shift->duration)->toBe(8.0)
+        ->and($shift->userId)->toBe(12)
+        ->and($shift->isAvailable)->toBeFalse()
+        ->and($shift->tags)->toBe(['Driving'])
+        ->and($shift->payEnhancement?->name)->toBe('Enhancement 1')
+        ->and($shift->canUpdate)->toBeTrue()
+        ->and(SupportManager::shifts()->find(1)?->end)->toBe('2026-06-07T06:00:00+00:00');
+});
+
+it('rejects a bad shift edit field by field', function () {
+    SupportManager::fake()->seed(ShiftFactory::new()->manageable());
+
+    expect(fn () => SupportManager::shifts()->update(1, ['start_time' => '9am', 'type' => 'Annual Leave Hours']))
+        ->toThrow(fn (ApiValidationException $e) => expect($e->first('start_time'))->toBe('The start time field must match the format H:i.')
+            ->and($e->first('type'))->toBe('The selected type is invalid.'))
+        ->and(fn () => SupportManager::shifts()->update(1, ['pay_enhancement_id' => 99]))
+        ->toThrow(ApiValidationException::class);
+});
+
+it('refuses to edit a shift on a completed payslip until reset_payslip confirms it', function () {
+    SupportManager::fake()->seed(ShiftFactory::new()->manageable()->onCompletedPayslip('October 2026'));
+
+    expect(fn () => SupportManager::shifts()->update(1, ['end_time' => '18:00']))
+        ->toThrow(fn (ApiValidationException $e) => expect($e->first('reset_payslip'))->toContain('completed October 2026 payslip'))
+        ->and(SupportManager::shifts()->update(1, ['end_time' => '18:00', 'reset_payslip' => true])?->end)->toBe('2026-06-06T18:00:00+00:00')
+        ->and(SupportManager::shifts()->update(1, ['end_time' => '19:00'])?->end)->toBe('2026-06-06T19:00:00+00:00');
+});
+
+it('edits this and the later shifts of a series, or detaches just one', function () {
+    $week = fn (int $day) => ShiftFactory::new()->manageable()->recurring(5)->state([
+        'start' => "2026-06-{$day}T09:00:00Z",
+        'end' => "2026-06-{$day}T17:00:00Z",
+    ]);
+    SupportManager::fake()->seed($week(10), $week(17), $week(24));
+
+    SupportManager::shifts()->update(2, ['type' => 'Overtime Hours'], RecurringShiftScope::Future);
+
+    expect(SupportManager::shifts()->find(1)?->type)->toBe(EntryType::ContractedHours)
+        ->and(SupportManager::shifts()->find(2)?->type)->toBe(EntryType::OvertimeHours)
+        ->and(SupportManager::shifts()->find(3)?->type)->toBe(EntryType::OvertimeHours);
+
+    // Shift 2 leaves the series, so a future-scoped edit of shift 1 skips it.
+    SupportManager::shifts()->update(2, ['end_time' => '18:00']);
+    SupportManager::shifts()->update(1, ['end_time' => '16:00'], RecurringShiftScope::Future);
+
+    expect(SupportManager::shifts()->find(2)?->end)->toBe('2026-06-17T18:00:00+00:00')
+        ->and(SupportManager::shifts()->find(3)?->end)->toBe('2026-06-24T16:00:00+00:00');
+});
+
+it('deletes a shift, or this and the later shifts of its series', function () {
+    $week = fn (int $day) => ShiftFactory::new()->manageable()->recurring()->state(['start' => "2026-06-{$day}T09:00:00Z"]);
+    SupportManager::fake()->seed($week(10), $week(17), $week(24), $week(30));
+
+    SupportManager::shifts()->destroy(4);
+    SupportManager::shifts()->destroy(2, RecurringShiftScope::Future);
+
+    expect(SupportManager::shifts()->find(1))->not->toBeNull()
+        ->and(SupportManager::shifts()->find(2))->toBeNull()
+        ->and(SupportManager::shifts()->find(3))->toBeNull()
+        ->and(SupportManager::shifts()->find(4))->toBeNull()
+        ->and(fn () => SupportManager::shifts()->destroy(4))->toThrow(SupportManagerApiException::class);
+});
+
+it('duplicates a shift onto another day, or onto its own day', function () {
+    SupportManager::fake()->seed(ShiftFactory::new()->manageable()->withPayEnhancement()->state([
+        'start' => '2026-06-06T22:00:00Z',
+        'end' => '2026-06-07T06:00:00Z',
+        'is_published' => false,
+        'tags' => ['Driving'],
+    ]));
+
+    $copy = SupportManager::shifts()->duplicate(1, '2026-06-13');
+    $sameDay = SupportManager::shifts()->duplicate(1);
+
+    expect($copy?->id)->toBe('2')
+        ->and($copy->start)->toBe('2026-06-13T22:00:00+00:00')
+        ->and($copy->end)->toBe('2026-06-14T06:00:00+00:00')
+        ->and($copy->isPublished)->toBeTrue()
+        ->and($copy->userId)->toBe(7)
+        ->and($copy->tags)->toBe(['Driving'])
+        ->and($copy->payEnhancement?->id)->toBe(1)
+        ->and($sameDay?->start)->toBe('2026-06-06T22:00:00+00:00')
+        ->and(fn () => SupportManager::shifts()->duplicate(1, '2026-02-30'))->toThrow(ApiValidationException::class);
+});
+
+it('duplicates a whole sleepover from one segment and answers its sleeping night', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new()->manageable()->state(['shift_block_id' => 3, 'start' => '2026-06-06T19:00:00Z', 'end' => '2026-06-06T23:00:00Z']),
+        ShiftFactory::new()->manageable()->state(['shift_block_id' => 3, 'is_sleeping_night' => true, 'start' => '2026-06-06T23:00:00Z', 'end' => '2026-06-07T07:00:00Z']),
+        ShiftFactory::new()->state(['start' => '2026-06-08T09:00:00Z']),
+    );
+
+    $night = SupportManager::shifts()->duplicate(1, '2026-06-20');
+    $copies = array_values(array_filter(
+        SupportManager::shifts()->all()->items(),
+        fn (Shift $shift): bool => $shift->shiftBlockId !== null && $shift->shiftBlockId !== 3,
+    ));
+
+    expect($night?->isSleepingNight)->toBeTrue()
+        ->and($night->start)->toBe('2026-06-20T23:00:00+00:00')
+        ->and($copies)->toHaveCount(2)
+        ->and($copies[0]->shiftBlockId)->toBe($night->shiftBlockId)
+        ->and($copies[0]->start)->toBe('2026-06-20T19:00:00+00:00');
+});
+
+it('assigns a shift, approving the person and turning down the other applicants', function () {
+    $onShiftOne = Json::nested('rota_entries', ['id' => '1', 'type' => 'Contracted Hours', 'duration' => 8.0]);
+    $fake = SupportManager::fake()->seed(
+        ShiftFactory::new()->available()->manageable(),
+        ShiftFactory::new()->state(['user' => ['id' => 12, 'name' => 'Grace Hopper', 'avatar' => 'https://example.test/grace.png']]),
+        ShiftApplicationFactory::new()->state(['user' => ['id' => 8, 'name' => 'Ada'], 'rota_entry' => $onShiftOne]),
+        ShiftApplicationFactory::new()->state(['user' => ['id' => 12, 'name' => 'Grace Hopper'], 'rota_entry' => $onShiftOne]),
+    );
+
+    $shift = SupportManager::shifts()->assign(1, 12);
+
+    expect($shift?->userId)->toBe(12)
+        ->and($shift->userName)->toBe('Grace Hopper')
+        ->and($shift->isAvailable)->toBeFalse()
+        ->and(array_column($fake->store()->all('rota/shift-applications'), 'status'))->toBe(['Rejected', 'Approved']);
+});
+
+it('assigns every segment of a sleepover from one of them', function () {
+    SupportManager::fake()->seed(
+        ShiftFactory::new()->sleepoverSegment(3)->manageable()->count(2),
+        ShiftFactory::new()->available()->manageable(),
+    );
+
+    SupportManager::shifts()->assign(2, 12);
+
+    expect(SupportManager::shifts()->find(1)?->userId)->toBe(12)
+        ->and(SupportManager::shifts()->find(1)?->userName)->toBe('Team member 12')
+        ->and(SupportManager::shifts()->find(1)?->isAvailable)->toBeFalse()
+        ->and(SupportManager::shifts()->find(3)?->userId)->toBeNull();
 });
 
 // ── Shift applications ────────────────────────────────────────────────────────

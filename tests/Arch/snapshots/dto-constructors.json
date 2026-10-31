@@ -840,7 +840,12 @@
         "?string $ownApplicationStatus = null",
         "bool $canApply = false",
         "bool $canRequestAmendment = false",
-        "?string $cannotApplyReason = null"
+        "?string $cannotApplyReason = null",
+        "bool $canUpdate = false",
+        "bool $canDelete = false",
+        "bool $canDuplicate = false",
+        "bool $canAssign = false",
+        "?SupportManager\\Sdk\\Data\\Rota\\ShiftPayEnhancement $payEnhancement = null"
     ],
     "SupportManager\\Sdk\\Data\\Rota\\ShiftAmendmentRequest": [
         "string $id",
@@ -871,6 +876,12 @@
         "?string $createdAt",
         "?string $updatedAt",
         "?bool $isProvisional = null"
+    ],
+    "SupportManager\\Sdk\\Data\\Rota\\ShiftPayEnhancement": [
+        "int $id",
+        "string $name",
+        "?string $factor",
+        "bool $isPrivate = false"
     ],
     "SupportManager\\Sdk\\Data\\Rota\\ShiftRequest": [
         "string $id",
