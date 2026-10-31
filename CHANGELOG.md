@@ -2,6 +2,42 @@
 
 All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, every release bumps the patch version (`0.0.x`) and may contain breaking changes; they are always listed under **Breaking** (see `CONTRIBUTING.md`).
 
+## v0.0.4 — 2026-10-31
+
+Wraps the platform's API wave 3 (platform PR #1066): shift admin, account security, and the weather and bin-day widgets. The pinned spec is now platform commit `0aae918cf`. The SDK calls 223 of its 231 operations; the other 8 are the same deliberately unwrapped ones as before. Nothing in this release breaks existing callers.
+
+### Added
+
+- **Shift admin** on `shifts()`, for admins and managers:
+  - `update($id, $data, $scope)` and `destroy($id, $scope)`. `$scope` is a new `Enums\Rota\RecurringShiftScope`: `Single` (the default) or `Future`, which also changes later shifts in a recurring series.
+  - `duplicate($id, ?$date)` copies a shift onto another day, or onto its own day when `$date` is null.
+  - `assign($id, $userId)` gives the shift to someone.
+  - `create()` now documents the platform's new `pay_enhancement_id` and `is_pay_enhancement_private` fields.
+- **`Shift` DTO:**
+  - `canUpdate`, `canDelete`, `canDuplicate` and `canAssign` flags.
+  - `payEnhancement`, a new `ShiftPayEnhancement` (`id`, `name`, `factor`, `isPrivate`). The platform always sent it; the SDK used to drop it.
+- **Account security.** Three new resources. They don't send a team header, so they work for a user with no team.
+  - `trustedDevices()`: `all()`, `destroy($id)` and `destroyOthers()`, which returns how many devices were revoked. See **Known issue** below.
+  - `socialAccounts()`: `all()`, `providers()`, `link($provider, $token)` and `destroy($provider)`.
+  - `twoFactor()`:
+    - `show()`
+    - `beginTotpSetup()`, which returns the secret, an otpauth URI and a QR code.
+    - `confirmTotpSetup($code)` and `regenerateBackupCodes($code)`, which return `BackupCodes`.
+    - `disableTotp($code)`.
+
+    Wrong codes raise `ApiValidationException` on `code`. Calling a method in the wrong state, for example disabling an app that isn't set up, returns 409, and repeated wrong codes return 429. `TotpSetup` and `BackupCodes` redact their secrets when dumped.
+  - New enums: `Enums\Security\SocialProvider` and `TrustedDeviceType`. `auth()->loginWithProvider()` now also accepts a `SocialProvider`.
+- **Today widgets:**
+  - `dashboard()->weather()` returns a `WeatherForecast` (current conditions and daily entries, with a `WeatherCondition` enum), or null when the platform has no forecast.
+  - `binDay()->show()` returns a `BinCollectionSchedule`: each bin's next collection and which are due tomorrow, with a `BinType` enum. It throws when the team has the Household module switched off, so check `capabilities()` first.
+- **Fakes:**
+  - New factories for trusted devices, social accounts, two-factor, weather and bin day.
+  - New `ShiftFactory` states: `manageable()`, `withPayEnhancement()`, `recurring()` and `onCompletedPayslip()`.
+
+### Known issue
+
+The platform identifies "this device" by a hash of the request's User-Agent alone, and every SDK install sends the same default User-Agent. Until the platform identifies the device another way, every phone using the SDK counts as the same device: `trustedDevices()->all()` marks all of them as current, and `destroyOthers()` keeps all of them.
+
 ## v0.0.3 — 2026-10-31
 
 An internal rework that makes the SDK cheaper to extend and checks it against the platform's API spec, plus fixes for the bugs that check found. It also includes the leave-calculation and journey-start fixes that were merged as v0.1.0 but never tagged, so v0.1.0 was not released. Adding an endpoint is now a typed DTO, one resource method using the base helpers, and a short test. `CONTRIBUTING.md` walks through it end to end.
