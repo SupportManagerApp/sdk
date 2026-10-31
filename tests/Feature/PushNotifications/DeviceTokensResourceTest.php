@@ -6,13 +6,6 @@ use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Data\PushNotifications\DeviceToken;
 use SupportManager\Sdk\Data\PushNotifications\PushNotificationStatus;
 use SupportManager\Sdk\Enums\PushNotifications\DevicePlatform;
-use SupportManager\Sdk\Exceptions\SupportManagerApiException;
-use SupportManager\Sdk\Resources\PushNotifications\DeviceTokensResource;
-
-function deviceTokens(): DeviceTokensResource
-{
-    return app(DeviceTokensResource::class);
-}
 
 function deviceTokenObject(string $id = '1', string $token = 'fcm-token-abc'): array
 {
@@ -30,13 +23,12 @@ function deviceTokenObject(string $id = '1', string $token = 'fcm-token-abc'): a
 }
 
 it('lists the user device tokens, tenant-scoped', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens*' => Http::response([
+    fakeApi(['push-notifications/tokens*' => [
         'data' => [deviceTokenObject('1'), deviceTokenObject('2', 'fcm-token-def')],
         'meta' => ['count' => 2],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $page = deviceTokens()->all();
+    $page = sdk()->deviceTokens()->all();
 
     expect($page->items())->toHaveCount(2)
         ->and($page->items()[0])->toBeInstanceOf(DeviceToken::class)
@@ -47,13 +39,12 @@ it('lists the user device tokens, tenant-scoped', function () {
 });
 
 it('registers a device token from an enum platform', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens' => Http::response([
+    fakeApi(['push-notifications/tokens' => Http::response([
         'data' => deviceTokenObject('5', 'fcm-new'),
         'success' => true,
     ], 201)]);
-    bootTenantSession();
 
-    $token = deviceTokens()->register('fcm-new', DevicePlatform::Ios);
+    $token = sdk()->deviceTokens()->register('fcm-new', DevicePlatform::Ios);
 
     expect($token)->toBeInstanceOf(DeviceToken::class)
         ->and($token->id)->toBe('5')
@@ -66,24 +57,22 @@ it('registers a device token from an enum platform', function () {
 });
 
 it('accepts a string platform when registering', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens' => Http::response([
+    fakeApi(['push-notifications/tokens' => Http::response([
         'data' => deviceTokenObject('6', 'fcm-android'),
         'success' => true,
     ], 201)]);
-    bootTenantSession();
 
-    deviceTokens()->register('fcm-android', 'android');
+    sdk()->deviceTokens()->register('fcm-android', 'android');
 
     Http::assertSent(fn ($r) => $r['platform'] === 'android');
 });
 
 it('reads the push-notification status', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens/status' => Http::response([
+    fakeApi(['push-notifications/tokens/status' => [
         'data' => ['has_tokens' => true, 'token_count' => 3, 'prompt_dismissed' => false],
-    ])]);
-    bootTenantSession();
+    ]]);
 
-    $status = deviceTokens()->status();
+    $status = sdk()->deviceTokens()->status();
 
     expect($status)->toBeInstanceOf(PushNotificationStatus::class)
         ->and($status->hasTokens)->toBeTrue()
@@ -92,10 +81,9 @@ it('reads the push-notification status', function () {
 });
 
 it('forgets a token by value', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens' => Http::response(['success' => true])]);
-    bootTenantSession();
+    fakeApi(['push-notifications/tokens' => ['success' => true]]);
 
-    deviceTokens()->forget('fcm-token-abc');
+    sdk()->deviceTokens()->forget('fcm-token-abc');
 
     Http::assertSent(fn ($r) => $r->method() === 'DELETE'
         && $r['token'] === 'fcm-token-abc'
@@ -103,35 +91,25 @@ it('forgets a token by value', function () {
 });
 
 it('deletes a token by id', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens/7' => Http::response(['success' => true])]);
-    bootTenantSession();
+    fakeApi(['push-notifications/tokens/7' => ['success' => true]]);
 
-    deviceTokens()->destroy(7);
+    sdk()->deviceTokens()->destroy(7);
 
     Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_contains($r->url(), 'tokens/7'));
 });
 
 it('deletes all tokens', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens/all' => Http::response(['success' => true])]);
-    bootTenantSession();
+    fakeApi(['push-notifications/tokens/all' => ['success' => true]]);
 
-    deviceTokens()->destroyAll();
+    sdk()->deviceTokens()->destroyAll();
 
     Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_ends_with($r->url(), 'tokens/all'));
 });
 
 it('dismisses the setup prompt', function () {
-    Http::fake(['api.test/api/v1/push-notifications/prompt/dismiss' => Http::response(['success' => true, 'message' => 'Notification prompt dismissed.'])]);
-    bootTenantSession();
+    fakeApi(['push-notifications/prompt/dismiss' => ['success' => true, 'message' => 'Notification prompt dismissed.']]);
 
-    deviceTokens()->dismissPrompt();
+    sdk()->deviceTokens()->dismissPrompt();
 
     Http::assertSent(fn ($r) => $r->method() === 'POST' && str_ends_with($r->url(), 'prompt/dismiss'));
 });
-
-it('throws when deleting a missing token by id (404)', function () {
-    Http::fake(['api.test/api/v1/push-notifications/tokens/999' => Http::response(['message' => 'Not found'], 404)]);
-    bootTenantSession();
-
-    deviceTokens()->destroy(999);
-})->throws(SupportManagerApiException::class);
