@@ -9,6 +9,7 @@ use SupportManager\Sdk\Data\Dashboard\DashboardLayout;
 use SupportManager\Sdk\Data\Dashboard\WeatherForecast;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
+use SupportManager\Sdk\Session\AuthSession;
 
 /**
  * The dashboard layout, the current user's capabilities in the team, and the
@@ -36,6 +37,8 @@ use SupportManager\Sdk\Resources\Resource;
  */
 final class DashboardResource extends Resource
 {
+    private const CAPABILITIES = 'dashboard.capabilities';
+
     /**
      * The widgets, quick links and alerts the dashboard shows the user.
      */
@@ -62,10 +65,24 @@ final class DashboardResource extends Resource
 
     /**
      * What the user can do in the current team.
+     *
+     * Fetched once and then remembered for the session, since hosts check it
+     * wherever they gate a module and it rarely changes: see
+     * {@see AuthSession::remember()} for when it is dropped. Pass `fresh: true`
+     * to fetch it again (and remember the new answer), e.g. on pull-to-refresh.
      */
-    public function capabilities(): Capabilities
+    public function capabilities(bool $fresh = false): Capabilities
     {
-        return Capabilities::fromArray($this->raw($this->get('capabilities')));
+        $session = $this->api->session();
+
+        if ($fresh) {
+            $session->forgetRemembered(self::CAPABILITIES);
+        }
+
+        return $session->remember(
+            self::CAPABILITIES,
+            fn (): Capabilities => Capabilities::fromArray($this->raw($this->get('capabilities'))),
+        );
     }
 
     protected function path(): string

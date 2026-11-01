@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Client;
 
 use GuzzleHttp\Psr7\MultipartStream;
+use GuzzleHttp\TransportSharing;
+use GuzzleHttp\Utils;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -34,6 +36,13 @@ final class SupportManagerClient
     use MapsApiErrors;
 
     private readonly string $baseUrl;
+
+    /**
+     * The Guzzle handler every request shares; see {@see self::handler()}.
+     *
+     * @var (callable(RequestInterface, array<string, mixed>): \GuzzleHttp\Promise\PromiseInterface)|null
+     */
+    private $handler = null;
 
     public function __construct(
         string $baseUrl,
@@ -349,11 +358,35 @@ final class SupportManagerClient
     private function pending(): PendingRequest
     {
         return Http::baseUrl($this->baseUrl)
+            ->setHandler($this->handler())
             ->acceptJson()
             ->asJson()
             ->withRequestMiddleware(self::multipartContentType(...))
             ->timeout($this->timeout)
             ->connectTimeout($this->connectTimeout);
+    }
+
+    /**
+     * One Guzzle handler for the client's lifetime, so requests reuse open
+     * connections, TLS sessions and DNS lookups instead of each building a
+     * fresh curl handle. Laravel still pushes its own middleware (including
+     * `Http::fake()` stubs and recording) on top for every request, so faking
+     * is unaffected. Concurrent slots rely on it too: their transfers share
+     * this handler's curl multi handle, which is what lets them overlap.
+     *
+     * Where Guzzle supports it (7.11+), the handler asks for persistent
+     * transport sharing, which on PHP 8.5+ keeps connections and TLS sessions
+     * across PHP requests in the same process, and falls back to sharing
+     * within this handler elsewhere. Only connections, TLS sessions and DNS
+     * are shared, never cookies or credentials.
+     *
+     * @return callable(RequestInterface, array<string, mixed>): \GuzzleHttp\Promise\PromiseInterface
+     */
+    private function handler(): callable
+    {
+        return $this->handler ??= Utils::chooseHandler(
+            class_exists(TransportSharing::class) ? ['transport_sharing' => TransportSharing::PERSISTENT_PREFER] : [],
+        );
     }
 
     /**

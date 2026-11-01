@@ -177,3 +177,41 @@ it('throws when a former PA asks for the weather', function () {
         fn (SupportManagerApiException $exception) => expect($exception->status)->toBe(403),
     );
 });
+
+it('remembers the capabilities for the session, refetching on request', function () {
+    fakeApi(['capabilities' => Http::sequence()
+        ->push(dashboardCapabilitiesBody('PA'))
+        ->push(dashboardCapabilitiesBody('Employer'))
+        ->push(dashboardCapabilitiesBody('PA')),
+    ]);
+
+    expect(sdk()->dashboard()->capabilities()->role)->toBe('PA')
+        ->and(sdk()->dashboard()->capabilities()->role)->toBe('PA');
+    Http::assertSentCount(1);
+
+    expect(sdk()->dashboard()->capabilities(fresh: true)->role)->toBe('Employer')
+        ->and(sdk()->dashboard()->capabilities()->role)->toBe('Employer');
+    Http::assertSentCount(2);
+
+    sdk()->session()->setCurrentTeamId(43);
+
+    expect(sdk()->dashboard()->capabilities()->role)->toBe('PA');
+    Http::assertSentCount(3);
+});
+
+function dashboardCapabilitiesBody(string $role): array
+{
+    return [
+        'data' => [
+            'role' => $role,
+            'is_privileged' => $role === 'Employer',
+            'is_employee' => $role !== 'Employer',
+            'is_former_pa' => false,
+            'subscribed' => true,
+            'plan_features' => ['dashboard' => true],
+            'modules' => ['household' => true],
+            'navigation' => [],
+        ],
+        'meta' => ['team_id' => 42],
+    ];
+}

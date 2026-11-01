@@ -20,6 +20,8 @@ use SupportManager\Sdk\Session\CurrentTeam;
  * @method static AuthSession session()
  * @method static CurrentTeam team()
  * @method static \SupportManager\Sdk\Testing\Fake fake()
+ * @method static array<array-key, mixed> concurrently(\Closure ...$calls)
+ * @method static array<array-key, \SupportManager\Sdk\Client\Settled> settle(\Closure ...$calls)
  * @method static void register(string $name, class-string<Resource<*>> $resourceClass)
  * @method static T resource<T of Resource>(class-string<T> $resourceClass)
  * @method static \SupportManager\Sdk\Resources\Accidents\AccidentsResource accidents()

@@ -77,3 +77,56 @@ it('clears auth on forget but keeps the trusted device token', function () {
         ->and($session->user())->toBeNull()
         ->and($session->deviceToken())->toBe('device-xyz');
 });
+
+it('remembers a fact until sign-out', function () {
+    [$session] = session_store();
+    $session->start(tokens());
+    $calls = 0;
+    $compute = function () use (&$calls): int {
+        return ++$calls;
+    };
+
+    expect($session->remember('fact', $compute))->toBe(1)
+        ->and($session->remember('fact', $compute))->toBe(1);
+
+    $session->forget();
+
+    expect($session->remember('fact', $compute))->toBe(2);
+});
+
+it('keeps remembered facts across a token refresh for the same user', function () {
+    [$session] = session_store();
+    $session->start(tokens());
+    $session->remember('fact', fn () => 'kept');
+
+    $session->start(tokens(['accessToken' => 'access-new']));
+
+    expect($session->remember('fact', fn () => 'recomputed'))->toBe('kept');
+});
+
+it('drops remembered facts when another user signs in or the team changes', function () {
+    [$session] = session_store();
+    $session->start(tokens());
+    $session->setCurrentTeamId(1);
+    $session->remember('fact', fn () => 'first');
+
+    $session->setCurrentTeamId(1);
+    expect($session->remember('fact', fn () => 'second'))->toBe('first');
+
+    $session->setCurrentTeamId(2);
+    expect($session->remember('fact', fn () => 'third'))->toBe('third');
+
+    $session->start(tokens(['user' => new AuthenticatedUser(8, 'Grace Hopper', 'grace@test.com')]));
+    expect($session->remember('fact', fn () => 'fourth'))->toBe('fourth');
+});
+
+it('forgets one remembered fact on request', function () {
+    [$session] = session_store();
+    $session->remember('a', fn () => 1);
+    $session->remember('b', fn () => 1);
+
+    $session->forgetRemembered('a');
+
+    expect($session->remember('a', fn () => 2))->toBe(2)
+        ->and($session->remember('b', fn () => 2))->toBe(1);
+});

@@ -2,6 +2,25 @@
 
 All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, every release bumps the patch version (`0.0.x`) and may contain breaking changes; they are always listed under **Breaking** (see `CONTRIBUTING.md`).
 
+## v0.0.5 — 2026-11-01
+
+Makes SDK traffic cheaper for hosts on slow links, from the mobile app's request-efficiency proposal (`docs/plans/request-efficiency.md`). Nothing here needs a platform change.
+
+### Breaking
+
+- **`dashboard()->capabilities()` is remembered for the session.** The first call fetches it; later calls in the same process return that answer until sign-out, a team switch or a different user signing in. Pass `capabilities(fresh: true)` to refetch it, for example on pull-to-refresh. A host test that changes the faked capabilities between two calls must now pass `fresh: true` (or call `SupportManager::session()->forgetRemembered()`) to see the change.
+- **`lazy()` asks for 100 records a page** (`ResourceQuery::LAZY_PAGE_SIZE`) when the query sets no `perPage()`, instead of taking the platform's default of 15–50. A test that fakes a page walk and asserts on `per_page`, or on the number of pages fetched, sees the new size. Call `perPage()` to keep a specific size.
+
+### Added
+
+- **`SupportManager::concurrently(...$calls)` and `settle(...$calls)`** make several calls at once. Each closure gets the SDK and calls it as usual. The requests go out together, so a screen waits for its slowest read rather than the sum of them all. Name the arguments to key the results. `concurrently()` throws the first failure after every call has finished. `settle()` never throws: it returns a `Client\Settled` per call, with `ok()`, `failed()`, `value()` and `exception()`. Each call fails with the same typed exception it throws on its own. A 401 in several calls renews the session once. A call that makes several requests in turn, such as a `lazy()` walk inside its closure, keeps its own order. Every resource method works inside a call, unchanged, and `Http::fake()` and `SupportManager::fake()` work too. Calls run in PHP fibers over one curl multi handle, so they need the curl extension; without it they run one after another.
+- **`AuthSession::remember($key, $compute)` and `forgetRemembered(?$key)`**, the in-memory session store behind the capabilities cache. Remembered values are never written to secure storage.
+
+### Fixed
+
+- **Concurrent token renewal no longer signs the user out.** Before, if two requests sent with the same expired token both got a 401, each one refreshed. The second refresh then sent a refresh token the platform had already rotated out, and the rejection cleared the session. Now a request whose token has already been replaced retries with the new token instead of refreshing again.
+- **Requests reuse connections.** Every request used to build a fresh curl handle, so each one paid for a new TCP connection and TLS handshake. The client now keeps one Guzzle handler for its lifetime. On Guzzle 7.11+ it also asks for persistent transport sharing, which on PHP 8.5+ keeps connections and TLS sessions across PHP requests in the same process. Only connections, TLS sessions and DNS are shared, never cookies or credentials.
+
 ## v0.0.4 — 2026-10-31
 
 Wraps the platform's API wave 3 (platform PR #1066): shift admin, account security, and the weather and bin-day widgets. The pinned spec is now platform commit `0aae918cf`. The SDK calls 223 of its 231 operations; the other 8 are the same deliberately unwrapped ones as before. Nothing in this release breaks existing callers.

@@ -38,6 +38,13 @@ final class ResourceQuery
 {
     use MapsApiErrors;
 
+    /**
+     * The page size {@see self::lazy()} asks for when the query sets none:
+     * the platform's documented maximum, so a full walk takes as few round
+     * trips as possible.
+     */
+    public const LAZY_PAGE_SIZE = 100;
+
     /** @var array<string, mixed> */
     private array $filters = [];
 
@@ -190,7 +197,9 @@ final class ResourceQuery
     /**
      * Lazily walk every page, yielding one DTO at a time. Pages are fetched on
      * demand as the iterator advances, so the whole collection is never held in
-     * memory at once:
+     * memory at once. Without a {@see self::perPage()} the walk asks for
+     * {@see self::LAZY_PAGE_SIZE} records a page rather than the platform's
+     * smaller default:
      *
      * ```php
      * foreach ($resource->query()->filter('ongoing', true)->lazy() as $journey) { … }
@@ -200,8 +209,10 @@ final class ResourceQuery
      */
     public function lazy(): LazyCollection
     {
-        return LazyCollection::make(function (): iterable {
-            $page = $this->get();
+        $query = $this->perPage === null ? $this->perPage(self::LAZY_PAGE_SIZE) : $this;
+
+        return LazyCollection::make(static function () use ($query): iterable {
+            $page = $query->get();
 
             while (true) {
                 // Yield items one at a time rather than `yield from` the page
