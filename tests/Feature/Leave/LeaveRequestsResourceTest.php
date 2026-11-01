@@ -191,3 +191,17 @@ it('cancels a request', function () {
     expect(sdk()->leaveRequests()->cancel(8, 'changed plans')->status)->toBe(LeaveStatus::Cancelled);
     Http::assertSent(fn ($r) => $r['reason'] === 'changed plans');
 });
+
+it('filters to the signed-in person and a date range with the shared helpers', function () {
+    fakeApi(['leave/requests*' => Http::response(leaveRequestPage(1, 1))]);
+
+    sdk()->leaveRequests()->query()
+        ->mine()
+        ->between(new DateTimeImmutable('2026-06-15'), '2026-07-31')
+        ->get();
+
+    sdk()->leaveRequests()->query()->forUser('me', 12)->from('2026-06-15')->get();
+
+    Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'filter[user_id]=me&filter[from]=2026-06-15&filter[to]=2026-07-31'));
+    Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'filter[user_id]=me,12&filter[from]=2026-06-15'));
+});

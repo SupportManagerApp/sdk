@@ -37,8 +37,6 @@ use SupportManager\Sdk\Session\AuthSession;
  */
 final class DashboardResource extends Resource
 {
-    private const CAPABILITIES = 'dashboard.capabilities';
-
     /**
      * The widgets, quick links and alerts the dashboard shows the user.
      */
@@ -68,7 +66,8 @@ final class DashboardResource extends Resource
      *
      * Fetched once and then remembered for the session, since hosts check it
      * wherever they gate a module and it rarely changes: see
-     * {@see AuthSession::remember()} for when it is dropped. Pass `fresh: true`
+     * {@see AuthSession::remember()} for when it is dropped. `profile()->me()`
+     * remembers it too, since `GET user` carries it. Pass `fresh: true`
      * to fetch it again (and remember the new answer), e.g. on pull-to-refresh.
      */
     public function capabilities(bool $fresh = false): Capabilities
@@ -76,11 +75,11 @@ final class DashboardResource extends Resource
         $session = $this->api->session();
 
         if ($fresh) {
-            $session->forgetRemembered(self::CAPABILITIES);
+            $session->forgetRemembered(AuthSession::CAPABILITIES);
         }
 
         return $session->remember(
-            self::CAPABILITIES,
+            AuthSession::CAPABILITIES,
             fn (): Capabilities => Capabilities::fromArray($this->raw($this->get('capabilities'))),
         );
     }

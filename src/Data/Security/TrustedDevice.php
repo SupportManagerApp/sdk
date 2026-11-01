@@ -11,9 +11,9 @@ use SupportManager\Sdk\Enums\Security\TrustedDeviceType;
  * A device the user has trusted, which can sign in without device verification
  * until `expiresAt`. Mirrors the platform's `TrustedDeviceResource`.
  *
- * `isCurrentDevice` marks the device making the request. The platform matches
- * it by a hash of the request's User-Agent, not by the `X-Device-Token` the
- * login sends, so it is the device whose User-Agent is this SDK client's.
+ * `isCurrentDevice` marks the device the request's access token was issued to.
+ * It is false for every device while the tokens predate the platform linking
+ * tokens to devices, until the next sign-in.
  */
 final readonly class TrustedDevice
 {

@@ -17,6 +17,7 @@ use SupportManager\Sdk\Data\Profile\User;
 use SupportManager\Sdk\Http\Download;
 use SupportManager\Sdk\Http\ResourceObject;
 use SupportManager\Sdk\Resources\Resource;
+use SupportManager\Sdk\Session\AuthSession;
 
 /**
  * The authenticated user's own profile — identity, personal details, address
@@ -52,10 +53,21 @@ final class ProfileResource extends Resource
 {
     /**
      * The authenticated user's identity card (`GET user`), or null when absent.
+     *
+     * It carries the session facts too ({@see User::$capabilities},
+     * {@see User::$currentLeaveYear}). The capabilities are remembered for the
+     * session, so `dashboard()->capabilities()` answers without a request
+     * afterwards. Fetch this once per session and again after a team switch.
      */
     public function me(): ?User
     {
-        return $this->item($this->get('user'), User::class);
+        $user = $this->item($this->get('user'), User::class);
+
+        if ($user?->capabilities !== null) {
+            $this->api->session()->rememberValue(AuthSession::CAPABILITIES, $user->capabilities);
+        }
+
+        return $user;
     }
 
     /**

@@ -11,8 +11,11 @@ use SupportManager\Sdk\Data\Hydration\Hydrator;
  *
  * Mirrors the platform's `FullProfileResource`: identity, contact and personal
  * details, plus the eager-loaded {@see Address} (null when not set), every
- * {@see EmergencyContact} for the current team (empty when none) and the teams
- * the user belongs to.
+ * {@see EmergencyContact} for the current team (empty when none), the
+ * {@see EmploymentSummary} (null for people who are neither employees nor
+ * former PAs) and the teams the user belongs to. One `show()` therefore builds
+ * a whole profile screen, without `address()`, `emergencyContacts()` or
+ * `employment()`.
  *
  * `title` is one of `MR`, `MRS`, `MISS`, `MS`, `MX`, `DR`, kept as a string
  * because the platform treats the list as open. `isViewOnly` is true for former
@@ -42,6 +45,7 @@ final readonly class Profile
         public array $teams,
         public bool $hasSecondFactor,
         public ?string $createdAt,
+        public ?EmploymentSummary $employment = null,
     ) {}
 
     /**
@@ -53,6 +57,7 @@ final readonly class Profile
             'address' => self::nested($data['address'] ?? null, Address::fromArray(...)),
             'emergencyContacts' => self::emergencyContacts($data['emergency_contacts'] ?? null),
             'teams' => self::teams($data['teams'] ?? null),
+            'employment' => self::nested($data['employment'] ?? null, EmploymentSummary::fromArray(...)),
         ]);
     }
 

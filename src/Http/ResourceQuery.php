@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Http;
 
 use Closure;
+use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
@@ -76,6 +77,76 @@ final class ResourceQuery
         $clone->filters[$key] = is_array($value) ? implode(',', $value) : $value;
 
         return $clone;
+    }
+
+    /**
+     * Only the signed-in person's records: `filter[user_id]=me`. The platform
+     * resolves `me` itself, so the caller needn't know its own id.
+     *
+     * The person and date helpers ({@see self::mine()}, {@see self::forUser()},
+     * {@see self::from()}, {@see self::to()}, {@see self::between()}) send the
+     * platform's shared personal-list filters. Only lists that document them
+     * accept them. `filter[user_id]` is accepted by leave requests,
+     * entitlements and adjustments, payslips, timesheets, P60s and shifts.
+     * `filter[from]`/`filter[to]` are accepted by leave requests and
+     * entitlements, payslips, timesheets, shifts, shift applications and
+     * appointments. Any other list rejects them with a 400. Like every filter,
+     * they only narrow what the caller may already see.
+     *
+     * @return self<T>
+     */
+    public function mine(): self
+    {
+        return $this->filter('user_id', 'me');
+    }
+
+    /**
+     * Only these people's records: `filter[user_id]`. Pass user ids, or `'me'`
+     * for the signed-in person; several are combined (`me,12`). See
+     * {@see self::mine()} for the lists that accept it.
+     *
+     * @return self<T>
+     */
+    public function forUser(int|string ...$users): self
+    {
+        return $this->filter('user_id', array_map(strval(...), $users));
+    }
+
+    /**
+     * Only records on or after $date: `filter[from]`. A record that spans
+     * several dates (leave, a shift, an appointment, an entitlement) matches
+     * when it ends on or after it, so leave already under way is included.
+     * Single-date records (payslips, timesheets) match when dated on or after
+     * it. See {@see self::mine()} for the lists that accept it.
+     *
+     * @return self<T>
+     */
+    public function from(DateTimeInterface|string $date): self
+    {
+        return $this->filter('from', self::date($date));
+    }
+
+    /**
+     * Only records on or before $date: `filter[to]`. A record that spans
+     * several dates matches when it starts on or before it. See
+     * {@see self::mine()} for the lists that accept it.
+     *
+     * @return self<T>
+     */
+    public function to(DateTimeInterface|string $date): self
+    {
+        return $this->filter('to', self::date($date));
+    }
+
+    /**
+     * Only records overlapping $from to $to, both inclusive:
+     * {@see self::from()} plus {@see self::to()}.
+     *
+     * @return self<T>
+     */
+    public function between(DateTimeInterface|string $from, DateTimeInterface|string $to): self
+    {
+        return $this->from($from)->to($to);
     }
 
     /**
@@ -242,6 +313,14 @@ final class ResourceQuery
         $resource = $query->fetch($query->params())->resources()[0] ?? null;
 
         return $resource === null ? null : ($this->hydrator)($resource);
+    }
+
+    /**
+     * A date filter value: `YYYY-MM-DD`, in the date's own time zone.
+     */
+    private static function date(DateTimeInterface|string $date): string
+    {
+        return $date instanceof DateTimeInterface ? $date->format('Y-m-d') : $date;
     }
 
     /**

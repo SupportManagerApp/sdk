@@ -21,6 +21,13 @@ use SupportManager\Sdk\Data\AuthTokens;
  */
 final class AuthSession
 {
+    /**
+     * The {@see self::remember()} key for the user's capabilities in the
+     * current team, written by `profile()->me()` and
+     * `dashboard()->capabilities()`.
+     */
+    public const CAPABILITIES = 'dashboard.capabilities';
+
     private const ACCESS_TOKEN = 'auth.access_token';
 
     private const REFRESH_TOKEN = 'auth.refresh_token';
@@ -229,6 +236,15 @@ final class AuthSession
         $this->remembered[$key] = $value;
 
         return $value;
+    }
+
+    /**
+     * Keep $value under $key, replacing anything remembered there, for a fact
+     * that arrived as part of another response.
+     */
+    public function rememberValue(string $key, mixed $value): void
+    {
+        $this->remembered[$key] = $value;
     }
 
     /**
