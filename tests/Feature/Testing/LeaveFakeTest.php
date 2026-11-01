@@ -30,6 +30,19 @@ use SupportManager\Sdk\Testing\Factories\OvertimeLogFactory;
 
 // ── Leave requests ──────────────────────────────────────────────────────────
 
+it('files a new leave request under the signed-in person, as the platform does', function () {
+    SupportManager::fake()->seed(LeaveRequestFactory::new()->state(['user_id' => 1]));
+    SupportManager::session()->start(new AuthTokens('access', 'refresh', 'Bearer', 3600, new AuthenticatedUser(7, 'Sam Taylor', 'sam@example.com')));
+
+    SupportManager::leaveRequests()->create(['start_date' => '2026-11-16T08:00:00+00:00', 'end_date' => '2026-11-16T16:00:00+00:00', 'type' => 'Whole Days']);
+
+    $mine = SupportManager::leaveRequests()->query()->mine()->get()->items();
+
+    expect($mine)->toHaveCount(1)
+        ->and($mine[0]->userId)->toBe(7)
+        ->and($mine[0]->status)->toBe(LeaveStatus::Pending);
+});
+
 it('narrows leave requests by the shared person and date filters', function () {
     SupportManager::fake()->seed(
         LeaveRequestFactory::new()->state(['user_id' => 1]),
