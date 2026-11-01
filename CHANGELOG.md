@@ -2,6 +2,20 @@
 
 All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, every release bumps the patch version (`0.0.x`) and may contain breaking changes; they are always listed under **Breaking** (see `CONTRIBUTING.md`).
 
+## v0.0.6 — unreleased
+
+Brings the test fake in line with v0.0.5, so hosts can test the new profile shape and filters with `SupportManager::fake()`.
+
+### Breaking
+
+- **The fake now answers the platform's shared filters.** `filter[user_id]` takes `me` (the signed-in user) and several ids (`me,12`, or `forUser()`'s list), and `filter[from]` / `filter[to]` keep records that overlap the range: a record with `start_date`/`end_date` (or `start`/`end`) ends on or after `from` and starts on or before `to`, and one with only `process_date` (or `date`) is dated within it. Before, they were exact-match, so a faked `mine()` or `from()` query came back empty. A host test that relied on that needs updating.
+- **The fake's `GET household/chores` answers `filter[due]`** with the chores due now: not snoozed, and overdue or never done. Before, it matched no chores.
+- **The fake's `GET user/profile` embeds the employment summary**, as the platform does since `f4079ff4c`, so `profile()->show()->employment` is filled for a seeded profile, and null after `withoutEmployment()`.
+
+### Added
+
+- `Fake::filter()` takes a `$handled` list of filters a custom index route applies itself.
+
 ## v0.0.5 — 2026-11-01
 
 Makes SDK traffic cheaper for hosts on slow links, from the mobile app's request-efficiency proposal (`docs/plans/request-efficiency.md`), and picks up the platform's matching changes (platform PRs #1067 and #1068). The pinned spec is now platform commit `f4079ff4c`. Concurrency, connection reuse, page size and the capabilities cache work against any platform version. The session facts, embedded employment, shared filters and conditional GETs need the platform deployed at `f4079ff4c` or later.

@@ -136,6 +136,19 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
     public function fakeRoutes(): array
     {
         return [
+            // `filter[due]` keeps the chores due now, as the platform's FindDueChores picks them.
+            FakeRoute::get('household/chores', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $records = $fake->filter($store->all('household/chores'), $request, handled: ['due']);
+                $due = $fake->query($request)['filter']['due'] ?? null;
+
+                if ($due !== null) {
+                    $onlyDue = filter_var($due, FILTER_VALIDATE_BOOLEAN);
+                    $records = array_values(array_filter($records, static fn (array $chore): bool => self::isDue($chore) === $onlyDue));
+                }
+
+                return $fake->paginate('household/chores', 'chores', $records, $request);
+            }),
+
             FakeRoute::action('PATCH', 'household/chores/{id}/complete', static fn (): array => self::COMPLETED),
 
             FakeRoute::action('PATCH', 'household/chores/{id}/snooze', static function (array $chore, Request $request): array {
@@ -163,6 +176,17 @@ final class ChoreFactory extends Factory implements ProvidesFakeRoutes
                 ['snoozed_until' => '2026-01-02', 'is_snoozed' => true, 'snoozed_at' => '2026-01-01', 'planned_for' => null],
             )),
         ];
+    }
+
+    /**
+     * Due now: not snoozed, and overdue or never done.
+     *
+     * @param  array<string, mixed>  $chore
+     */
+    private static function isDue(array $chore): bool
+    {
+        return ! ($chore['is_snoozed'] ?? false)
+            && (($chore['is_overdue'] ?? false) || ($chore['last_completed'] ?? null) === null);
     }
 
     /**

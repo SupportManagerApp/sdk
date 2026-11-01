@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use SupportManager\Sdk\Data\AuthenticatedUser;
+use SupportManager\Sdk\Data\AuthTokens;
 use SupportManager\Sdk\Data\Leave\LeaveBalance;
 use SupportManager\Sdk\Data\Leave\LeaveCalculation;
 use SupportManager\Sdk\Data\Leave\LeaveEntitlement;
@@ -27,6 +29,23 @@ use SupportManager\Sdk\Testing\Factories\OvertimeLogFactory;
 // Http::fake(), no JSON:API envelopes by hand.
 
 // ── Leave requests ──────────────────────────────────────────────────────────
+
+it('narrows leave requests by the shared person and date filters', function () {
+    SupportManager::fake()->seed(
+        LeaveRequestFactory::new()->state(['user_id' => 1]),
+        LeaveRequestFactory::new()->state(['user_id' => 2, 'start_date' => '2026-06-01T08:00:00Z', 'end_date' => '2026-06-03T08:00:00Z']),
+        LeaveRequestFactory::new()->state(['user_id' => 2, 'start_date' => '2026-06-28T08:00:00Z', 'end_date' => '2026-07-02T08:00:00Z']),
+        LeaveRequestFactory::new()->state(['user_id' => 3, 'start_date' => '2026-08-01T08:00:00Z', 'end_date' => '2026-08-02T08:00:00Z']),
+    );
+    SupportManager::session()->start(new AuthTokens('access', 'refresh', 'Bearer', 3600, new AuthenticatedUser(2, 'User 2', 'user2@example.com')));
+
+    $ids = fn ($query): array => array_map(fn (LeaveRequest $request): int => $request->userId, $query->get()->items());
+
+    expect($ids(SupportManager::leaveRequests()->query()->mine()))->toBe([2, 2])
+        ->and($ids(SupportManager::leaveRequests()->query()->forUser('me', 3)))->toBe([2, 2, 3])
+        ->and($ids(SupportManager::leaveRequests()->query()->mine()->from('2026-07-01')))->toBe([2])
+        ->and($ids(SupportManager::leaveRequests()->query()->to('2026-06-30')))->toBe([2, 2]);
+});
 
 it('lists seeded leave requests as DTOs', function () {
     SupportManager::fake()->seed(LeaveRequestFactory::new()->count(3));

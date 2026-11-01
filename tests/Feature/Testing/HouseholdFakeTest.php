@@ -84,6 +84,20 @@ it('lists seeded chores with the typed frequency enum', function () {
         ->and($page->items()[0]->daysSinceCompletion)->toBe(5);
 });
 
+it('keeps only the chores due now with filter[due]', function () {
+    SupportManager::fake()->seed(
+        ChoreFactory::new()->state(['name' => 'Done lately']),
+        ChoreFactory::new()->overdue()->state(['name' => 'Overdue']),
+        ChoreFactory::new()->state(['name' => 'Never done', 'last_completed' => null]),
+        ChoreFactory::new()->overdue()->snoozed()->state(['name' => 'Snoozed']),
+    );
+
+    $names = fn (bool $due): array => array_map(fn (Chore $chore): string => $chore->name, SupportManager::chores()->query()->filter('due', $due)->get()->items());
+
+    expect($names(true))->toBe(['Overdue', 'Never done'])
+        ->and($names(false))->toBe(['Done lately', 'Snoozed']);
+});
+
 it('applies the overdue state to a seeded chore', function () {
     SupportManager::fake()->seed(ChoreFactory::new()->overdue());
 

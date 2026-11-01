@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Testing;
 
+use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -33,7 +34,8 @@ use SupportManager\Sdk\Session\AuthSession;
  * path; non-RESTful endpoints come from the factory's {@see ProvidesFakeRoutes}.
  *
  * Fidelity note: generic collection filtering is exact-match equality on
- * `filter[key]=value`; it does not reproduce the full Spatie QueryBuilder
+ * `filter[key]=value`, plus the platform's shared `user_id` (with `me`),
+ * `from` and `to` filters; it does not reproduce the full Spatie QueryBuilder
  * grammar (scopes, partial matches, custom filters). Endpoints that need richer
  * behaviour declare an explicit fake route instead.
  */
@@ -232,13 +234,18 @@ final class Fake
 
     /**
      * Narrow records by the request's `filter[key]=value` constraints: exact
-     * (string) equality, as generic REST applies them. Public so custom index
-     * routes can reuse it.
+     * (string) equality, as generic REST applies them, apart from the
+     * platform's shared filters on personal lists. `filter[user_id]` takes
+     * several ids (`me,12`), `me` meaning the signed-in user, and
+     * `filter[from]` / `filter[to]` keep records that overlap the range (see
+     * {@see self::overlaps()}). Public so custom index routes can reuse it;
+     * they name the filters they apply themselves in `$handled`.
      *
      * @param  list<array<string, mixed>>  $records
+     * @param  list<string>  $handled
      * @return list<array<string, mixed>>
      */
-    public function filter(array $records, Request $request): array
+    public function filter(array $records, Request $request, array $handled = []): array
     {
         $filters = $this->query($request)['filter'] ?? null;
 
@@ -247,11 +254,18 @@ final class Fake
         }
 
         foreach ($filters as $key => $value) {
-            $records = array_values(array_filter(
-                $records,
-                static fn (array $record): bool => isset($record[$key])
+            if (in_array($key, $handled, true)) {
+                continue;
+            }
+
+            $matches = match ($key) {
+                'user_id' => $this->forUsers($value),
+                'from', 'to' => fn (array $record): bool => self::overlaps($record, $key, (string) $value),
+                default => static fn (array $record): bool => isset($record[$key])
                     && (string) $record[$key] === (string) $value,
-            ));
+            };
+
+            $records = array_values(array_filter($records, $matches));
         }
 
         return $records;
@@ -275,6 +289,45 @@ final class Fake
         parse_str($queryString, $params);
 
         return $params;
+    }
+
+    /**
+     * Whether a record falls in `filter[from]` or `filter[to]` as the platform
+     * reads them: a record spanning dates (`start_date`/`end_date`, or
+     * `start`/`end`) overlaps the range, so `from` keeps one ending on or
+     * after the date and `to` one starting on or before it. A single-date
+     * record (`process_date`, or `date`) is dated within it. A record with
+     * none of those dates is kept.
+     *
+     * @param  array<string, mixed>  $record
+     */
+    private static function overlaps(array $record, string $bound, string $date): bool
+    {
+        $day = static fn (mixed $value): ?string => is_string($value) && $value !== '' ? mb_substr($value, 0, 10) : null;
+        $starts = $day($record['start_date'] ?? $record['start'] ?? $record['process_date'] ?? $record['date'] ?? null);
+        $ends = $day($record['end_date'] ?? $record['end'] ?? null) ?? $starts;
+
+        if ($starts === null || $ends === null) {
+            return true;
+        }
+
+        return $bound === 'from' ? $ends >= $date : $starts <= $date;
+    }
+
+    /**
+     * A test for `filter[user_id]`: one id, a comma-separated list, or an
+     * array of them, where `me` is the signed-in user.
+     *
+     * @return Closure(array<string, mixed>): bool
+     */
+    private function forUsers(mixed $value): Closure
+    {
+        $ids = array_map(
+            fn (string $id): string => $id === 'me' ? (string) $this->session->user()?->id : $id,
+            array_map(trim(...), is_array($value) ? array_map(strval(...), $value) : explode(',', (string) $value)),
+        );
+
+        return static fn (array $record): bool => isset($record['user_id']) && in_array((string) $record['user_id'], $ids, true);
     }
 
     /**
