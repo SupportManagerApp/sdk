@@ -443,9 +443,10 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
     }
 
     /**
-     * The `GET user/profile` document, nesting the address as the platform's
-     * `{data: {id, type, attributes}}` envelope and the emergency contacts as a plain
-     * list of `{type, id, attributes}` objects.
+     * The `GET user/profile` document, nesting the address and employment
+     * summary as the platform's `{data: {id, type, attributes}}` envelope and
+     * the emergency contacts as a plain list of `{type, id, attributes}`
+     * objects.
      *
      * @param  array<string, mixed>  $record
      * @return array<string, mixed>
@@ -457,6 +458,10 @@ final class ProfileFactory extends Factory implements ProvidesFakeRoutes
 
         $profile['is_view_only'] = (bool) ($record['is_view_only'] ?? false);
         $profile['address'] = self::nestedEnvelope('addresses', $record['address'] ?? null);
+        $profile['employment'] = self::nestedEnvelope(
+            'employment-summaries',
+            is_array($record['employment'] ?? null) ? [...$record['employment'], 'id' => $record['id'] ?? '0'] : null,
+        );
         $profile['emergency_contacts'] = Json::collection(
             'emergency_contacts',
             is_array($record['emergency_contacts'] ?? null) ? array_values($record['emergency_contacts']) : [],

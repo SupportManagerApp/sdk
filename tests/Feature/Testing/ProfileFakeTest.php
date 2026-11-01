@@ -53,7 +53,15 @@ it('shows the full profile with nested address and emergency contacts', function
         ->and($profile->emergencyContacts)->toHaveCount(1)
         ->and($profile->emergencyContacts[0])->toBeInstanceOf(EmergencyContact::class)
         ->and($profile->emergencyContacts[0]->name)->toBe('Jane Doe')
-        ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'PA']]);
+        ->and($profile->teams)->toBe([['id' => 42, 'name' => 'Care Team', 'role' => 'PA']])
+        ->and($profile->employment)->toBeInstanceOf(EmploymentSummary::class)
+        ->and($profile->employment?->contractType)->toBe('Permanent Contracted Employee');
+});
+
+it('leaves the embedded employment null for people without one', function () {
+    SupportManager::fake()->seed(ProfileFactory::new()->withoutEmployment());
+
+    expect(SupportManager::profile()->show()?->employment)->toBeNull();
 });
 
 it('leaves nested relations null when seeded without details', function () {
