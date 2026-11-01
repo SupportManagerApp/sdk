@@ -54,19 +54,27 @@ final readonly class AuthenticatedApi
             throw SessionExpiredException::unrecoverable();
         }
 
-        $response = $callback($this->client->authenticated($accessToken, $teamId));
+        $response = $this->dispatch($callback, $accessToken, $teamId);
 
         if ($response->status() !== 401) {
             return $response;
         }
 
-        $refreshedToken = ($this->refresh)();
+        $renewedToken = $this->renew($accessToken);
 
-        if ($refreshedToken === null) {
+        if ($renewedToken === null) {
             throw SessionExpiredException::unrecoverable();
         }
 
-        return $callback($this->client->authenticated($refreshedToken, $teamId));
+        return $this->dispatch($callback, $renewedToken, $teamId);
+    }
+
+    /**
+     * The session these requests authenticate with.
+     */
+    public function session(): AuthSession
+    {
+        return $this->session;
     }
 
     /**
@@ -84,5 +92,44 @@ final readonly class AuthenticatedApi
         $teamId = $this->container->make(CurrentTeam::class)->id();
 
         return $this->send($callback, $teamId);
+    }
+
+    /**
+     * A working access token after $rejected drew a 401, or null when the
+     * session cannot be renewed.
+     *
+     * When the stored token has already moved on from $rejected, another call
+     * renewed the session while this one was in flight (a sibling in
+     * {@see \SupportManager\Sdk\SupportManager::concurrently()} whose 401
+     * came back first), so its token is reused. Refreshing again would spend a
+     * refresh token the platform has already rotated out, and that rejection
+     * clears the session, signing the user out.
+     */
+    private function renew(string $rejected): ?string
+    {
+        $current = $this->session->accessToken();
+
+        if ($current !== null && $current !== $rejected) {
+            return $current;
+        }
+
+        return ($this->refresh)();
+    }
+
+    /**
+     * Make one attempt at the request. Inside a concurrent slot the request
+     * joins the batch instead of blocking on its own ({@see Concurrency}).
+     *
+     * @param  Closure(PendingRequest): Response  $callback
+     */
+    private function dispatch(Closure $callback, string $accessToken, ?int $teamId): Response
+    {
+        $request = $this->client->authenticated($accessToken, $teamId);
+
+        if (Concurrency::inSlot()) {
+            $request->withMiddleware(Concurrency::middleware());
+        }
+
+        return $callback($request);
     }
 }

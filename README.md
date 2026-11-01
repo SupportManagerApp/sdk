@@ -89,7 +89,9 @@ these without the route in the spec.
 
 `query()` builds `filter[key]`, `sort`, `page` and `per_page`, and every one
 of its terminals (`get()`, `collect()`, `lazy()`, `first()`, and `next()` on the
-page it returns) reads `GET {path}` and nothing else. A query has no `find()`:
+page it returns) reads `GET {path}` and nothing else. `lazy()` asks for 100
+records a page unless you set `perPage()`, so a full walk takes few round
+trips. A query has no `find()`:
 fetch one record with the resource's own `find($id)`, which exists only where
 the platform has the show route. Its `include()`
 is deprecated and does nothing: no platform endpoint allows Spatie includes,
@@ -114,6 +116,35 @@ into a typed exception first, so don't check the status yourself.
 | The file itself (a PDF, an image) | `downloadFile($uri, $query)` | `Download` |
 | `{data: {download_url, filename, expires_at}}` | `downloadLink($uri, $query)` | `DownloadLink` |
 | Nothing worth reading (204, a message) | `throwForErrorResponse($this->delete($uri))` | — |
+
+### Concurrent calls
+
+A screen that needs several independent reads can make them at once:
+
+```php
+['capabilities' => $capabilities, 'leave' => $leave, 'journeys' => $journeys] = SupportManager::concurrently(
+    capabilities: fn ($sm) => $sm->dashboard()->capabilities(),
+    leave: fn ($sm) => $sm->leaveBalance()->show(),
+    journeys: fn ($sm) => $sm->journeys()->query()->lazy()->all(),
+);
+```
+
+Each closure runs in its own PHP fiber. When it reaches a request, the
+request joins the others on one curl multi handle instead of blocking. When
+every call is either waiting or finished, the waiting requests complete
+together and each call carries on. A call that makes several requests in turn
+(the page walk above) keeps its own order. Every resource method works inside
+a call unchanged. Each call fails with the same typed exception it throws on
+its own, and a 401 in several calls renews the session only once.
+
+`concurrently()` throws the first failure, in argument order, but only after
+every call has finished. `settle()` takes the same arguments and never throws.
+It returns a `Settled` per call, with `ok()`, `failed()`, `value()` and
+`exception()`, so one failed widget doesn't cost the rest. Use both for reads.
+Writes work too, but in no guaranteed order. Real overlap needs PHP's curl
+extension; without it the calls still run, one after another. Faked calls
+(`Http::fake()` or `SupportManager::fake()`) interleave just as real ones do,
+so host tests exercise the same path.
 
 A plain-body DTO only needs a static `fromArray(array $data)`, which the
 hydrator provides. Leave out the `$pageFetcher` for an endpoint that returns its
@@ -225,7 +256,10 @@ fetch those from each widget's own module resource, and skip widget keys you
 don't recognise. `capabilities()` (`/capabilities`) returns the user's role,
 the team's subscription, plan features, optional modules and own-page
 navigation. It still answers when the team has no subscription, so check
-`subscribed` before calling anything else.
+`subscribed` before calling anything else. It's fetched once and then
+remembered in memory, so checking it wherever you gate a module costs nothing.
+Sign-out, a team switch or a different user signing in drops it. Pass
+`capabilities(fresh: true)` to refetch it, for example on pull-to-refresh.
 
 `weather()` (`/dashboard/weather`) is the content of the `dashboard.weather`
 widget: a `WeatherForecast` with the `current` weather and the coming `days`,

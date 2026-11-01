@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace SupportManager\Sdk;
 
 use BadMethodCallException;
+use Closure;
 use Illuminate\Contracts\Container\Container;
+use SupportManager\Sdk\Client\Concurrency;
+use SupportManager\Sdk\Client\Settled;
 use SupportManager\Sdk\Client\SupportManagerClient;
 use SupportManager\Sdk\Resources\Accidents\AccidentsResource;
 use SupportManager\Sdk\Resources\CarJourneys\CarJourneysResource;
@@ -60,6 +63,7 @@ use SupportManager\Sdk\Resources\Teams\TeamsResource;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\Session\CurrentTeam;
 use SupportManager\Sdk\Testing\Fake;
+use Throwable;
 
 /**
  * The single fluent entry point to the SDK, surfaced as the `SupportManager`
@@ -134,6 +138,64 @@ final class SupportManager
     public function team(): CurrentTeam
     {
         return $this->team;
+    }
+
+    /**
+     * Make several calls at once and return their results, keyed as given.
+     *
+     * Each closure receives this entry point and makes its calls as usual;
+     * their requests go out together instead of one after another, so a
+     * screen that needs five independent reads waits for the slowest rather
+     * than the sum. Name the arguments to key the results:
+     *
+     * ```php
+     * ['profile' => $profile, 'address' => $address] = SupportManager::concurrently(
+     *     profile: fn ($sm) => $sm->profile()->show(),
+     *     address: fn ($sm) => $sm->profile()->address(),
+     * );
+     * ```
+     *
+     * Every call runs to completion. If any failed, the first failure (in
+     * argument order) is then thrown, the same typed exception the call
+     * throws on its own; use {@see self::settle()} to keep the other results.
+     * Calls that make several requests in turn, such as walking pages with
+     * `lazy()` inside the closure, keep that order within their own slot.
+     * A mid-session 401 renews the token once for the whole batch.
+     *
+     * Use it for reads. Writes work, but run in no guaranteed order.
+     *
+     * @param  Closure(self): mixed  ...$calls
+     * @return array<array-key, mixed>
+     *
+     * @throws Throwable the first failed call's exception
+     */
+    public function concurrently(Closure ...$calls): array
+    {
+        $settled = $this->settle(...$calls);
+
+        foreach ($settled as $outcome) {
+            if ($outcome->failed()) {
+                $outcome->value();
+            }
+        }
+
+        return array_map(static fn (Settled $outcome): mixed => $outcome->value(), $settled);
+    }
+
+    /**
+     * Like {@see self::concurrently()}, but never throws: each call's outcome
+     * comes back as a {@see Settled}, so one failing read does not cost the
+     * others.
+     *
+     * @param  Closure(self): mixed  ...$calls
+     * @return array<array-key, Settled>
+     */
+    public function settle(Closure ...$calls): array
+    {
+        return Concurrency::run(array_map(
+            fn (Closure $call): Closure => fn (): mixed => $call($this),
+            $calls,
+        ));
     }
 
     /**

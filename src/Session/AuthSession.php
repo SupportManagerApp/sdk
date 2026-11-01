@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SupportManager\Sdk\Session;
 
+use Closure;
 use SupportManager\Sdk\Contracts\SecureStore;
 use SupportManager\Sdk\Data\AuthenticatedUser;
 use SupportManager\Sdk\Data\AuthTokens;
@@ -34,6 +35,13 @@ final class AuthSession
 
     private const BIOMETRIC_ENABLED = 'auth.biometric_enabled';
 
+    /**
+     * Session facts kept in memory for this process; see {@see self::remember()}.
+     *
+     * @var array<string, mixed>
+     */
+    private array $remembered = [];
+
     public function __construct(private readonly SecureStore $store) {}
 
     /**
@@ -47,6 +55,10 @@ final class AuthSession
         $this->store->put(self::ACCESS_TOKEN, $tokens->accessToken);
         $this->store->put(self::REFRESH_TOKEN, $tokens->refreshToken);
         $this->store->put(self::EXPIRES_AT, (string) (time() + $tokens->expiresIn));
+
+        if ($tokens->user !== null && $tokens->user->id !== $this->user()?->id) {
+            $this->forgetRemembered();
+        }
 
         if ($tokens->user !== null) {
             $this->store->put(self::USER, json_encode([
@@ -133,6 +145,10 @@ final class AuthSession
 
     public function setCurrentTeamId(int $teamId): void
     {
+        if ($teamId !== $this->currentTeamId()) {
+            $this->forgetRemembered();
+        }
+
         $this->store->put(self::CURRENT_TEAM_ID, (string) $teamId);
     }
 
@@ -185,5 +201,47 @@ final class AuthSession
         $this->store->forget(self::USER);
         $this->store->forget(self::CURRENT_TEAM_ID);
         $this->store->forget(self::EXPIRES_AT);
+        $this->forgetRemembered();
+    }
+
+    /**
+     * A small, rarely changing fact about this user in the current team (such
+     * as their capabilities), computed once and then kept in memory for the
+     * rest of this process. It is never written to secure storage.
+     *
+     * Remembered facts are dropped on sign-out, when the current team
+     * changes, and when a different user signs in; a token refresh keeps
+     * them. Call {@see self::forgetRemembered()} to drop them sooner, e.g.
+     * on pull-to-refresh.
+     *
+     * @template V
+     *
+     * @param  Closure(): V  $compute
+     * @return V
+     */
+    public function remember(string $key, Closure $compute): mixed
+    {
+        if (array_key_exists($key, $this->remembered)) {
+            return $this->remembered[$key];
+        }
+
+        $value = $compute();
+        $this->remembered[$key] = $value;
+
+        return $value;
+    }
+
+    /**
+     * Drop every fact kept by {@see self::remember()}, or only $key.
+     */
+    public function forgetRemembered(?string $key = null): void
+    {
+        if ($key === null) {
+            $this->remembered = [];
+
+            return;
+        }
+
+        unset($this->remembered[$key]);
     }
 }
