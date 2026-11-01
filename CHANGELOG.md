@@ -2,7 +2,7 @@
 
 All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, every release bumps the patch version (`0.0.x`) and may contain breaking changes; they are always listed under **Breaking** (see `CONTRIBUTING.md`).
 
-## v0.0.5 — unreleased
+## v0.0.5 — 2026-11-01
 
 Makes SDK traffic cheaper for hosts on slow links, from the mobile app's request-efficiency proposal (`docs/plans/request-efficiency.md`). Nothing here needs a platform change.
 

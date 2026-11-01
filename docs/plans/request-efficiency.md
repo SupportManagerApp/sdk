@@ -1,6 +1,6 @@
 # Making SDK requests cheaper and concurrent
 
-> **Status (2026-11-01): partly done, unreleased (v0.0.5).** Written from the
+> **Status (2026-11-01): partly done, released in v0.0.5.** Written from the
 > mobile app's side, after counting what it requests on a fresh start (roughly 45
 > requests before paging, 50–60 with it). The platform half of this work is in
 > the Platform repo at `docs/plans/api-round-trips.md`.
