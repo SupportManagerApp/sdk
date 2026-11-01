@@ -160,5 +160,5 @@ it('keeps ResourceQuery to builders and GET {path} terminals', function () {
 
     sort($public);
 
-    expect($public)->toBe(['collect', 'filter', 'first', 'get', 'include', 'lazy', 'page', 'params', 'perPage', 'sort']);
+    expect($public)->toBe(['between', 'collect', 'filter', 'first', 'forUser', 'from', 'get', 'include', 'lazy', 'mine', 'page', 'params', 'perPage', 'sort', 'to']);
 });

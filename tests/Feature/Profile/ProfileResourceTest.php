@@ -479,3 +479,76 @@ it('saves bank details WITH a team header (tenant-scoped)', function () {
     Http::assertSent(fn ($request) => $request->method() === 'PUT'
         && $request->hasHeader('X-Team-ID', '42'));
 });
+
+it('reads the session facts on the user and remembers its capabilities', function () {
+    fakeApi(['user' => Http::response(profileItem('users', '7', [
+        'name' => 'Ada Lovelace',
+        'email' => 'ada@example.com',
+        'avatar' => 'https://cdn.test/ada.png',
+        'role' => 'PA',
+        'capabilities' => [
+            'role' => 'PA',
+            'is_privileged' => false,
+            'is_employee' => true,
+            'is_former_pa' => false,
+            'subscribed' => true,
+            'plan_features' => ['dashboard' => true],
+            'modules' => ['household' => true],
+            'navigation' => [],
+        ],
+        'current_leave_year' => ['year' => 2026, 'label' => '2026/27', 'starts_on' => '2026-04-01', 'ends_on' => '2027-03-31'],
+    ]))]);
+
+    $user = sdk()->profile()->me();
+
+    expect($user->capabilities?->role)->toBe('PA')
+        ->and($user->currentLeaveYear?->year)->toBe(2026)
+        ->and($user->currentLeaveYear?->label)->toBe('2026/27')
+        ->and($user->currentLeaveYear?->startsOn)->toBe('2026-04-01')
+        ->and($user->currentLeaveYear?->endsOn)->toBe('2027-03-31')
+        ->and(sdk()->dashboard()->capabilities())->toBe($user->capabilities);
+
+    Http::assertSentCount(1);
+});
+
+it('leaves the session facts null when the user carries none', function () {
+    fakeApi(['user' => Http::response(profileItem('users', '7', ['name' => 'Ada', 'email' => 'ada@example.com', 'avatar' => 'https://cdn.test/ada.png', 'role' => 'PA']))]);
+
+    $user = sdk()->profile()->me();
+
+    expect($user->capabilities)->toBeNull()
+        ->and($user->currentLeaveYear)->toBeNull();
+});
+
+it('reads the employment summary embedded in the profile', function () {
+    fakeApi(['user/profile' => Http::response(profileItem('users', '7', [
+        'name' => 'Ada',
+        'teams' => [],
+        'has_second_factor' => false,
+        'employment' => profileItem('employment-summaries', '7', [
+            'start_date' => '2020-01-06',
+            'leaving_date' => null,
+            'employment_length' => '6 years, 9 months',
+            'contract_type' => 'Permanent Contracted Employee',
+            'current_rate_of_pay' => null,
+            'working_pattern' => null,
+            'contracted_annual_salary' => null,
+        ]),
+    ]))]);
+
+    $profile = sdk()->profile()->show();
+
+    expect($profile->employment)->toBeInstanceOf(EmploymentSummary::class)
+        ->and($profile->employment->contractType)->toBe('Permanent Contracted Employee');
+});
+
+it('leaves the embedded employment null for people without one', function () {
+    fakeApi(['user/profile' => Http::response(profileItem('users', '7', [
+        'name' => 'Ada',
+        'teams' => [],
+        'has_second_factor' => false,
+        'employment' => null,
+    ]))]);
+
+    expect(sdk()->profile()->show()->employment)->toBeNull();
+});

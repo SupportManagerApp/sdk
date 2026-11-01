@@ -14,16 +14,17 @@ use SupportManager\Sdk\Resources\Resource;
  * verification until they expire: the web profile's Trusted Devices panel.
  * User-scoped, so no `X-Team-ID` goes out.
  *
- * "This device" is the one making the request, which the platform matches by
- * a SHA-256 hash of the request's User-Agent (`DeviceFingerprintService`), not
- * by the `X-Device-Token` the SDK sends on login. Every request from this SDK
- * client carries the same User-Agent, so the device it trusted at login is
- * the one {@see TrustedDevice::$isCurrentDevice} flags and
- * {@see self::destroyOthers()} keeps. Hide the remove button for it, as the
- * web does.
+ * "This device" is the one the request's access token was issued to: the
+ * platform links each token pair to the trusted device it signed in from.
+ * {@see TrustedDevice::$isCurrentDevice} flags it, and
+ * {@see self::destroyOthers()} keeps it. Hide the remove button for it, as the
+ * web does. Tokens issued before the platform linked tokens to devices mark no
+ * device as current until the next sign-in.
  *
- * Revoking a device only makes it verify again at its next sign-in; the API
- * tokens it already holds stay valid.
+ * Revoking a device signs it out: the platform revokes the API tokens issued to
+ * it, and it must verify again at its next sign-in. API clients are recognised
+ * by the `X-Device-Token` header alone, so pass the stored
+ * `session()->deviceToken()` on every login, or each one asks for verification.
  *
  * ```php
  * SupportManager::trustedDevices()->all();

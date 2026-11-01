@@ -101,7 +101,7 @@ final class ContractValidator
             $violations[] = "{$operation} request: {$error}";
         }
 
-        if ($response !== null && ! self::isInfrastructureError($response)) {
+        if ($response !== null && ! self::isInfrastructureError($response) && ! self::isRevalidation($request, $response)) {
             $status = $response->getStatusCode();
 
             if (($error = $this->validate($operation, $status, $response, $record)) !== null) {
@@ -168,6 +168,19 @@ final class ContractValidator
         }
 
         return $stale;
+    }
+
+    /**
+     * A body-less `304 Not Modified` answering a conditional GET. The spec
+     * documents conditional requests once, for every read, in its overview
+     * ("successful reads carry a weak `ETag`…") rather than on each
+     * operation, so there is no per-operation 304 to check against.
+     */
+    private static function isRevalidation(RequestInterface $request, ResponseInterface $response): bool
+    {
+        return $response->getStatusCode() === 304
+            && $request->getMethod() === 'GET'
+            && $request->hasHeader('If-None-Match');
     }
 
     /**

@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use SupportManager\Sdk\Contracts\ResponseCache;
 use SupportManager\Sdk\Exceptions\SessionExpiredException;
 use SupportManager\Sdk\Session\AuthSession;
 use SupportManager\Sdk\Session\CurrentTeam;
@@ -125,6 +126,11 @@ final readonly class AuthenticatedApi
     private function dispatch(Closure $callback, string $accessToken, ?int $teamId): Response
     {
         $request = $this->client->authenticated($accessToken, $teamId);
+        $userId = $this->session->user()?->id;
+
+        if ($userId !== null && $this->container->bound(ResponseCache::class)) {
+            $request->withMiddleware(ConditionalRequests::middleware($this->container->make(ResponseCache::class), (string) $userId));
+        }
 
         if (Concurrency::inSlot()) {
             $request->withMiddleware(Concurrency::middleware());

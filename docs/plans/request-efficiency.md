@@ -1,6 +1,6 @@
 # Making SDK requests cheaper and concurrent
 
-> **Status (2026-11-01): partly done, released in v0.0.5.** Written from the
+> **Status (2026-11-01): done in v0.0.5, except `updatedSince()`, which the platform deferred.** Written from the
 > mobile app's side, after counting what it requests on a fresh start (roughly 45
 > requests before paging, 50–60 with it). The platform half of this work is in
 > the Platform repo at `docs/plans/api-round-trips.md`.
@@ -10,10 +10,10 @@
 > | 1. Concurrent reads | **Done.** `SupportManager::concurrently()` / `settle()`, built on fibers over one curl multi handle rather than `Http::pool()`, so every existing resource method works inside a call unchanged. One token renewal per batch. |
 > | 2. Connection reuse | **Done.** One shared Guzzle handler per client, with persistent transport sharing where Guzzle and PHP support it. Uses `setHandler()`, not `setClient()`: `setClient()` would have bypassed `Http::fake()`. |
 > | 3. Page size for `lazy()` | **Done.** 100 when no `perPage()` is set. |
-> | 4. Conditional GETs | **Not doing for now.** A 304 still costs the round trip, which is the cost this plan targets, and storing response bodies on the device for payslips and the like isn't worth it for the bandwidth saved. Revisit only if the platform ships ETags and measurements show payload matters. |
-> | 5. `include()` | **Waiting on the platform** (its item 3). |
-> | 6. Session facts | Capabilities are now **remembered for the session** (`capabilities(fresh: true)` refetches them). Role and leave year on the session **wait on the platform** (its item 4). |
-> | 7. Typed filters | **Not yet.** The documented filter names differ per endpoint (`trip_start_from`, `start_date`, `leave_year`, …), so a generic `between()` or `mine()` would be guesswork. Do it once the platform settles one convention (its item 1). `->filter('user_id', $id)` already works where the spec documents it. |
+> | 4. Conditional GETs | **Done, opt-in.** The platform shipped ETags, and the app already keeps API data on the device, so the SDK supports them behind a host-bound `Contracts\ResponseCache`. With nothing bound, nothing changes. JSON only, never files; keyed by user, team and URL. |
+> | 5. `include()` | **Stays deprecated.** The platform chose embedding over `?include=`: `GET user/profile` now embeds employment (address and contacts were already there), and `Profile::$employment` reads it. |
+> | 6. Session facts | **Done.** `GET user` carries `capabilities` and `current_leave_year` (`User::$capabilities`, `User::$currentLeaveYear`), and `profile()->me()` fills the capabilities cache. `capabilities()` is remembered for the session; `capabilities(fresh: true)` refetches it. |
+> | 7. Typed filters | **Done.** `mine()`, `forUser()`, `from()`, `to()` and `between()` send the platform's shared `filter[user_id]`/`filter[from]`/`filter[to]`. `updatedSince()` waits on the platform, which deferred it. |
 
 ## Why
 

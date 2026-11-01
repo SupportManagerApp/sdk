@@ -4,7 +4,7 @@ All notable changes to `supportmanager/sdk` are documented here. While the SDK i
 
 ## v0.0.5 — 2026-11-01
 
-Makes SDK traffic cheaper for hosts on slow links, from the mobile app's request-efficiency proposal (`docs/plans/request-efficiency.md`). Nothing here needs a platform change.
+Makes SDK traffic cheaper for hosts on slow links, from the mobile app's request-efficiency proposal (`docs/plans/request-efficiency.md`), and picks up the platform's matching changes (platform PRs #1067 and #1068). The pinned spec is now platform commit `f4079ff4c`. Concurrency, connection reuse, page size and the capabilities cache work against any platform version. The session facts, embedded employment, shared filters and conditional GETs need the platform deployed at `f4079ff4c` or later.
 
 ### Breaking
 
@@ -14,11 +14,16 @@ Makes SDK traffic cheaper for hosts on slow links, from the mobile app's request
 ### Added
 
 - **`SupportManager::concurrently(...$calls)` and `settle(...$calls)`** make several calls at once. Each closure gets the SDK and calls it as usual. The requests go out together, so a screen waits for its slowest read rather than the sum of them all. Name the arguments to key the results. `concurrently()` throws the first failure after every call has finished. `settle()` never throws: it returns a `Client\Settled` per call, with `ok()`, `failed()`, `value()` and `exception()`. Each call fails with the same typed exception it throws on its own. A 401 in several calls renews the session once. A call that makes several requests in turn, such as a `lazy()` walk inside its closure, keeps its own order. Every resource method works inside a call, unchanged, and `Http::fake()` and `SupportManager::fake()` work too. Calls run in PHP fibers over one curl multi handle, so they need the curl extension; without it they run one after another.
-- **`AuthSession::remember($key, $compute)` and `forgetRemembered(?$key)`**, the in-memory session store behind the capabilities cache. Remembered values are never written to secure storage.
+- **`AuthSession::remember($key, $compute)`, `rememberValue($key, $value)` and `forgetRemembered(?$key)`**, the in-memory session store behind the capabilities cache. Remembered values are never written to secure storage.
+- **Session facts on `GET user`.** `User` gains `capabilities` (a `Capabilities`) and `currentLeaveYear` (a new `Data\Leave\CurrentLeaveYear` with `year`, `label`, `startsOn` and `endsOn`). Both are null when the platform leaves them out. `profile()->me()` also fills the capabilities cache, so fetch the user once per session and `dashboard()->capabilities()` costs no request.
+- **`Profile::$employment`**, the `EmploymentSummary` that `GET user/profile` now embeds. It is null for people who are neither employees nor former PAs. With the address and emergency contacts the profile already carried, one `profile()->show()` builds a whole profile screen.
+- **Person and date filters on queries:** `mine()`, `forUser(...$ids)`, `from($date)`, `to($date)` and `between($from, $to)` send the platform's shared `filter[user_id]` (with `me`), `filter[from]` and `filter[to]`. Dates may be `DateTimeInterface` or `YYYY-MM-DD`. They work on leave requests, entitlements and adjustments, payslips, timesheets, P60s, shifts, shift applications and appointments. On dated spans a range means *overlaps*.
+- **Conditional GETs, opt-in.** Bind a `Contracts\ResponseCache` (`Client\ArrayResponseCache` is an in-memory one) and the SDK sends `If-None-Match`. On a `304` it returns the remembered body as an ordinary 200. Entries are keyed by user, team and URL. Only JSON is cached, never file downloads. With nothing bound, nothing changes.
 
 ### Fixed
 
 - **Concurrent token renewal no longer signs the user out.** Before, if two requests sent with the same expired token both got a 401, each one refreshed. The second refresh then sent a refresh token the platform had already rotated out, and the rejection cleared the session. Now a request whose token has already been replaced retries with the new token instead of refreshing again.
+- **The v0.0.4 trusted-devices known issue is resolved on the platform** (#1067). The platform now links tokens to the device they signed in from, so `isCurrentDevice` and `destroyOthers()` mean this phone, and revoking a device signs it out. API clients are now recognised by `X-Device-Token` alone, so a host must pass `session()->deviceToken()` on every `login()`, or every login asks for device verification. The docs are updated to match.
 - **Requests reuse connections.** Every request used to build a fresh curl handle, so each one paid for a new TCP connection and TLS handshake. The client now keeps one Guzzle handler for its lifetime. On Guzzle 7.11+ it also asks for persistent transport sharing, which on PHP 8.5+ keeps connections and TLS sessions across PHP requests in the same process. Only connections, TLS sessions and DNS are shared, never cookies or credentials.
 
 ## v0.0.4 — 2026-10-31
