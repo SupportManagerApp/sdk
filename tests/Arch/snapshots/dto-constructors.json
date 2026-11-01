@@ -335,6 +335,12 @@
         "?string $section = null",
         "?string $notes = null"
     ],
+    "SupportManager\\Sdk\\Data\\Leave\\CurrentLeaveYear": [
+        "int $year",
+        "string $label",
+        "string $startsOn",
+        "string $endsOn"
+    ],
     "SupportManager\\Sdk\\Data\\Leave\\LeaveAmount": [
         "float $hours",
         "float $sleeps"
@@ -700,7 +706,8 @@
         "array $emergencyContacts",
         "array $teams",
         "bool $hasSecondFactor",
-        "?string $createdAt"
+        "?string $createdAt",
+        "?SupportManager\\Sdk\\Data\\Profile\\EmploymentSummary $employment = null"
     ],
     "SupportManager\\Sdk\\Data\\Profile\\RateOfPay": [
         "float $hourlyRate",
@@ -720,7 +727,9 @@
         "string $name",
         "?string $email",
         "?string $avatar",
-        "?string $role"
+        "?string $role",
+        "?SupportManager\\Sdk\\Data\\Dashboard\\Capabilities $capabilities = null",
+        "?SupportManager\\Sdk\\Data\\Leave\\CurrentLeaveYear $currentLeaveYear = null"
     ],
     "SupportManager\\Sdk\\Data\\Profile\\UserOption": [
         "string $id",

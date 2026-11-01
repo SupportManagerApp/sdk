@@ -117,6 +117,39 @@ into a typed exception first, so don't check the status yourself.
 | `{data: {download_url, filename, expires_at}}` | `downloadLink($uri, $query)` | `DownloadLink` |
 | Nothing worth reading (204, a message) | `throwForErrorResponse($this->delete($uri))` | — |
 
+### Personal lists
+
+Leave requests, entitlements and adjustments, payslips, timesheets, P60s,
+shifts, shift applications and appointments share the platform's person and
+date filters. A query has helpers for them. `mine()` and `forUser('me', 12)`
+send `filter[user_id]`, and `from($date)`, `to($date)` and
+`between($from, $to)` send `filter[from]`/`filter[to]` (`DateTimeInterface`
+or `YYYY-MM-DD`). On records that span dates (leave, shifts) a range means
+*overlaps*, so leave already under way is included. Each list accepts only the
+filters its spec documents, and other lists reject them with a 400; the
+helpers' docblock lists which accepts which.
+
+```php
+SupportManager::leaveRequests()->query()->mine()->filter('status', 'Approved')->from(today())->get();
+```
+
+### Conditional GETs
+
+The platform answers an unchanged read with `304 Not Modified` when asked
+with `If-None-Match`. The SDK does this only if the host binds a
+`Contracts\ResponseCache`:
+
+```php
+$this->app->singleton(ResponseCache::class, ArrayResponseCache::class);   // in-memory, per process
+```
+
+Then each JSON `GET` remembers its `ETag` and body under a key made from the
+user, team and URL. When the platform answers 304, the SDK returns the
+remembered body as an ordinary 200. That saves transfer and decoding, but not
+the round trip. File downloads are never cached. The cached bodies hold
+personal data, so back a persistent cache with storage that suits that, and
+clear it on sign-out.
+
 ### Concurrent calls
 
 A screen that needs several independent reads can make them at once:
@@ -214,11 +247,13 @@ user-scoped, so no `X-Team-ID` goes out.
 
 `SupportManager::trustedDevices()` lists the devices that skip device
 verification. `destroy()` revokes one, and `destroyOthers()` revokes all but
-this one and returns how many it revoked. The platform identifies "this device"
-by a hash of the request's User-Agent, not by the `X-Device-Token` sent at
-login, so the device it means is the one this SDK client signed in from.
-`isCurrentDevice` flags that device, so hide its remove button. Revoking a
-device doesn't revoke its API tokens.
+this one and returns how many it revoked. "This device" is the one the access
+token was issued to, since the platform links each token pair to the device
+it signed in from. `isCurrentDevice` flags that device, so hide its remove
+button. Revoking a device also revokes its API tokens, which signs it out.
+API clients are recognised by `X-Device-Token` alone, so pass
+`session()->deviceToken()` on every `login()`. Without it, every login asks
+for device verification.
 
 `SupportManager::socialAccounts()` lists the linked accounts with `all()`, and
 `providers()` lists every provider configured on the platform with whether the
@@ -260,6 +295,10 @@ navigation. It still answers when the team has no subscription, so check
 remembered in memory, so checking it wherever you gate a module costs nothing.
 Sign-out, a team switch or a different user signing in drops it. Pass
 `capabilities(fresh: true)` to refetch it, for example on pull-to-refresh.
+`GET user` carries the capabilities too, so `profile()->me()` fills the same
+cache: fetch the user once per session, and again after a team switch, and
+`capabilities()` costs no request. `me()` also returns the team's
+`currentLeaveYear`.
 
 `weather()` (`/dashboard/weather`) is the content of the `dashboard.weather`
 widget: a `WeatherForecast` with the `current` weather and the coming `days`,

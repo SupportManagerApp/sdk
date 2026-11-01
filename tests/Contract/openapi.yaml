@@ -2,12 +2,11 @@
 # by the SDK's contract tests (tests/Contract). Do not edit by hand: regenerate
 # with `composer sync-openapi -- <platform-path>`.
 #
-# platform-commit: 0aae918cf
-
+# platform-commit: f4079ff4c
 openapi: 3.0.3
 info:
   title: 'SupportManager API'
-  description: "# SupportManager API\n\nA REST API for personal assistant and team management with multi-tenant architecture.\n\n## Features\n\n- **User Management**: Authentication with Face ID support and team collaboration\n- **Holiday Management**: Time-off tracking with approval workflows\n- **Scheduling**: Shift management and rota planning\n- **Documents**: Secure storage for payslips, contracts, and important files\n- **Journey Tracking**: Vehicle usage and travel expense monitoring\n- **Dashboard**: Task management and shopping lists\n\n## Authentication\n\nUses Laravel Sanctum with dual tokens:\n- **Access Tokens**: 1-hour lifespan for API requests\n- **Refresh Tokens**: 30-day lifespan for seamless renewal\n\n## API Details\n\n- **Base URL**: `https://app.support-manager.co.uk/api/v1`\n- **Format**: [JSON:API](https://jsonapi.org/) responses (`application/json`) with `data` envelope containing `id`, `type`, and `attributes`\n- **Timestamps**: ISO-8601 with an explicit UTC offset, e.g.\n  `2026-08-13T09:00:00+01:00`. Parse the offset — do not assume UTC.\n\n  Times someone entered — shift and appointment starts and ends, leave\n  dates — carry the offset in force where the team works on that date, so\n  the same clock face is `+01:00` in summer and `+00:00` in winter. A shift\n  running overnight across a daylight-saving change will have a different\n  offset at each end; that is correct, and it means the elapsed time\n  between the two is not always the number of hours on the clock. Where an\n  endpoint reports hours worked (`duration`), use that figure rather than\n  subtracting the timestamps yourself.\n\n  Times the server recorded — `created_at`, `updated_at`, `expires_at` and\n  the like — are UTC instants and end in `Z`.\n- **Pagination**: `?page=1&per_page=50` (max 100)\n"
+  description: "# SupportManager API\n\nA REST API for personal assistant and team management with multi-tenant architecture.\n\n## Features\n\n- **User Management**: Authentication with Face ID support and team collaboration\n- **Holiday Management**: Time-off tracking with approval workflows\n- **Scheduling**: Shift management and rota planning\n- **Documents**: Secure storage for payslips, contracts, and important files\n- **Journey Tracking**: Vehicle usage and travel expense monitoring\n- **Dashboard**: Task management and shopping lists\n\n## Authentication\n\nUses Laravel Sanctum with dual tokens:\n- **Access Tokens**: 1-hour lifespan for API requests\n- **Refresh Tokens**: 30-day lifespan for seamless renewal\n\n## API Details\n\n- **Base URL**: `https://app.support-manager.co.uk/api/v1`\n- **Format**: [JSON:API](https://jsonapi.org/) responses (`application/json`) with `data` envelope containing `id`, `type`, and `attributes`\n- **Timestamps**: ISO-8601 with an explicit UTC offset, e.g.\n  `2026-08-13T09:00:00+01:00`. Parse the offset — do not assume UTC.\n\n  Times someone entered — shift and appointment starts and ends, leave\n  dates — carry the offset in force where the team works on that date, so\n  the same clock face is `+01:00` in summer and `+00:00` in winter. A shift\n  running overnight across a daylight-saving change will have a different\n  offset at each end; that is correct, and it means the elapsed time\n  between the two is not always the number of hours on the clock. Where an\n  endpoint reports hours worked (`duration`), use that figure rather than\n  subtracting the timestamps yourself.\n\n  Times the server recorded — `created_at`, `updated_at`, `expires_at` and\n  the like — are UTC instants and end in `Z`.\n- **Pagination**: `?page=1&per_page=50`. Pages default to 15 items unless an endpoint says otherwise, and never exceed 100.\n- **Conditional requests**: successful reads carry a weak `ETag`. Send it back as `If-None-Match` and an unchanged response is answered `304 Not Modified` with no body. Responses vary by `Authorization`, `Cookie` and `X-Team-ID`.\n"
   version: 1.0.0
   contact:
     name: 'SupportManager Ltd'
@@ -69,12 +68,35 @@ components:
     PerPage:
       name: per_page
       in: query
-      description: 'Number of items per page'
+      description: "Number of items per page. Defaults to 15 unless the endpoint says otherwise.\nValues above 100 are served as 100, and values below 1 as 1.\n"
       schema:
         type: integer
         minimum: 1
         maximum: 100
       example: 15
+    FilterUserId:
+      name: 'filter[user_id]'
+      in: query
+      description: "Only records belonging to these people: a user ID, `me` for the signed-in person,\nor a comma-separated list mixing both (`me,12`). This only narrows what the caller\nmay already see; it never widens it.\n"
+      schema:
+        type: string
+      example: me
+    FilterFrom:
+      name: 'filter[from]'
+      in: query
+      description: "Only records on or after this date (`YYYY-MM-DD`). A record spanning several dates —\nleave, a shift, an appointment, an entitlement — matches when it ends on or after it,\nso leave already under way is included. A value that is not a calendar date is\nrejected with `422`.\n"
+      schema:
+        type: string
+        format: date
+      example: '2026-06-15'
+    FilterTo:
+      name: 'filter[to]'
+      in: query
+      description: "Only records on or before this date (`YYYY-MM-DD`). A record spanning several dates\nmatches when it starts on or before it. A value that is not a calendar date is\nrejected with `422`.\n"
+      schema:
+        type: string
+        format: date
+      example: '2026-07-31'
     AccidentsTeamId:
       name: X-Team-ID
       in: header
@@ -4935,6 +4957,13 @@ components:
               nullable: true
               description: "User's role within the current team\n\nKnown values: `Admin`, `Manager`, `PA`, `Family Member`, `Contractor`. This list is open and may grow — clients must ignore values they do not recognise rather than failing to decode the response.\n"
               example: PA
+            capabilities:
+              description: "The same description of the person's role, plan and switched-on modules\nthat `GET /capabilities` returns, so a client fetching the user once per\nsession need not fetch capabilities separately.\n"
+              allOf: [{ $ref: '#/components/schemas/DashboardCapabilities' }]
+            current_leave_year:
+              type: object
+              description: "The current team's leave year as of today."
+              properties: { year: { type: integer, description: 'The calendar year the leave year starts in', example: 2026 }, label: { type: string, example: 2026/27 }, starts_on: { type: string, format: date, example: '2026-04-01' }, ends_on: { type: string, format: date, example: '2027-03-31' } }
     FullProfile:
       type: object
       properties:
@@ -4997,6 +5026,11 @@ components:
               description: "All of the user's emergency contacts for the current team.\nOnly present when the relationship is loaded (the profile\nendpoints always load it). Empty when there are none.\n"
               type: array
               items: { $ref: '#/components/schemas/EmergencyContact' }
+            employment:
+              description: "The same envelope `GET /user/employment` returns. Null for people who\nare neither employees nor former personal assistants.\n"
+              type: object
+              nullable: true
+              properties: { data: { $ref: '#/components/schemas/ProfileEmploymentSummary' } }
             teams:
               type: array
               items: { type: object, properties: { id: { type: integer }, name: { type: string }, role: { type: string } } }
@@ -6151,7 +6185,7 @@ paths:
     post:
       operationId: login
       summary: 'Authenticate user and issue tokens'
-      description: "Authenticates a user with email and password, returning both access and refresh tokens.\nThe access token has a shorter lifespan for security, while the refresh token\nallows obtaining new access tokens without re-authentication (ideal for Face ID apps).\n\n**Device Verification**: If the device is not trusted, returns a 403 response with a\nverification token. The client must then complete device verification before receiving\nAPI tokens. To bypass verification on subsequent logins, include the `X-Device-Token`\nheader obtained after successful verification.\n"
+      description: "Authenticates a user with email and password, returning both access and refresh tokens.\nThe access token has a shorter lifespan for security, while the refresh token\nallows obtaining new access tokens without re-authentication (ideal for Face ID apps).\n\n**Device Verification**: If the device is not trusted, returns a 403 response with a\nverification token. The client must then complete device verification before receiving\nAPI tokens. To bypass verification on subsequent logins, include the `X-Device-Token`\nheader obtained after successful verification. API clients are recognised by this\nheader alone: without it, every login requires device verification.\n"
       tags:
         - Authentication
       security: {}
@@ -9081,12 +9115,7 @@ paths:
         -
           $ref: '#/components/parameters/PerPage'
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: 'filter[leave_year]'
           in: query
@@ -9978,12 +10007,7 @@ paths:
         -
           $ref: '#/components/parameters/PerPage'
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID (privileged users only)'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: 'filter[leave_year]'
           in: query
@@ -10005,6 +10029,10 @@ paths:
               - '-effective_until'
               - '-created_at'
           example: '-effective_from'
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Holiday entitlements retrieved successfully'
@@ -10223,12 +10251,7 @@ paths:
               - dependant_emergency
           example: annual_leave
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: 'filter[start_date]'
           in: query
@@ -10261,6 +10284,10 @@ paths:
               - '-created_at'
               - '-status'
           example: '-created_at'
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Holiday requests retrieved successfully'
@@ -11044,12 +11071,7 @@ paths:
             type: string
           example: 2023/24
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID (privileged users only)'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: sort
           in: query
@@ -11429,12 +11451,7 @@ paths:
             maximum: 12
           example: 3
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID (privileged users only)'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: sort
           in: query
@@ -11445,6 +11462,10 @@ paths:
               - process_date
               - '-process_date'
           example: '-process_date'
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Payslips retrieved successfully'
@@ -11639,12 +11660,7 @@ paths:
             maximum: 12
           example: 3
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID (privileged users only)'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: 'filter[status]'
           in: query
@@ -11670,6 +11686,10 @@ paths:
               - status
               - '-status'
           example: '-process_date'
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Timesheets retrieved successfully'
@@ -12079,6 +12099,10 @@ paths:
               - '-start'
               - '-end'
               - '-title'
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Appointments retrieved successfully'
@@ -12556,6 +12580,10 @@ paths:
               - '-created_at'
               - '-status'
           example: '-created_at'
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Applications retrieved successfully'
@@ -12895,12 +12923,7 @@ paths:
             format: date
           example: '2024-03-31'
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID (privileged users only)'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: 'filter[mode]'
           in: query
@@ -12924,6 +12947,10 @@ paths:
               - '-start'
               - '-end'
           example: start
+        -
+          $ref: '#/components/parameters/FilterFrom'
+        -
+          $ref: '#/components/parameters/FilterTo'
       responses:
         200:
           description: 'Shifts retrieved successfully'
@@ -13012,12 +13039,7 @@ paths:
         -
           $ref: '#/components/parameters/PerPage'
         -
-          name: 'filter[user_id]'
-          in: query
-          description: 'Filter by user ID'
-          schema:
-            type: integer
-          example: 5
+          $ref: '#/components/parameters/FilterUserId'
         -
           name: 'filter[type]'
           in: query
@@ -13837,7 +13859,7 @@ paths:
     get:
       operationId: getCurrentUser
       summary: 'Get authenticated user information'
-      description: "Returns the authenticated user's basic profile information including\nname, email, avatar URL, and role within the current team. This\nendpoint requires a valid access token.\n"
+      description: "Returns the authenticated user's basic profile information including\nname, email, avatar URL, and role within the current team, together\nwith the session facts a client needs once per session: the same\n`capabilities` as `GET /capabilities` and the team's current leave\nyear. This endpoint requires a valid access token.\n"
       tags:
         - User
       security:
@@ -14326,7 +14348,7 @@ paths:
     get:
       operationId: getUserProfile
       summary: "Get authenticated user's full profile"
-      description: "Retrieve the authenticated user's complete profile including\naddress, emergency contacts, and team membership.\n"
+      description: "Retrieve the authenticated user's complete profile including\naddress, emergency contacts, employment summary and team membership\n(with the user's role in each team). These are embedded, so there is\nno need to call `/user/address`, `/user/emergency-contacts` or\n`/user/employment` as well.\n"
       tags:
         - 'User Profile'
       security:
@@ -14519,7 +14541,7 @@ paths:
     get:
       operationId: listTrustedDevices
       summary: "List the user's trusted devices"
-      description: "Returns every device the authenticated user has trusted, most recently\nused first — the same list as the web profile's Trusted Devices panel.\nA trusted device can sign in without device verification until\n`expires_at`, which slides forward each time the device signs in.\n\n`is_current_device` marks the device making this request (matched by\nits User-Agent fingerprint, as on the web). The web hides the remove\nbutton for the current device; clients should do the same.\n\n**Authorization:** Any signed-in user; only their own devices are returned.\nNo team context is needed.\n"
+      description: "Returns every device the authenticated user has trusted, most recently\nused first — the same list as the web profile's Trusted Devices panel.\nA trusted device can sign in without device verification until\n`expires_at`, which slides forward each time the device signs in or\nrefreshes its tokens.\n\n`is_current_device` marks the device the request's access token was\nissued to. Tokens issued before tokens were linked to a device mark no\ndevice as current until the next sign-in. The web hides the remove\nbutton for the current device; clients should do the same.\n\n**Authorization:** Any signed-in user; only their own devices are returned.\nNo team context is needed.\n"
       tags:
         - 'Account Security'
       security:
@@ -14540,7 +14562,7 @@ paths:
     delete:
       operationId: revokeOtherTrustedDevices
       summary: 'Revoke every trusted device except this one'
-      description: "Removes all of the user's trusted devices except the device making the\nrequest. Those devices must complete device verification at their next\nsign-in. Mirrors the web's \"Revoke All Other Devices\" button and writes\nan `all_other_devices_revoked` security audit entry when any device was\nremoved. API tokens already issued to those devices are not revoked.\n"
+      description: "Removes all of the user's trusted devices except the device making the\nrequest. Those devices are signed out and must complete device verification at their next\nsign-in. Mirrors the web's \"Revoke All Other Devices\" button and writes\nan `all_other_devices_revoked` security audit entry when any device was\nremoved. API tokens issued to those devices are revoked with them, as\nare any of the user's tokens not linked to a device, apart from the\ncalling device's own pair.\n"
       tags:
         - 'Account Security'
       security:
@@ -14562,7 +14584,7 @@ paths:
     delete:
       operationId: revokeTrustedDevice
       summary: 'Revoke a trusted device'
-      description: "Removes one of the user's trusted devices and writes a `device_revoked`\nsecurity audit entry. Returns `404` for a device that does not belong\nto the user. API tokens already issued to that device are not revoked.\n"
+      description: "Removes one of the user's trusted devices and writes a `device_revoked`\nsecurity audit entry. Returns `404` for a device that does not belong\nto the user. API tokens issued to that device are revoked with it.\n"
       tags:
         - 'Account Security'
       security:
