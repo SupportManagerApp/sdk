@@ -2,6 +2,18 @@
 
 All notable changes to `supportmanager/sdk` are documented here. While the SDK is pre-1.0, every release bumps the patch version (`0.0.x`) and may contain breaking changes; they are always listed under **Breaking** (see `CONTRIBUTING.md`).
 
+## v0.0.7 — unreleased
+
+Lets hosts test a "my leave" list that includes a request they just created with `SupportManager::fake()`.
+
+### Breaking
+
+- **The fake files a new leave request under the signed-in user, as Pending, in the current team**, as the platform does. `POST leave/requests` now stamps `user_id`, `user`, `status` and `team_id` unless the request sends them. Before, a created request had no owner, so `mine()` left it out. A host test that asserted the created record had none of these needs updating.
+
+### Added
+
+- `Fake::signedInUser()`, for custom routes that stamp a created record's owner.
+
 ## v0.0.6 — unreleased
 
 Brings the test fake in line with v0.0.5, so hosts can test the new profile shape and filters with `SupportManager::fake()`.

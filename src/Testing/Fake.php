@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use SupportManager\Sdk\Data\AuthenticatedUser;
 use SupportManager\Sdk\Data\AuthTokens;
 use SupportManager\Sdk\Session\AuthSession;
 
@@ -97,6 +98,15 @@ final class Fake
         $this->session->setCurrentTeamId($teamId);
 
         return $this;
+    }
+
+    /**
+     * The signed-in user, for route handlers that stamp a created record's
+     * owner as the platform does. Null when the test hasn't signed anyone in.
+     */
+    public function signedInUser(): ?AuthenticatedUser
+    {
+        return $this->session->user();
     }
 
     /**

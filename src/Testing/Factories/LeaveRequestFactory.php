@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace SupportManager\Sdk\Testing\Factories;
 
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use SupportManager\Sdk\Testing\Factory;
 use SupportManager\Sdk\Testing\Fake;
 use SupportManager\Sdk\Testing\FakeRoute;
+use SupportManager\Sdk\Testing\Json;
 use SupportManager\Sdk\Testing\ProvidesFakeRoutes;
 use SupportManager\Sdk\Testing\RecordStore;
 
@@ -118,6 +120,20 @@ final class LeaveRequestFactory extends Factory implements ProvidesFakeRoutes
                 }
 
                 return $fake->paginate('leave/requests', 'leave_requests', $fake->filter($records, $request), $request, ['status_counts' => $counts]);
+            }),
+
+            // The platform files a new request under the signed-in person, as Pending, in the current team.
+            FakeRoute::post('leave/requests', static function (RecordStore $store, array $matches, Request $request, Fake $fake): mixed {
+                $user = $fake->signedInUser();
+                $leave = [
+                    'team_id' => $fake->teamId(),
+                    ...($user === null ? [] : ['user_id' => $user->id, 'user' => ['id' => $user->id, 'name' => $user->name]]),
+                    'status' => 'Pending',
+                    ...$request->data(),
+                    'id' => $request->data()['id'] ?? $store->nextId('leave/requests'),
+                ];
+
+                return Http::response(Json::item('leave_requests', $store->append('leave/requests', $leave)), 201);
             }),
 
             FakeRoute::action('PATCH', 'leave/requests/{id}/approve', static fn (): array => ['status' => 'Approved']),
